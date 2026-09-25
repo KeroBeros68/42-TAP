@@ -1,20 +1,20 @@
-#include <QApplication>
-#include <QMainWindow>
-#include <QLabel>
+
+#include <QtWidgets>
+
 #include "globals.hpp"
 
-int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
+int main(int argc, char *argv[])
+{
+	QApplication	app(argc, argv); // Initialization of the QT engine
+	QWidget			window; // Creation d'un widget fenetre
 
-    QMainWindow window;
-    window.setWindowTitle("42TAP RFC GUI");
-    window.resize(WINDOW_WIDTH, WINDOW_HEIGHT);
-    while (true)
-    {
-        printf("%d\n")
-    }
-    
+	// Window initialization
+	window.resize(WINDOW_WIDTH, WINDOW_HEIGHT); // Dimensions
+	window.setWindowTitle("42 TAP - RFC GUI"); // Title
+	window.setStyleSheet("background-color: #fefae0");
 
-    window.show();
-    return app.exec();
+	// Start showing the window
+	window.show();
+
+	return app.exec();
 }
