@@ -11,7 +11,7 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED) # Find the Qt5 installation
 
-add_executable(TAP_Client test/main.cpp)
+add_executable(TAP_Client test/main.cpp test/gui/tap_gui.cpp)
 
 # Link Qt5 libraries to your executable
 target_link_libraries(TAP_Client Qt5::Widgets)
