@@ -29,7 +29,7 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 
     // Create elements
 	QPushButton *button = new QPushButton("Connect"); // Create connect button
-	QLineEdit *address_filed = new QLineEdit();
+	QLineEdit *address_filed = new QLineEdit(); // Create text area for IP address
 	button->setStyleSheet("background-color: #97c5a5; color: white; border-radius: 5px; padding: 5px;");
 	address_filed->setPlaceholderText(this->_remote_address.c_str());
 	address_filed->setText(this->_remote_address.c_str());
