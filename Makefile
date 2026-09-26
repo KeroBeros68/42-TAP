@@ -1,6 +1,6 @@
 
 # Compilation
-EXECUTABLE_NAME		:=	TAP_Client
+EXECUTABLE_NAME		:=	42TAP
 BUILD_DIR			:=	build
 
 install:
