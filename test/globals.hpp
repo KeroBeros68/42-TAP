@@ -11,6 +11,6 @@
 
 // Custom UI Elements properties
 # define TAP_LINE_EDIT_PROPERTIES "background-color: #f5f6fa; color: #2f3640;"
-# define TAP_LABEL_PROPERTIES "color: #f5f6fa; font-size: 24px;"
+# define TAP_LABEL_PROPERTIES "color: #f5f6fa;"
 
 #endif

@@ -2,7 +2,7 @@
 #include <QtWidgets>
 
 #include "globals.hpp"
-#include "gui/connection_window/tap_connection_window.hpp"
+#include "gui/windows/windows.hpp"
 #include <QPushButton>
 #include <QVBoxLayout>
 
