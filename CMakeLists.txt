@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.2) # CMake version
+cmake_minimum_required(VERSION 3.3) # CMake version
 project(42TAP) # Project name
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED) # Find the Qt5 installation
