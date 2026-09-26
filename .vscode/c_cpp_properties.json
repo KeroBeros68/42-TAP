@@ -1,6 +1,22 @@
 {
     "configurations": [
         {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/homebrew/opt/qt@5/include/**",
+                "/opt/homebrew/opt/qt@5/include/QtWidgets",
+                "/opt/homebrew/opt/qt@5/include/QtGui",
+                "/opt/homebrew/opt/qt@5/include/QtCore",
+                "/usr/local/opt/qt@5/include/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64"
+        },
+        {
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
