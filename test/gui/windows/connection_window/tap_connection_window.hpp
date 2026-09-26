@@ -1,10 +1,10 @@
 #ifndef CONNECTION_WINDOW_HPP
 # define CONNECTION_WINDOW_HPP
 
-# include <QtWidgets>
+# include "../base_window/tap_base_window.hpp"
 # include <iostream>
 
-class TAPConnectionWindow : public QWidget
+class TAPConnectionWindow : public TAPBaseWindow
 {
 	private:
 		std::string	_remote_address = "127.0.0.1"; // Server address
