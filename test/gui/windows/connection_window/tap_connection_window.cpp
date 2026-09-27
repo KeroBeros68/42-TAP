@@ -38,9 +38,6 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
     // Apply dimensions
 	this->resize(width, height);
 
-    // Change background color
-    this->setStyleSheet(WINDOW_PROPERTIES);
-
     // Create text block
     TAPLabel *info_text = new TAPLabel();
     info_text->setText("Enter server address and port :");

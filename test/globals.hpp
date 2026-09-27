@@ -1,8 +1,15 @@
 #ifndef GLOBALS_HPP
 # define GLOBALS_HPP
 
+// Default window settings
 # define WINDOW_HEIGHT 720
 # define WINDOW_WIDTH 1080
+
+// Default error window settings
+# define ERROR_WINDOW_HEIGHT 360
+# define ERROR_WINDOW_WIDTH 540
+# define ERROR_WINDOW_TITLE "42 TAP Error"
+# define ERROR_WINDOW_DEFAULT_MESSAGE "Undefined error."
 
 // Style properties
 # define WINDOW_PROPERTIES "background-color: #2f3640;"

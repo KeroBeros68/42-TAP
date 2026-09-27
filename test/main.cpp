@@ -15,6 +15,10 @@ int main(int argc, char *argv[])
 		WINDOW_HEIGHT
 	);
 
+	TAPErrorWindow error_window = TAPErrorWindow();
+	error_window.setErrorMessage("Test error :-)");
+
+	error_window.show();
 	connection_window.show();
 	return app.exec();
 }
