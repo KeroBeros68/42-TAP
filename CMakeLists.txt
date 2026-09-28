@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.2) # CMake version
 project(42TAP) # Project name
 
+# Include a compile_commands.json file in the build folder
+#  in order to make the code editor resolve the unusual libraries
+#  like qt5.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17) # Same standard on every compiler
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # Ragequit if the C++ version is not available
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED) # Find the Qt5 installation
 
