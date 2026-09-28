@@ -3,7 +3,9 @@
 EXECUTABLE_NAME		:=	42TAP
 BUILD_DIR			:=	build
 
-install:
+install: $EXECUTABLE_NAME
+
+$EXECUTABLE_NAME:
 	cmake . -B ./$(BUILD_DIR)
 	cmake --build ./build
 	cp ./$(BUILD_DIR)/$(EXECUTABLE_NAME) ./$(EXECUTABLE_NAME)
@@ -14,7 +16,7 @@ clean:
 fclean: clean
 	rm -rf $(EXECUTABLE_NAME)
 
-run:
+run: $EXECUTABLE_NAME
 	./$(EXECUTABLE_NAME)
 
 re: fclean install

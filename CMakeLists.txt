@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.2) # CMake version
+cmake_minimum_required(VERSION 3.2) # CMake version
 project(42TAP) # Project name
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
