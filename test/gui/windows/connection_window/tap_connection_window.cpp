@@ -2,6 +2,7 @@
 #include <iostream>
 #include "../../../globals.hpp"
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
+#include <QWidget>
 
 // setRemoteAddress
 void TAPConnectionWindow::setRemoteAddress(std::string address)

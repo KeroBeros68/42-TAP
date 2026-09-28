@@ -18,7 +18,8 @@ add_executable(${PROJECT_NAME}
     test/gui/windows/base_window/tap_base_window.cpp
     test/gui/windows/connection_window/tap_connection_window.cpp
     test/gui/windows/error_window/tap_error_window.cpp
-    
+    test/gui/windows/game_window/tap_game_window.cpp
+
     test/gui/custom_ui_elements/tap_line_edit/tap_line_edit.cpp
     test/gui/custom_ui_elements/tap_label/tap_label.cpp
 )

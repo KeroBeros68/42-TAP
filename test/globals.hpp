@@ -20,4 +20,9 @@
 # define TAP_LINE_EDIT_PROPERTIES "background-color: #f5f6fa; color: #2f3640;"
 # define TAP_LABEL_PROPERTIES "color: #f5f6fa;"
 
+// Game window properties
+# define GAME_WINDOW_TITLE "42 TAP"
+# define DEFAULT_PLAYER_IN_ROOM_MESSAGE "Players in room: "
+# define DEFAULT_TOTAL_PLAYERS_MESSAGE "Total players: "
+
 #endif
