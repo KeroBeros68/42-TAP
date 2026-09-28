@@ -33,13 +33,16 @@ TAPGameWindow::TAPGameWindow()
     this->_label_total_players->setText((std::string(DEFAULT_TOTAL_PLAYERS_MESSAGE) + std::string("0")).c_str());
 
     // Top bar widget
-    QWidget *top_bar_widget = new QWidget();
+    TAPGameSectionWidget *top_bar_widget = new TAPGameSectionWidget();
     QHBoxLayout *top_bar_layout = new QHBoxLayout;
     top_bar_layout->addWidget(this->_label_players_in_room, 0, Qt::AlignCenter);
     top_bar_layout->addStretch();
     top_bar_layout->addWidget(this->_label_total_players, 0, Qt::AlignCenter);
     top_bar_widget->setLayout(top_bar_layout);
+
+    // Add widgets to the window layout
     window_layout->addWidget(top_bar_widget);
+    window_layout->addStretch();
 };
 
 

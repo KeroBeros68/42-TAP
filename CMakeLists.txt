@@ -22,6 +22,7 @@ add_executable(${PROJECT_NAME}
 
     test/gui/custom_ui_elements/tap_line_edit/tap_line_edit.cpp
     test/gui/custom_ui_elements/tap_label/tap_label.cpp
+    test/gui/custom_ui_elements/tap_game_section_widget/tap_game_section_widget.cpp
 )
 # ...
 
