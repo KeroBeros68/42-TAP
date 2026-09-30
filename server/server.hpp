@@ -38,6 +38,7 @@ class Server {
 		void sendToSocket(int socket, const std::string& message);
 		bool _running = true;
 		SignalFd _sigs;
+		std::vector<long long> _available_id;
 
 	public:
 		Server();
