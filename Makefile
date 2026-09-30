@@ -1,22 +1,15 @@
 
-# Compilation
-EXECUTABLE_NAME		:=	42TAP
-BUILD_DIR			:=	build
+GUI	:= 42TAP
 
-install: $EXECUTABLE_NAME
+install: $GUI
 
-$EXECUTABLE_NAME:
-	cmake . -B ./$(BUILD_DIR)
-	cmake --build ./build
-	cp ./$(BUILD_DIR)/$(EXECUTABLE_NAME) ./$(EXECUTABLE_NAME)
+$GUI:
+	make -C clients/gui
+	cp clients/gui/$(GUI) ./$(GUI)
+
+fclean:
+	make -C clients/gui fclean
+	rm $(GUI)
 
 clean:
-	rm -rf $(BUILD_DIR)
-
-fclean: clean
-	rm -rf $(EXECUTABLE_NAME)
-
-run: $EXECUTABLE_NAME
-	./$(EXECUTABLE_NAME)
-
-re: fclean install
+	make -C clients/gui clean

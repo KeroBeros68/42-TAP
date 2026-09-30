@@ -3,14 +3,13 @@
 
 # include "../windows.hpp"
 # include "../../custom_ui_elements/custom_ui_elements.hpp"
+# include "widgets/game_window_widgets.hpp"
 
 class TAPGameWindow : public TAPBaseWindow
 {
     private:
         // GUI
-        TAPLabel *_label_players_in_room = new TAPLabel();
-        TAPLabel *_label_total_players = new TAPLabel();
-
+        TAPPlayerCountBar *player_count_bar = new TAPPlayerCountBar();
 
     public:
         // Constructor

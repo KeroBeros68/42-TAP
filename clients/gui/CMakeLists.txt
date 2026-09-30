@@ -13,16 +13,22 @@ find_package(Qt5 COMPONENTS Widgets REQUIRED) # Find the Qt5 installation
 
 # Liste des executables a creer
 add_executable(${PROJECT_NAME}
-    test/main.cpp
+    # Main
+    main.cpp
 
-    test/gui/windows/base_window/tap_base_window.cpp
-    test/gui/windows/connection_window/tap_connection_window.cpp
-    test/gui/windows/error_window/tap_error_window.cpp
-    test/gui/windows/game_window/tap_game_window.cpp
+    # Windows
+    src/windows/base_window/tap_base_window.cpp
+    src/windows/connection_window/tap_connection_window.cpp
+    src/windows/error_window/tap_error_window.cpp
+    src/windows/game_window/tap_game_window.cpp
 
-    test/gui/custom_ui_elements/tap_line_edit/tap_line_edit.cpp
-    test/gui/custom_ui_elements/tap_label/tap_label.cpp
-    test/gui/custom_ui_elements/tap_game_section_widget/tap_game_section_widget.cpp
+    # Custom UI elements
+    src/custom_ui_elements/tap_line_edit/tap_line_edit.cpp
+    src/custom_ui_elements/tap_label/tap_label.cpp
+    src/custom_ui_elements/tap_game_section_widget/tap_game_section_widget.cpp
+
+    # Game widgets
+    src/windows/game_window/widgets/tap_player_count_bar/tap_player_count_bar.cpp
 )
 # ...
 
