@@ -1,11 +1,13 @@
 #include "tap_room_view.hpp"
 #include "../../../../../globals.hpp"
+
 TAPRoomView::TAPRoomView()
 {
     this->_room_name->setText(DEFAULT_ROOM_NAME);
 
     this->_room_description->setText(DEFAULT_ROOM_DESCRIPTION);
     this->_room_description->setWordWrap(true);
+    this->_room_description->setAlignment(Qt::AlignCenter);
 
     _layout->addWidget(this->_room_name, 0, Qt::AlignCenter);
     _layout->addWidget(this->_room_description, 0, Qt::AlignCenter);
