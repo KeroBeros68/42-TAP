@@ -3,9 +3,12 @@ GUI	:= 42TAP
 
 install: $GUI
 
+run: $GUI
+	./$(GUI)
+
 $GUI:
 	make -C clients/gui
-	cp clients/gui/$(GUI) ./$(GUI)
+	mv clients/gui/$(GUI) ./$(GUI)
 
 fclean:
 	make -C clients/gui fclean

@@ -13,6 +13,7 @@ TAPGameWindow::TAPGameWindow()
 
     // Add widgets to the window layout
     window_layout->addWidget(player_count_bar);
+    window_layout->addWidget(room_view);
     window_layout->addStretch();
 };
 
