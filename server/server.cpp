@@ -120,6 +120,7 @@ void Server::updatePoll() {
 		if (it->second.closing) {
 			close(it->second.fd);
 			std::cout << "Client socket closed for client: " << it->first << std::endl;
+			_available_id.push_back(it->first);
 			it = _clients.erase(it);
 		} else {
 			++it;
@@ -170,7 +171,13 @@ void Server::updatePoll() {
 				close(client_socket);
 			}
 			else {
-				long long client_id = _next_client_id++;
+				long long client_id;
+				if (_available_id.empty())
+					client_id = _next_client_id++;
+				else {
+					client_id = _available_id.back();
+					_available_id.pop_back();
+				}
 				Client& client = _clients.emplace(client_id, Client(client_socket, client_id)).first->second;
 				std::cout << "New client connected with ID: " << client_id << std::endl;
 				reply(client, SERVER_GREETING);
