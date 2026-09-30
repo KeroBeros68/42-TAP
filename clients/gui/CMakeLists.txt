@@ -26,9 +26,11 @@ add_executable(${PROJECT_NAME}
     src/custom_ui_elements/tap_line_edit/tap_line_edit.cpp
     src/custom_ui_elements/tap_label/tap_label.cpp
     src/custom_ui_elements/tap_game_section_widget/tap_game_section_widget.cpp
+    src/custom_ui_elements/tap_room_name_label/tap_room_name_label.cpp
 
     # Game widgets
     src/windows/game_window/widgets/tap_player_count_bar/tap_player_count_bar.cpp
+    src/windows/game_window/widgets/tap_room_view/tap_room_view.cpp
 )
 # ...
 

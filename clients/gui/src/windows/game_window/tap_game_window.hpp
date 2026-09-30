@@ -10,6 +10,7 @@ class TAPGameWindow : public TAPBaseWindow
     private:
         // GUI
         TAPPlayerCountBar *player_count_bar = new TAPPlayerCountBar();
+        TAPRoomView *room_view = new TAPRoomView();
 
     public:
         // Constructor
