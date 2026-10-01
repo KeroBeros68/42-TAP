@@ -10,7 +10,7 @@ TAPRoomView::TAPRoomView()
     this->_room_description->setAlignment(Qt::AlignCenter);
 
     _layout->addWidget(this->_room_name, 0, Qt::AlignCenter);
-    _layout->addWidget(this->_room_description, 0, Qt::AlignCenter);
+    _layout->addWidget(this->_room_description, 0, Qt::AlignBaseline);
     this->setLayout(this->_layout);
 };
 
