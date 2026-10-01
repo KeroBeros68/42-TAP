@@ -11,8 +11,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON) # Ragequit if the C++ version is not availab
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED) # Find the Qt5 installation
 
+set(CMAKE_AUTORCC ON) # Load .rqc
+
 # Liste des executables a creer
 add_executable(${PROJECT_NAME}
+    ressources.qrc
     # Main
     main.cpp
 

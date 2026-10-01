@@ -9,6 +9,7 @@
 int main(int argc, char *argv[])
 {
 	QApplication		app(argc, argv); // Initialization of the QT engine
+	app.setWindowIcon(QIcon(":/src/icon.ico"));
 	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
 	// 	"42 TAP GUI",
 	// 	WINDOW_WIDTH,
