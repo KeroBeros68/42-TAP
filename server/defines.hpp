@@ -4,7 +4,6 @@
 # define INVALID_FD			-1
 # define SYSCALL_ERROR		-1
 
-# define SERVER_GREETING	"OK hello proto=1"
 # define POLL_TIMEOUT_MS	1000
 # define RECV_BUFFER_SIZE	4096
 # define MAX_LINE_LENGTH	1024

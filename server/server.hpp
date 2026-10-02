@@ -17,6 +17,7 @@
 # include "defines.hpp"
 # include "errors.hpp"
 # include "signalFd.hpp"
+# include "success.hpp"
 
 class Server {
 	private:
