@@ -1,0 +1,44 @@
+{
+	"items": {
+		"item.herbs": {
+			"name": "Healing Herbs",
+			"description": "A bundle of silvery-green leaves that smell of mint and morning dew. The village healers swear by them.",
+			"obtainable": true
+		},
+		"item.bread": {
+			"name": "Loaf of Bread",
+			"description": "A round loaf with a golden crust, still faintly warm. Bronn's own recipe, and the closest thing to a feast on the road.",
+			"obtainable": true
+		},
+		"item.silver_bell": {
+			"name": "Silver Bell",
+			"description": "A tiny silver bell from an acrobat's cap, stolen long ago by goblins who liked how shiny it was.",
+			"obtainable": true
+		},
+		"item.spider_silk": {
+			"name": "Spider Silk",
+			"description": "A spool of pale, shimmering thread, strong as steel wire and light as air.",
+			"obtainable": true
+		},
+		"item.deer_antler": {
+			"name": "Great Deer Antler",
+			"description": "A branch-like antler shed by the Great Deer. A faint green light still pulses inside it.",
+			"obtainable": true
+		},
+		"item.nail_crown": {
+			"name": "Crown of Nails",
+			"description": "A crown of bent iron nails, heavy and ugly. Gorak wore it, and every orc obeyed.",
+			"obtainable": true
+		},
+		"item.charm": {
+			"name": "Blue Ribbon Charm",
+			"description": "A small silver star on a blue ribbon, blessed by Priestess Elara. It feels warm in your palm.",
+			"obtainable": true
+		},
+		"item.fountain": {
+			"name": "Stone Fountain",
+			"description": "A weathered fountain at the heart of the plaza, murmuring the same quiet song for centuries.",
+			"obtainable": false
+		}
+	}
+}

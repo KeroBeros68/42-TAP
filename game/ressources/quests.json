@@ -1,0 +1,46 @@
+{
+	"quests": {
+		"quest.medicine_for_the_chapel": {
+			"name": "Medicine for the Chapel",
+			"type": "deliver",
+			"giver": "npc.guard",
+			"turn_in": "npc.priest",
+			"target": "item.herbs",
+			"count": 1,
+			"reward": {
+				"items": [ "item.charm" ],
+				"heal": 0
+			},
+			"text_start": "There are herbs growing right here in the square. Priestess Elara is running low at the chapel, so take a few to her, would you? It's north of the village, past the gate.",
+			"text_done": "Fresh healing herbs, at last! You have my thanks, traveler. Take this charm. May its light keep you safe on the road."
+		},
+		"quest.cellar_pests": {
+			"name": "Cellar Pests",
+			"type": "defeat",
+			"giver": "npc.tavern_keeper",
+			"turn_in": "npc.tavern_keeper",
+			"target": "npc.rats",
+			"count": 3,
+			"reward": {
+				"items": [ "item.bread" ],
+				"heal": 20
+			},
+			"text_start": "Rats keep getting into my cellar, and they chew through everything! They nest in the plain, just west of the village. Get rid of three of them and I'll make it worth your while.",
+			"text_done": "Three less! My cellar will sleep soundly tonight. Here, have some bread and a hot bowl of stew. On the house."
+		},
+		"quest.the_silent_bell": {
+			"name": "The Silent Bell",
+			"type": "fetch",
+			"giver": "npc.clown",
+			"turn_in": "npc.clown",
+			"target": "item.silver_bell",
+			"count": 1,
+			"reward": {
+				"items": [],
+				"heal": 50
+			},
+			"text_start": "Please... find my silver bell. The goblins took it, I think. Follow the plain to the west, and look for their camp. It shines, so it should not be hard to find.",
+			"text_done": "My bell... the bell... it rings again! Listen! Thank you, traveler. Now I can finally take my bow. The applause will be all mine."
+		}
+	}
+}

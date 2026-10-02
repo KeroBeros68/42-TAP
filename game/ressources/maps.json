@@ -1,0 +1,188 @@
+{
+	"start_room": "loc.square",
+	"respawn": { "room": "loc.chapel", "hp": 50 },
+	"rooms": {
+		"loc.square":{
+			"name": "Square",
+			"description": "A round, quiet plaza paved with worn cobblestones, where a stone fountain murmurs softly at the center. A warm breeze stirs the grass along the edges, and paths lead away in every direction. To the north, a neat dirt path bordered by wildflowers runs to the gate of the village, where a guard in a faded blue tabard stands at attention, as if he had been waiting for you.",
+			"exits": {
+				"north": "loc.village",
+				"south": "loc.forest",
+				"east": "loc.circus",
+				"west": "loc.plain2"
+			},
+			"items": [ "item.herbs", "item.fountain" ],
+			"spawns": [
+				{ "npc": "npc.guard", "count": 1 }
+			]
+		},
+		"loc.village":{
+			"name": "Village",
+			"description": "A small, peaceful village of thatched roofs and crooked fences, chimney smoke curling into the sky. The guard at the gate gives you a short nod as you step through. A chapel bell tower rises to the north, a lantern glows above the tavern door to the east, and a trail leads west across the plain. The square lies to the south.",
+			"exits": {
+				"north": "loc.chapel",
+				"south": "loc.square",
+				"east": "loc.tavern",
+				"west": "loc.plain"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.citizen", "count": 1}
+			]
+		},
+		"loc.tavern":{
+			"name": "Tavern",
+			"description": "A warm, crowded room smelling of stew and pine smoke. Paper lanterns sway above the wooden tables, and a bard in the corner strums a half-forgotten tune. Nobody pays you any mind. The door leads back west to the village street.",
+			"exits": {
+				"west": "loc.village"
+			},
+			"items": [ "item.bread" ],
+			"spawns": [
+				{ "npc": "npc.tavern_keeper", "count": 1 },
+				{ "npc": "npc.bard", "count": 1 }
+			]
+		},
+		"loc.chapel":{
+			"name": "Chapel",
+			"description": "A small white chapel where stained glass pours soft colored light over the worn pews. A faint chime hums in the air, and your aches seem to fade a little. Candles flicker in a quiet that feels almost like a promise. The doors open south onto the village.",
+			"exits": {
+				"south": "loc.village"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.priest", "count": 1 }
+			]
+		},
+		"loc.forest":{
+			"name": "Forest",
+			"description": "Tall trees close in overhead and the sunlight falls in slow golden beams. Birds call from somewhere above, and the air smells of moss and rain. The path leads north back to the square and deeper into the woods to the south, while a narrow trail slips away to the west.",
+			"exits": {
+				"north": "loc.square",
+				"south": "loc.deep_forest",
+				"west": "loc.forest_edge"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.wolf", "count": 1, "respawn_seconds": 60 }
+			]
+		},
+		"loc.deep_forest":{
+			"name": "Deep Forest",
+			"description": "The canopy is so thick that noon feels like dusk. Roots twist across the ground, and something skitters just out of sight. To the east, a cold draft flows from the dark mouth of a cave. The lighter part of the forest lies back to the north.",
+			"exits": {
+				"north": "loc.forest",
+				"east": "loc.spider_cave01"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.great_deer", "count": 1, "respawn_seconds": 60 }
+			]
+		},
+		"loc.spider_cave01":{
+			"name": "Spider Cave",
+			"description": "Pale webs as wide as sails hang from the cave ceiling, glistening in the dim light. The air is damp and very still. The passage leads east, deeper into the dark, and west back to the forest.",
+			"exits": {
+				"west": "loc.deep_forest",
+				"east": "loc.spider_cave02"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.spider", "count": 2, "respawn_seconds": 60 }
+			]
+		},
+		"loc.spider_cave02":{
+			"name": "Spider Cave",
+			"description": "The cave ends in a hollow chamber, its walls wrapped in thick silk. Bones lie scattered at your feet, and something above you creaks softly. There is nowhere to go but back west.",
+			"exits": {
+				"west": "loc.spider_cave01"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.queen_spider", "count": 1, "respawn_seconds": 60 }
+			]
+		},
+		"loc.circus":{
+			"name": "Circus",
+			"description": "A faded striped tent stands in a field of trampled grass, ribbons and paper lanterns fluttering from its poles. The music stopped long ago, yet laughter still seems to echo between the wagons. The square lies to the west.",
+			"exits": {
+				"west": "loc.square"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.clown", "count": 1 }
+			]
+		},
+		"loc.plain":{
+			"name": "Plain",
+			"description": "A wide grassy plain rolling under an open sky, dotted with small white flowers. The rooftops of the village are visible to the east. To the west, a thin line of smoke rises from the horizon, and it does not look like a hearth fire. The meadow continues to the south.",
+			"exits": {
+				"south": "loc.plain2",
+				"east": "loc.village",
+				"west": "loc.goblin_camp"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.rats", "count": 3, "respawn_seconds": 60 }
+			]
+		},
+		"loc.plain2":{
+			"name": "Plain",
+			"description": "A broad meadow where the wind bends the tall grass in long, silver waves. The square is just to the east, the plain stretches away to the north, and to the south the grass slowly gives way to trees.",
+			"exits": {
+				"north": "loc.plain",
+				"south": "loc.forest_edge",
+				"east": "loc.square"
+			},
+			"items": [],
+			"spawns": []
+		},
+		"loc.goblin_camp":{
+			"name": "Goblin Camp",
+			"description": "A ragged camp of patched tents and rusty scrap, a dead fire smoldering in the middle. Crude drawings are scratched into the stones and the smell is awful. A trail leads east to the plain, and another heads west toward a larger settlement.",
+			"exits": {
+				"east": "loc.plain",
+				"west": "loc.orc_village"
+			},
+			"items": [ "item.silver_bell" ],
+			"spawns": [
+				{ "npc": "npc.goblin", "count": 2, "respawn_seconds": 60 },
+				{ "npc": "npc.orc", "count": 1, "respawn_seconds": 60 }
+			]
+		},
+		"loc.orc_village":{
+			"name": "Orc Village",
+			"description": "A palisade of sharpened logs surrounds a village of low, heavy huts. Drums pound somewhere in the distance and the ground trembles faintly. The goblin camp lies to the east, and a huge hut stands to the west.",
+			"exits": {
+				"east": "loc.goblin_camp",
+				"west": "loc.orc_boss_house"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.orc", "count": 2, "respawn_seconds": 60 }
+			]
+		},
+		"loc.orc_boss_house":{
+			"name": "Orc Boss House",
+			"description": "A massive longhouse built from whole tree trunks, hung with trophies and tattered banners. A great stone throne sits at the far end, and the air feels heavy, as if whatever rules here is never far away. The only way out is east.",
+			"exits": {
+				"east": "loc.orc_village"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.orc_boss", "count": 1, "respawn_seconds": 60 }
+			]
+		},
+		"loc.forest_edge":{
+			"name": "Forest Edge",
+			"description": "The place where the plain ends and the trees begin. Mossy stumps and fallen branches mark the border, and birdsong drifts from the branches. The meadow lies to the north, and the forest path leads east.",
+			"exits": {
+				"north": "loc.plain2",
+				"east": "loc.forest"
+			},
+			"items": [],
+			"spawns": [
+				{ "npc": "npc.baby_wolf", "count": 2, "respawn_seconds": 60 }
+			]
+		}
+	}
+}
