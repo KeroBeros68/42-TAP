@@ -26,7 +26,7 @@ ECHO    := echo -e
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: clean fclean re bonus run build gui help
+.PHONY: clean fclean re bonus run build client gui help
 
 .DEFAULT_GOAL := all
 
@@ -73,6 +73,10 @@ run: build
 	launch "TAP server" "make -C '$(CURDIR)/server' run"
 	sleep 1
 	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
+
+# Build and run the CLI client alone, in the current terminal
+client:
+	make -C clients/cli
 
 gui:
 	make -C clients/gui run
