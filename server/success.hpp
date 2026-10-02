@@ -3,10 +3,8 @@
 
 # include <string>
 
-// Initial greeting sent by the server on connection (RFC section 3.2)
-# define SERVER_GREETING	"OK hello proto=1"
-
 enum class TapOk {
+	HELLO,		// "OK hello proto=1"    greeting sent on connection (RFC 3.2)
 	PLAIN,		// "OK"                  CHAT, GROUP INVITE, GROUP LEAVE
 	DATA,		// "OK <payload>"        LOOK, INVENTORY, TALK, ATTACK, STATUS, QUEST, QUESTS
 	CONNECTED,	// "OK connected"        CONNECT
@@ -20,6 +18,7 @@ enum class TapOk {
 
 inline const char* tapOkPrefix(TapOk r) {
 	switch (r) {
+		case TapOk::HELLO:		return "hello proto=1";
 		case TapOk::PLAIN:		return "";
 		case TapOk::DATA:		return "";
 		case TapOk::CONNECTED:	return "connected";

@@ -1,6 +1,7 @@
 #include "server.hpp"
 
-Server::Client::Client(int fd, long long id) : fd(fd), id(id) {}
+
+Server::Session::Session(int fd, long long id) : conn(fd), user(id) {}
 
 Server::Server() {}
 
@@ -12,9 +13,9 @@ Server::~Server() {
 		}
 		std::cout << "Listen socket closed successfully" << std::endl;
 	}
-	for (const auto& client : _clients) {
+	for (const auto& session : _sessions) {
 		std::cout << "Closing client socket..." << std::endl;
-		if (close(client.second.fd) == SYSCALL_ERROR) {
+		if (close(session.second.conn.fd) == SYSCALL_ERROR) {
 			std::cerr << "Failed to close client socket: " << strerror(errno) << std::endl;
 		}
 		std::cout << "Client socket closed successfully" << std::endl;
@@ -75,29 +76,17 @@ void Server::start(const size_t& port) {
 		throw std::runtime_error("Failed to open signalfd");
 }
 
-void Server::defineAction(const std::string& type, const std::function<void(long long&, const std::string&)>& action) {
+void Server::defineAction(const std::string& type, const std::function<Response(User&, const std::string&)>& action) {
 	std::cout << "Defining action for message type: " << type << std::endl;
 	_actions[type] = action;
 }
 
-void Server::sendToSocket(int socket, const std::string& message) {
-	std::vector<uint8_t> bytes(message.begin(), message.end());
-	ssize_t sent_bytes = bytes.size();
-
-	if (::send(socket, &sent_bytes, sizeof(sent_bytes), 0) == SYSCALL_ERROR) {
-		std::cerr << "Failed to send message size: " << strerror(errno) << std::endl;
-	}
-	if (::send(socket, bytes.data(), sent_bytes, 0) == SYSCALL_ERROR) {
-		std::cerr << "Failed to send message data: " << strerror(errno) << std::endl;
-	}
-}
-
 void Server::sendTo(const std::string& message, long long client_id) {
-	auto it = _clients.find(client_id);
-	if (it != _clients.end()) {
+	auto it = _sessions.find(client_id);
+	if (it != _sessions.end()) {
 		std::cout << "Sending message to client ID " << client_id << std::endl;
-		reply(it->second ,message);
-		flush(it->second);
+		reply(it->second.conn, message);
+		flush(it->second.conn);
 	} else {
 		std::cerr << "Client ID " << client_id << " not found" << std::endl;
 	}
@@ -110,18 +99,19 @@ void Server::sendToArray(const std::string& message, std::vector<long long> clie
 }
 
 void Server::sendToAll(const std::string& message) {
-	for (const auto& client : _clients) {
-		sendToSocket(client.second.fd, message);
+	for (auto& session : _sessions) {
+		reply(session.second.conn, message);
+		flush(session.second.conn);
 	}
 }
 
 void Server::updatePoll() {
-	for (auto it = _clients.begin(); it != _clients.end();) {
-		if (it->second.closing) {
-			close(it->second.fd);
+	for (auto it = _sessions.begin(); it != _sessions.end();) {
+		if (it->second.conn.closing) {
+			close(it->second.conn.fd);
 			std::cout << "Client socket closed for client: " << it->first << std::endl;
 			_available_id.push_back(it->first);
-			it = _clients.erase(it);
+			it = _sessions.erase(it);
 		} else {
 			++it;
 		}
@@ -134,12 +124,12 @@ void Server::updatePoll() {
 	fds[POLL_SIGNAL_IDX].fd = _sigs.fd();
 	fds[POLL_SIGNAL_IDX].events = POLLIN;
 
-	for (const auto& client : _clients) {
+	for (const auto& session : _sessions) {
 		pollfd p{};
-		p.fd = client.second.fd;
-		p.events = POLLIN | (client.second.out.empty() ? 0 : POLLOUT);
+		p.fd = session.second.conn.fd;
+		p.events = POLLIN | (session.second.conn.out.empty() ? 0 : POLLOUT);
 		fds.push_back(p);
-		ids.push_back(client.first);
+		ids.push_back(session.first);
 	}
 
 	int ret = poll(fds.data(), fds.size(), POLL_TIMEOUT_MS);
@@ -178,26 +168,27 @@ void Server::updatePoll() {
 					client_id = _available_id.back();
 					_available_id.pop_back();
 				}
-				Client& client = _clients.emplace(client_id, Client(client_socket, client_id)).first->second;
+				Session& session = _sessions.emplace(client_id, Session(client_socket, client_id)).first->second;
 				std::cout << "New client connected with ID: " << client_id << std::endl;
-				reply(client, SERVER_GREETING);
-				flush(client);
+				reply(session.conn, tapOkLine(TapOk::HELLO));
+				flush(session.conn);
 			}
 		}
 	}
 
 	for (size_t i = POLL_CLIENT_START; i < fds.size(); i++) {
-		auto it = _clients.find(ids[i]);
-		if (it == _clients.end())
+		auto it = _sessions.find(ids[i]);
+		if (it == _sessions.end())
 			continue;
-		Client& client = it->second;
+		Session& session = it->second;
 		if (fds[i].revents & (POLLIN | POLLHUP | POLLERR))
-			readFrom(client);
-		flush(client);
+			readFrom(session);
+		flush(session.conn);
 	}
 }
 
-void Server::readFrom(Client& c) {
+void Server::readFrom(Session& s) {
+	Connection& c = s.conn;
 	char buff[RECV_BUFFER_SIZE];
 
 	while (true) {
@@ -224,7 +215,7 @@ void Server::readFrom(Client& c) {
 		c.in.erase(0, pos + 1);
 		if (!line.empty() && line.back() == CARRIAGE_RETURN)
 			line.pop_back();
-		handeLine(c, line);
+		handeLine(s, line);
 	}
 	if (c.in.size() > MAX_LINE_LENGTH) {
 		c.closing = true;
@@ -232,32 +223,35 @@ void Server::readFrom(Client& c) {
 	}
 }
 
-void Server::handeLine(Client& c, const std::string& line)
+void Server::handeLine(Session& s, const std::string& line)
 {
 	size_t sp = line.find(CMD_SEPARATOR);
 	std::string cmd = line.substr(0, sp);
 	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
-	if (!c.authenticated) {
-		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+	if (!s.user.authenticated) {
+		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
 		return;
 	}
 	auto it = _actions.find(cmd);
 	if (it != _actions.end())
 	{
-		it->second(c.id, args);
+		Response r = it->second(s.user, args);
+		reply(s.conn, r.line());
+		if (r.close)
+			s.conn.closing = true;
 	}
 	else
 	{
-		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
 	}
 }
 
-void Server::reply(Client& c, const std::string& line) {
+void Server::reply(Connection& c, const std::string& line) {
 	c.out += line; c.out += LINE_END;
 }
 
-void Server::flush(Client& c) {
+void Server::flush(Connection& c) {
     while (!c.out.empty()) {
         ssize_t n = ::send(c.fd, c.out.data(), c.out.size(), MSG_NOSIGNAL);
         if (n > 0) {
