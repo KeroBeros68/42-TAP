@@ -11,9 +11,9 @@ int main() {
 		return Response::success(TapOk::DATA, "Message received");
 	});
 
-	// Start the server on port 8080
+	// Start the server on the default port
 	try {
-		server.start(8080);
+		server.start(SERVER_PORT);
 	} catch (const std::exception& e) {
 		std::cerr << "Error starting server: " << e.what() << std::endl;
 		return 1;
