@@ -15,10 +15,10 @@
 # include <unistd.h>
 
 # include "defines.hpp"
-# include "errors.hpp"
+# include "../shared/errors.hpp"
 # include "signalFd.hpp"
-# include "success.hpp"
-# include "response.hpp"
+# include "../shared/success.hpp"
+# include "../shared/response.hpp"
 # include "connection.hpp"
 # include "user.hpp"
 
