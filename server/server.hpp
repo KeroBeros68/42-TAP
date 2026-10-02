@@ -15,6 +15,7 @@
 # include <unistd.h>
 
 # include "defines.hpp"
+# include "errors.hpp"
 # include "signalFd.hpp"
 
 class Server {
