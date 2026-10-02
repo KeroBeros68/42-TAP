@@ -226,7 +226,10 @@ void Server::readFrom(Client& c) {
 			line.pop_back();
 		handeLine(c, line);
 	}
-	// if c.in.size() trop long, a faire
+	if (c.in.size() > MAX_LINE_LENGTH) {
+		c.closing = true;
+		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+	}
 }
 
 void Server::handeLine(Client& c, const std::string& line)
@@ -235,10 +238,19 @@ void Server::handeLine(Client& c, const std::string& line)
 	std::string cmd = line.substr(0, sp);
 	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
+	if (!c.authenticated) {
+		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+		return;
+	}
 	auto it = _actions.find(cmd);
 	if (it != _actions.end())
 	{
-		it->second(c.id, args);}
+		it->second(c.id, args);
+	}
+	else
+	{
+		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+	}
 }
 
 void Server::reply(Client& c, const std::string& line) {
