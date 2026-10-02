@@ -1,0 +1,182 @@
+{
+	"npcs": {
+		"npc.guard": {
+			"name": "Guard Hector",
+			"description": "A young guard in a faded blue tabard, his spear planted firmly at his side. His polished helmet is a little too big for him, and he scans the road with the patient look of someone who has been waiting a long time for a traveler.",
+			"role": "quest_giver",
+			"dialogue": [
+				"Ah, there you are at last! I was starting to think nobody would ever walk down that road again.",
+				"The village is just up the path to the north. You'll find the chapel beyond it, and the tavern to the east.",
+				"Stay on the paths and keep a few herbs in your pocket. The wolves in the forest are bold this season, and folks say something wicked is stirring beyond the plain to the west.",
+				"There are some herbs growing right here in the square. Priestess Elara is running low at the chapel, so take a few to her, would you?",
+				"If you ever need a hand, come find me. A guard always has a few too many chores and too few friends to share them with."
+			]
+		},
+		"npc.priest": {
+			"name": "Priestess Elara",
+			"description": "A gentle woman in white and gold robes, her silver hair tied with a blue ribbon. She hums softly while tending the candles, and her hands glow faintly whenever she looks at someone who is hurt.",
+			"role": "dialogue_npc",
+			"dialogue": [
+				"Welcome, child. The light of this chapel will always shelter you.",
+				"If you ever fall in battle, you will wake here, safe beneath these windows. Do not be afraid.",
+				"The candles never go out, no matter how hard the wind blows. I like to think someone is watching over them.",
+				"My remedies are nearly spent. If someone brought me fresh healing herbs, I would gladly give them a charm in return.",
+				"Be careful of the cave hidden in the deep forest. The spiders there were never so many before the dark winds came."
+			]
+		},
+		"npc.bard": {
+			"name": "Bard Lyric",
+			"description": "A lanky young man in a patched green coat, a worn lute slung across his back. He smiles at everyone, hums half-forgotten melodies, and seems to know a story about every traveler who has ever passed through.",
+			"role": "dialogue_npc",
+			"dialogue": [
+				"Ah, a new face! Sit, sit! Every adventurer is a song waiting to be written.",
+				"Have you heard the one about the Orc Lord who couldn't sleep? No? Well, neither has he, ever since the goblins moved in next door.",
+				"They say a pale acrobat still tumbles in the old circus when the moon is high. I wrote him a lullaby, but he never applauds.",
+				"Remember, friend: the road is long, but a good tune makes the miles feel shorter."
+			]
+		},
+		"npc.tavern_keeper": {
+			"name": "Tavern Keeper Bronn",
+			"description": "A broad, bearded man with flour on his forearms and a dish rag always over one shoulder. He polishes the same mug all day, and nothing in this village escapes his ears.",
+			"role": "quest_giver",
+			"dialogue": [
+				"Welcome to the tavern! The stew is hot, the beds are soft, and the gossip is free.",
+				"Rats keep getting into my cellar, can you believe it? They come from the plain, just west of the village.",
+				"Travelers always ask what's in the stew. The honest answer is: don't ask.",
+				"Sit down, rest, have something warm. Even heroes need a good meal before the road."
+			]
+		},
+		"npc.citizen": {
+			"name": "Citizen",
+			"description": "A villager in a plain brown tunic, a basket of vegetables on one arm. He looks friendly enough, though he glances toward the gate whenever a stranger walks by.",
+			"role": "dialogue_npc",
+			"dialogue": [
+				"Oh! A stranger. Did the guard let you in without asking questions? He must like you.",
+				"Our village is quiet, but we lock our doors these days. Some nights you can hear drums from far to the west.",
+				"If you're hungry, the stew at the tavern is the best in the region. Don't tell my wife I said that."
+			]
+		},
+		"npc.clown": {
+			"name": "Dead Acrobat",
+			"description": "The pale shape of an acrobat in a ragged, diamond-patterned costume, still faintly smiling. His painted grin never moves, his feet never quite touch the ground, and the bells on his cap ring without a sound.",
+			"role": "quest_giver",
+			"dialogue": [
+				"Ladies... and gentlemen... the show is about to begin... please, take your seats...",
+				"Nobody comes to the circus anymore. I keep juggling, so the tent doesn't feel so empty.",
+				"I fell from the high wire one night, and the crowd gasped. I think they are still gasping, somewhere.",
+				"I lost my silver bell, the one that rang on my cap. The goblins took it, I think. They love anything shiny. Without it, my bow makes no sound.",
+				"If you see my troupe, tell them I'm still waiting backstage. I would like to take my bow."
+			]
+		},
+		"npc.rats": {
+			"name": "Rats",
+			"description": "A squeaking pack of fat gray rats with matted fur and yellow teeth. They scatter through the grass, quick and hungry, and never come alone.",
+			"role": "enemy",
+			"stats": {
+				"hp": 10,
+				"attack": 4,
+				"defense": 0
+			},
+			"loot": []
+		},
+		"npc.wolf": {
+			"name": "Wolf",
+			"description": "A lean gray wolf with pale eyes and a torn ear. It circles at the edge of the light, growling low, and watches you the way a hunter watches its prey.",
+			"role": "enemy",
+			"stats": {
+				"hp": 15,
+				"attack": 6,
+				"defense": 2
+			},
+			"loot": []
+		},
+		"npc.great_deer": {
+			"name": "Great Deer",
+			"description": "A towering stag with antlers like the branches of an old oak, glowing faintly with green light. It stands perfectly still among the trees, calm and ancient, and does not like being disturbed.",
+			"role": "enemy",
+			"stats": {
+				"hp": 20,
+				"attack": 8,
+				"defense": 4
+			},
+			"loot": [ "item.deer_antler" ]
+		},
+		"npc.spider": {
+			"name": "Spider",
+			"description": "A spider as big as a dog, its black legs tipped with pale bristles. It clicks softly as it moves along the ceiling, trailing a strand of glittering silk.",
+			"role": "enemy",
+			"stats": {
+				"hp": 10,
+				"attack": 5,
+				"defense": 1
+			},
+			"loot": [ "item.spider_silk" ]
+		},
+		"npc.queen_spider": {
+			"name": "Queen Spider, the Mother of All",
+			"description": "A monstrous spider the size of a house, her swollen body marked with a crimson hourglass. Egg sacs cling to her silk-wrapped lair, and her many eyes turn toward you all at once. The brood-mother of everything that crawls in this cave.",
+			"role": "enemy",
+			"stats": {
+				"hp": 50,
+				"attack": 15,
+				"defense": 5
+			},
+			"loot": []
+		},
+		"npc.goblin": {
+			"name": "Goblin",
+			"description": "A small, wiry creature with green skin, huge ears and a crooked grin. It wears scrap armor stitched from pots and buckles, and clutches a rusty knife in both hands.",
+			"role": "enemy",
+			"stats": {
+				"hp": 20,
+				"attack": 8,
+				"defense": 4
+			},
+			"loot": []
+		},
+		"npc.orc": {
+			"name": "Orc",
+			"description": "A hulking warrior with gray-green skin and tusks yellowed with age. Scars cross its heavy chest, and it carries a notched axe as easily as another man would carry a stick.",
+			"role": "enemy",
+			"stats": {
+				"hp": 30,
+				"attack": 10,
+				"defense": 5
+			},
+			"loot": []
+		},
+		"npc.orc_boss": {
+			"name": "Orc Lord, Gorak",
+			"description": "A giant even among orcs, wrapped in black iron plates and a cloak of wolf pelts. A crown of bent nails sits on his scarred brow, and his roar shakes the dust from the rafters. Gorak is the warlord all other orcs obey.",
+			"role": "enemy",
+			"stats": {
+				"hp": 100,
+				"attack": 20,
+				"defense": 10
+			},
+			"loot": [ "item.nail_crown" ]
+		},
+		"npc.baby_wolf": {
+			"name": "Baby Wolf",
+			"description": "A fluffy gray wolf pup with oversized paws and a wobbly tail. It growls with all its might, which is not much, and tumbles over its own feet.",
+			"role": "enemy",
+			"stats": {
+				"hp": 5,
+				"attack": 2,
+				"defense": 1
+			},
+			"loot": []
+		},
+		"npc.dark_lord": {
+			"name": "Dark Lord, Nub-Shegorath",
+			"description": "A towering figure of living shadow, crowned with a ring of cold violet flame. Its voice is the sound of a distant storm, and the air itself seems to bend away from it. Nub-Shegorath, the end of all quests.",
+			"role": "enemy",
+			"stats": {
+				"hp": 200,
+				"attack": 30,
+				"defense": 15
+			},
+			"loot": []
+		}
+	}
+}
