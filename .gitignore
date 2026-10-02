@@ -69,3 +69,6 @@ Testing/
 TAP_Client
 .vscode/
 42TAP
+image.png
+clients/gui/build
+clients/gui/42TAP
