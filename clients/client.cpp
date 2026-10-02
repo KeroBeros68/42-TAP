@@ -1,6 +1,6 @@
 #include "client.hpp"
 
-Client::Client() : _fd(-1), _servername(SERVER_IP), _port(SERVER_PORT) {}
+Client::Client() : _fd(INVALID_FD), _servername(SERVER_IP), _port(SERVER_PORT) {}
 
 Client::~Client() {
 	disconnect();
@@ -8,7 +8,7 @@ Client::~Client() {
 
 void Client::connect() {
 	_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (_fd == -1) {
+	if (_fd == INVALID_FD) {
 		throw std::runtime_error("Failed to create socket");
 	}
 
@@ -17,22 +17,22 @@ void Client::connect() {
 	server_addr.sin_port = htons(_port);
 	server_addr.sin_addr.s_addr = inet_addr(_servername.c_str());
 
-	if (::connect(_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+	if (::connect(_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SYSCALL_ERROR) {
 		disconnect();
 		throw std::runtime_error("Failed to connect to server");
 	}
 }
 
 void Client::disconnect() {
-	if (_fd != -1) {
+	if (_fd != INVALID_FD) {
 		std::cout << "Disconnecting from server..." << std::endl;
 		close(_fd);
-		_fd = -1;
+		_fd = INVALID_FD;
 	}
 }
 
 bool Client::isConnected() const {
-	return _fd != -1;
+	return _fd != INVALID_FD;
 }
 
 int Client::fd() const {
