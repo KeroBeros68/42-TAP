@@ -3,7 +3,7 @@
 EXECUTABLE_NAME		:=	42TAP
 BUILD_DIR			:=	build
 
-install: $EXECUTABLE_NAME
+all: $EXECUTABLE_NAME
 
 $EXECUTABLE_NAME:
 	cmake . -B ./$(BUILD_DIR)
