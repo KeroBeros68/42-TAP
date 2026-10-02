@@ -26,7 +26,7 @@ ECHO    := echo -e
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: clean fclean re bonus run help
+.PHONY: clean fclean re bonus run build gui help
 
 .DEFAULT_GOAL := all
 
@@ -45,9 +45,34 @@ help:
 
 all: run
 
-run:
-	make -C server run
-	make -C clients/cli run
+build:
+	make -C server server
+	make -C clients/cli clientCLI
+
+# Start the server and the CLI client, each in its own terminal window
+run: build
+	term=""
+	for t in gnome-terminal konsole xfce4-terminal kitty alacritty xterm x-terminal-emulator; do
+		if command -v $$t >/dev/null 2>&1; then term=$$t; break; fi
+	done
+	if [ -z "$$term" ]; then
+		$(ECHO) "$(RED)✗ Aucun terminal trouvé (gnome-terminal, konsole, xfce4-terminal, kitty, alacritty, xterm).$(RESET)"
+		exit 1
+	fi
+	launch() {
+		title="$$1"; cmd="$$2"
+		full="$$cmd; echo; read -rp 'Appuyez sur Entrée pour fermer...'"
+		case "$$term" in
+			gnome-terminal) gnome-terminal --title="$$title" -- bash -c "$$full" ;;
+			konsole)        konsole -p tabtitle="$$title" -e bash -c "$$full" & ;;
+			xfce4-terminal) xfce4-terminal --title="$$title" -e "bash -c \"$$full\"" & ;;
+			*)              "$$term" -e bash -c "$$full" & ;;
+		esac
+	}
+	$(ECHO) "$(CYAN)Lancement du serveur et du client ($$term)...$(RESET)"
+	launch "TAP server" "make -C '$(CURDIR)/server' run"
+	sleep 1
+	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
 
 gui:
 	make -C clients/gui run
