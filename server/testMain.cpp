@@ -4,12 +4,11 @@ int main() {
 	Server server;
 
 	// Define an action for a specific message type
-	server.defineAction("TEXT", [&server](long long& client_id, const std::string& message) {
-		std::cout << "Received TEXT message from client " << client_id << std::endl;
+	server.defineAction("TEXT", [](User& user, const std::string& message) {
+		std::cout << "Received TEXT message from user " << user.id << std::endl;
 		// Assuming the message format is "TYPE:DATA"
 		std::cout << "Message content: " << message << std::endl;
-		server.sendTo("Message received", client_id);
-		// Handle the message...
+		return Response::success(TapOk::DATA, "Message received");
 	});
 
 	// Start the server on port 8080
