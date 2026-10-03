@@ -2,8 +2,12 @@
 
 int main() {
 	Server server;
+	Game game;
 
-	registerCommands(server);
+	registerCommands(server, game);
+	server.setOnDisconnect([&game](User& user) {
+		game.removePlayer(user.id());
+	});
 
 	try {
 		server.start(SERVER_PORT);

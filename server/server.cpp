@@ -81,6 +81,16 @@ void Server::defineAction(const std::string& type, const std::function<Response(
 	_actions[type] = action;
 }
 
+void Server::setOnDisconnect(const std::function<void(User&)>& callback) {
+	_onDisconnect = callback;
+}
+
+void Server::disconnect(long long client_id) {
+	auto it = _sessions.find(client_id);
+	if (it != _sessions.end())
+		it->second.conn.setClosing(true);
+}
+
 void Server::sendTo(const std::string& message, long long client_id) {
 	auto it = _sessions.find(client_id);
 	if (it != _sessions.end()) {
@@ -108,6 +118,8 @@ void Server::sendToAll(const std::string& message) {
 void Server::updatePoll() {
 	for (auto it = _sessions.begin(); it != _sessions.end();) {
 		if (it->second.conn.isClosing()) {
+			if (_onDisconnect)
+				_onDisconnect(it->second.user);
 			close(it->second.conn.fd());
 			std::cout << "Client socket closed for client: " << it->first << std::endl;
 			_available_id.push_back(it->first);

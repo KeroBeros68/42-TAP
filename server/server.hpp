@@ -39,6 +39,7 @@ class Server {
 		bool _running = true;
 		SignalFd _sigs;
 		std::vector<long long> _available_id;
+		std::function<void(User&)> _onDisconnect;
 
 	public:
 		Server();
@@ -49,6 +50,8 @@ class Server {
 		void sendTo(const std::string& message, long long client_id);
 		void sendToArray(const std::string& message, std::vector<long long> clientIDs);
 		void sendToAll(const std::string& message);
+		void setOnDisconnect(const std::function<void(User&)>& callback);
+		void disconnect(long long client_id);
 		void updatePoll();
 		void readFrom(Session& s);
 		void handeLine(Session& s, const std::string& line);

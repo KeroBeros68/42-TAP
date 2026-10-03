@@ -32,6 +32,7 @@ SRCS =	server.cpp \
 	user.cpp \
 	connection.cpp \
 	commands.cpp \
+	game.cpp \
 	main.cpp
 
 INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp)

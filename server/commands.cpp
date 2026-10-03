@@ -1,9 +1,12 @@
 #include "commands.hpp"
 
-static Response cmdConnect(User& user, const std::string& name) {
+static Response cmdConnect(Game& game, User& user, const std::string& name) {
 	if (!user.setName(name))
 		return Response::failure(TapError::BAD_REQUEST);
+	if (game.isNameTaken(name))
+		return Response::failure(TapError::NAME_IN_USE);
 	user.authenticate();
+	game.addPlayer(user);
 	std::cout << "User " << user.id() << " connected as " << user.name() << std::endl;
 	return Response::success(TapOk::CONNECTED);
 }
@@ -15,8 +18,10 @@ static Response cmdStub(const std::string& cmd, User& user, const std::string& a
 	return Response::success(TapOk::DATA, "Message received");
 }
 
-void registerCommands(Server& server) {
-	server.defineAction(CMD_CONNECT, cmdConnect);
+void registerCommands(Server& server, Game& game) {
+	server.defineAction(CMD_CONNECT, [&game](User& user, const std::string& name) {
+		return cmdConnect(game, user, name);
+	});
 
 	// Replace an entry by a real handler (like cmdConnect) once the command is implemented
 	const std::string stubs[] = {
