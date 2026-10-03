@@ -1,7 +1,7 @@
 #include "server.hpp"
 
 
-Server::Session::Session(int fd, long long id) : conn(fd), user(id) {}
+Server::Session::Session(int fd, const std::string& ip, long long id) : conn(fd, ip), user(id) {}
 
 Server::Server() {}
 
@@ -15,7 +15,7 @@ Server::~Server() {
 	}
 	for (const auto& session : _sessions) {
 		std::cout << "Closing client socket..." << std::endl;
-		if (close(session.second.conn.fd) == SYSCALL_ERROR) {
+		if (close(session.second.conn.fd()) == SYSCALL_ERROR) {
 			std::cerr << "Failed to close client socket: " << strerror(errno) << std::endl;
 		}
 		std::cout << "Client socket closed successfully" << std::endl;
@@ -107,8 +107,8 @@ void Server::sendToAll(const std::string& message) {
 
 void Server::updatePoll() {
 	for (auto it = _sessions.begin(); it != _sessions.end();) {
-		if (it->second.conn.closing) {
-			close(it->second.conn.fd);
+		if (it->second.conn.isClosing()) {
+			close(it->second.conn.fd());
 			std::cout << "Client socket closed for client: " << it->first << std::endl;
 			_available_id.push_back(it->first);
 			it = _sessions.erase(it);
@@ -126,8 +126,8 @@ void Server::updatePoll() {
 
 	for (const auto& session : _sessions) {
 		pollfd p{};
-		p.fd = session.second.conn.fd;
-		p.events = POLLIN | (session.second.conn.out.empty() ? 0 : POLLOUT);
+		p.fd = session.second.conn.fd();
+		p.events = POLLIN | (session.second.conn.out().empty() ? 0 : POLLOUT);
 		fds.push_back(p);
 		ids.push_back(session.first);
 	}
@@ -168,8 +168,10 @@ void Server::updatePoll() {
 					client_id = _available_id.back();
 					_available_id.pop_back();
 				}
-				Session& session = _sessions.emplace(client_id, Session(client_socket, client_id)).first->second;
-				std::cout << "New client connected with ID: " << client_id << std::endl;
+				char ip[INET_ADDRSTRLEN] = "unknown";
+				inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
+				Session& session = _sessions.emplace(client_id, Session(client_socket, ip, client_id)).first->second;
+				std::cout << "New client connected with ID: " << client_id << " (" << ip << ")" << std::endl;
 				reply(session.conn, tapOkLine(TapOk::HELLO));
 				flush(session.conn);
 			}
@@ -192,13 +194,13 @@ void Server::readFrom(Session& s) {
 	char buff[RECV_BUFFER_SIZE];
 
 	while (true) {
-		ssize_t n = ::recv(c.fd, buff, sizeof(buff), 0);
+		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
 		if (n > 0) {
-			c.in.append(buff, n);
+			c.appendIn(buff, n);
 			continue;
 		}
 		if (n == 0) {
-			c.closing = true;
+			c.setClosing(true);
 			break;
 		}
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
@@ -206,19 +208,19 @@ void Server::readFrom(Session& s) {
 		if (errno == EINTR)
 			continue;
 
-		c.closing = true;
+		c.setClosing(true);
 		break;
 	}
 	size_t pos;
-	while ((pos = c.in.find(LINE_END)) != std::string::npos) {
-		std::string line = c.in.substr(0, pos);
-		c.in.erase(0, pos + 1);
+	while ((pos = c.in().find(LINE_END)) != std::string::npos) {
+		std::string line = c.in().substr(0, pos);
+		c.eraseIn(pos + 1);
 		if (!line.empty() && line.back() == CARRIAGE_RETURN)
 			line.pop_back();
 		handeLine(s, line);
 	}
-	if (c.in.size() > MAX_LINE_LENGTH) {
-		c.closing = true;
+	if (c.in().size() > MAX_LINE_LENGTH) {
+		c.setClosing(true);
 		reply(c, tapErrorLine(TapError::BAD_REQUEST));
 	}
 }
@@ -229,7 +231,7 @@ void Server::handeLine(Session& s, const std::string& line)
 	std::string cmd = line.substr(0, sp);
 	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
-	if (!s.user.authenticated) {
+	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
 		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
 		return;
 	}
@@ -239,7 +241,7 @@ void Server::handeLine(Session& s, const std::string& line)
 		Response r = it->second(s.user, args);
 		reply(s.conn, r.line());
 		if (r.close)
-			s.conn.closing = true;
+			s.conn.setClosing(true);
 	}
 	else
 	{
@@ -248,19 +250,19 @@ void Server::handeLine(Session& s, const std::string& line)
 }
 
 void Server::reply(Connection& c, const std::string& line) {
-	c.out += line; c.out += LINE_END;
+	c.appendOut(line + LINE_END);
 }
 
 void Server::flush(Connection& c) {
-    while (!c.out.empty()) {
-        ssize_t n = ::send(c.fd, c.out.data(), c.out.size(), MSG_NOSIGNAL);
+    while (!c.out().empty()) {
+        ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
         if (n > 0) {
-			c.out.erase(0, n);
+			c.consumeOut(n);
 			continue;
 		}
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			break;
-        c.closing = true; break;
+        c.setClosing(true); break;
     }
 }
 

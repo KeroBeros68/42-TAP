@@ -11,6 +11,7 @@
 # include <cerrno>
 # include <sys/socket.h>
 # include <netinet/in.h>
+# include <arpa/inet.h>
 # include <fcntl.h>
 # include <unistd.h>
 
@@ -28,7 +29,7 @@ class Server {
 			Connection	conn;
 			User		user;
 
-			Session(int fd, long long id);
+			Session(int fd, const std::string& ip, long long id);
 		};
 
 		int _listen_socket = INVALID_FD;

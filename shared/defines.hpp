@@ -12,5 +12,22 @@
 # define CARRIAGE_RETURN	'\r'
 # define CMD_SEPARATOR		' '
 # define MAX_LINE_LENGTH	1024
+# define MAX_NAME_LENGTH	32
+
+# define CMD_CONNECT		"CONNECT"
+# define CMD_LOOK 			"LOOK"
+# define CMD_MOVE 			"MOVE"
+# define CMD_CHAT 			"CHAT"
+# define CMD_TAKE 			"TAKE"
+# define CMD_DROP 			"DROP"
+# define CMD_INVENTORY 		"INVENTORY"
+# define CMD_TALK 			"TALK"
+# define CMD_ATTACK 		"ATTACK"
+# define CMD_STATUS 		"STATUS"
+# define CMD_QUEST 			"QUEST"
+# define CMD_QUESTS 		"QUESTS"
+# define CMD_WHO 			"WHO"
+# define CMD_GROUP 			"GROUP"
+# define CMD_QUIT 			"QUIT"
 
 #endif
