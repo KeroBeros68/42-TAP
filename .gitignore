@@ -38,6 +38,8 @@
 *.exe
 *.out
 *.app
+/server/server
+/clients/cli/clientCLI
 
 # Build directories
 build/

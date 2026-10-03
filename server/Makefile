@@ -31,9 +31,9 @@ SRCS =	server.cpp \
 	signalFd.cpp \
 	user.cpp \
 	connection.cpp \
-	testMain.cpp
+	main.cpp
 
-INCLUDES =
+INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp)
 
 # Compilation
 CC = c++
