@@ -1,0 +1,31 @@
+#include "commands.hpp"
+
+static Response cmdConnect(User& user, const std::string& name) {
+	if (!user.setName(name))
+		return Response::failure(TapError::BAD_REQUEST);
+	user.authenticate();
+	std::cout << "User " << user.id() << " connected as " << user.name() << std::endl;
+	return Response::success(TapOk::CONNECTED);
+}
+
+// Placeholder for the commands that are not implemented yet
+static Response cmdStub(const std::string& cmd, User& user, const std::string& args) {
+	std::cout << "Received " << cmd << " message from user " << user.id() << std::endl;
+	std::cout << "Message content: " << args << std::endl;
+	return Response::success(TapOk::DATA, "Message received");
+}
+
+void registerCommands(Server& server) {
+	server.defineAction(CMD_CONNECT, cmdConnect);
+
+	// Replace an entry by a real handler (like cmdConnect) once the command is implemented
+	const std::string stubs[] = {
+		CMD_LOOK, CMD_MOVE, CMD_CHAT, CMD_TAKE, CMD_DROP, CMD_INVENTORY, CMD_TALK,
+		CMD_ATTACK, CMD_STATUS, CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP, CMD_QUIT
+	};
+	for (const std::string& cmd : stubs) {
+		server.defineAction(cmd, [cmd](User& user, const std::string& args) {
+			return cmdStub(cmd, user, args);
+		});
+	}
+}
