@@ -33,9 +33,22 @@ SRCS =	server.cpp \
 	connection.cpp \
 	commands.cpp \
 	game.cpp \
-	main.cpp
+	main.cpp \
+	itemDef.cpp \
+	itemDb.cpp \
+	npcDef.cpp \
+	npcDb.cpp \
+	roomDef.cpp \
+	roomDb.cpp \
+	world.cpp
 
-INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp)
+# The game sources live in ../game
+vpath %.cpp ../game
+
+# nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
+JSON = ../third_party/json.hpp
+
+INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp)
 
 # Compilation
 CC = c++
@@ -89,6 +102,14 @@ $(OBJ_DIR)/%.o: %.cpp $(INCLUDES) | $(OBJ_DIR)
 		$(ECHO) "$(RED)✗$(RESET)"; \
 		$(CC) $(CFLAGS) -c $< -o $@; \
 	fi
+
+# Only world.cpp reads the JSON files: it needs the library and the absolute path of the project
+# (after moving the project folder, run "make re")
+$(OBJ_DIR)/world.o: $(JSON)
+$(OBJ_DIR)/world.o: CFLAGS += '-DPROJECT_ROOT="$(abspath ..)"'
+
+$(JSON):
+	$(MAKE) -C .. install-deps
 
 $(OBJ_DIR):
 	$(ECHO) "$(CYAN)Création du répertoire $(OBJ_DIR)...$(RESET) "

@@ -3,7 +3,7 @@
 
 NpcDef::NpcDef(const std::string& id, const std::string& name, const std::string& role,
 	const std::string& description, const std::vector<std::string>& dialogues,
-	const std::unordered_map<std::string, int>& stats, const std::vector<std::string>& loots)
+	const Stats& stats, const std::vector<std::string>& loots)
 	: _id(id), _name(name), _role(role), _description(description), _dialogues(dialogues), _stats(stats), _loots(loots) {}
 
 const std::string& NpcDef::id() const {
@@ -29,4 +29,8 @@ const std::string& NpcDef::dialogue() const {
 		return empty;
 
 	return _dialogues[randomIndex(_dialogues.size())];
+}
+
+const Stats& NpcDef::stats() const {
+	return _stats;
 }
