@@ -21,12 +21,21 @@ ECHO    := echo -e
 #                                  VARIABLES                                   #
 # **************************************************************************** #
 
+# Third-party dependency downloaded by "make install-deps" (not stored in git)
+JSON_VERSION = 3.12.0
+JSON_URL     = https://github.com/nlohmann/json/releases/download/v$(JSON_VERSION)/json.hpp
+JSON_SHA256  = aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63
+JSON_FILE    = third_party/json.hpp
+
+# sha256sum on Linux, shasum on macOS
+SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo shasum -a 256)
+
 
 # **************************************************************************** #
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: clean fclean re bonus run build client gui help
+.PHONY: clean fclean re bonus run build client gui help install-deps
 
 .DEFAULT_GOAL := all
 
@@ -43,7 +52,30 @@ help:
 #									Rules									   #
 # **************************************************************************** #
 
-all: run
+all: install-deps run
+
+# Download the dependencies (nlohmann/json), checked against a pinned SHA-256
+install-deps: $(JSON_FILE)
+
+$(JSON_FILE):
+	$(ECHO) "$(CYAN)Téléchargement de nlohmann/json $(JSON_VERSION)...$(RESET)"
+	mkdir -p $(dir $@)
+	tmp="$@.tmp"
+	trap 'rm -f "$$tmp"' EXIT
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL -o "$$tmp" "$(JSON_URL)"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -q -O "$$tmp" "$(JSON_URL)"
+	else
+		$(ECHO) "$(RED)✗ curl ou wget est requis$(RESET)"
+		exit 1
+	fi
+	if ! echo "$(JSON_SHA256)  $$tmp" | $(SHA256) -c --status; then
+		$(ECHO) "$(RED)✗ Somme de contrôle invalide : fichier rejeté$(RESET)"
+		exit 1
+	fi
+	mv "$$tmp" "$@"
+	$(ECHO) "$(GREEN)✓ $(JSON_FILE)$(RESET)"
 
 build:
 	make -C server server
