@@ -1,23 +1,23 @@
 #include "commands.hpp"
 
 int main() {
-	Server server;
-	Game game;
-
-	registerCommands(server, game);
-	server.setOnDisconnect([&game](User& user) {
-		game.removePlayer(user.id());
-	});
-
 	try {
-		server.start(SERVER_PORT);
-	} catch (const std::exception& e) {
-		std::cerr << "Error starting server: " << e.what() << std::endl;
-		return 1;
-	}
+		Server server;
+		Game game;
 
-	while (server.getStatus()) {
-		server.updatePoll();
+		registerCommands(server, game);
+		server.setOnDisconnect([&game](User& user) {
+			game.removePlayer(user.id());
+		});
+
+		server.start(SERVER_PORT);
+
+		while (server.getStatus()) {
+			server.updatePoll();
+		}
+	} catch (const std::exception& e) {
+		std::cerr << "Error: " << e.what() << std::endl;
+		return 1;
 	}
 
 	return 0;

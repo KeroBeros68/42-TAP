@@ -14,6 +14,11 @@
 # define MAX_LINE_LENGTH	1024
 # define MAX_NAME_LENGTH	32
 
+# define DIR_NORTH			"north"
+# define DIR_EAST			"east"
+# define DIR_SOUTH			"south"
+# define DIR_WEST			"west"
+
 # define CMD_CONNECT		"CONNECT"
 # define CMD_LOOK 			"LOOK"
 # define CMD_MOVE 			"MOVE"

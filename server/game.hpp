@@ -6,9 +6,9 @@
 # include <vector>
 
 # include "user.hpp"
+# include "../game/world.hpp"
 
-// State of the world, independent from the network (no socket, no poll).
-// The commands receive it when they are registered (see commands.cpp).
+
 class Game {
 	private:
 		struct Player {
@@ -17,10 +17,11 @@ class Game {
 		};
 		std::unordered_map<long long, Player> _players;
 
+		World _world;
+
 	public:
 		Game();
 
-		// A player exists in the game once its user is authenticated
 		void addPlayer(const User& user);
 		void removePlayer(long long id);
 
