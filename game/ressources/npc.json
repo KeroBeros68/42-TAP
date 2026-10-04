@@ -72,6 +72,11 @@
 			"name": "Rats",
 			"description": "A squeaking pack of fat gray rats with matted fur and yellow teeth. They scatter through the grass, quick and hungry, and never come alone.",
 			"role": "enemy",
+			"dialogue": [
+				"Squeak! Squeak squeak! The rats scatter, then creep back closer, sniffing the air for food.",
+				"A fat rat stands on its hind legs and hisses at you, its yellow teeth bared.",
+				"Tiny red eyes glitter in the grass. The rats are hungry, and there are always more than you can see."
+			],
 			"stats": {
 				"hp": 10,
 				"attack": 4,
@@ -83,6 +88,11 @@
 			"name": "Wolf",
 			"description": "A lean gray wolf with pale eyes and a torn ear. It circles at the edge of the light, growling low, and watches you the way a hunter watches its prey.",
 			"role": "enemy",
+			"dialogue": [
+				"The wolf bares its teeth and growls, low and steady. Its pale eyes never leave you.",
+				"Grrrrr... The wolf circles slowly, waiting for you to look away.",
+				"The wolf snaps its jaws and takes a step forward. It does not seem to want conversation."
+			],
 			"stats": {
 				"hp": 15,
 				"attack": 6,
@@ -94,6 +104,11 @@
 			"name": "Great Deer",
 			"description": "A towering stag with antlers like the branches of an old oak, glowing faintly with green light. It stands perfectly still among the trees, calm and ancient, and does not like being disturbed.",
 			"role": "enemy",
+			"dialogue": [
+				"The Great Deer lowers its heavy antlers. A calm, ancient voice echoes in your mind: This forest was old before your kind learned to walk. Leave it in peace.",
+				"The green glow in its antlers pulses slowly. The deer watches you without fear, as if it had seen a thousand travelers like you.",
+				"A deep, gentle breath rolls from the stag. The trees around it seem to lean closer, listening."
+			],
 			"stats": {
 				"hp": 20,
 				"attack": 8,
@@ -105,6 +120,11 @@
 			"name": "Spider",
 			"description": "A spider as big as a dog, its black legs tipped with pale bristles. It clicks softly as it moves along the ceiling, trailing a strand of glittering silk.",
 			"role": "enemy",
+			"dialogue": [
+				"Click, click, click. The spider tilts its body toward you and raises its front legs.",
+				"The spider hisses and drops a little closer on its thread, mandibles opening and closing.",
+				"Something skitters across the ceiling. The spider's many eyes reflect the dim light, all fixed on you."
+			],
 			"stats": {
 				"hp": 10,
 				"attack": 5,
@@ -116,6 +136,12 @@
 			"name": "Queen Spider, the Mother of All",
 			"description": "A monstrous spider the size of a house, her swollen body marked with a crimson hourglass. Egg sacs cling to her silk-wrapped lair, and her many eyes turn toward you all at once. The brood-mother of everything that crawls in this cave.",
 			"role": "enemy",
+			"dialogue": [
+				"My children are hungry, little one. Your bones will make fine silk.",
+				"You walk in my web and call it a cave? Every thread here sings to me. I felt you coming long ago.",
+				"The Queen's body shudders and the silk-wrapped walls tremble. A rasping whisper fills the chamber: Stay. Stay forever.",
+				"I am the Mother of All. Everything that crawls in these tunnels is mine, and so, soon, are you."
+			],
 			"stats": {
 				"hp": 50,
 				"attack": 15,
@@ -127,6 +153,12 @@
 			"name": "Goblin",
 			"description": "A small, wiry creature with green skin, huge ears and a crooked grin. It wears scrap armor stitched from pots and buckles, and clutches a rusty knife in both hands.",
 			"role": "enemy",
+			"dialogue": [
+				"Hee hee! A tall human! Give us your shinies! ...Or we poke you!",
+				"Shiny bell? What shiny bell? We have no shiny bell! Go away, human!",
+				"This is our camp! Orcs say we are small, but we are many, and very sneaky!",
+				"The goblin waves its rusty knife in front of you, grinning with too many crooked teeth."
+			],
 			"stats": {
 				"hp": 20,
 				"attack": 8,
@@ -138,6 +170,11 @@
 			"name": "Orc",
 			"description": "A hulking warrior with gray-green skin and tusks yellowed with age. Scars cross its heavy chest, and it carries a notched axe as easily as another man would carry a stick.",
 			"role": "enemy",
+			"dialogue": [
+				"Human! You smell of the village. Gorak will like it when I bring him your head.",
+				"Grrr! No goblin bothers me, and no human will either. Draw your weapon, or run!",
+				"The orc spits on the ground and hefts its notched axe. Strength is all that matters here."
+			],
 			"stats": {
 				"hp": 30,
 				"attack": 10,
@@ -149,6 +186,12 @@
 			"name": "Orc Lord, Gorak",
 			"description": "A giant even among orcs, wrapped in black iron plates and a cloak of wolf pelts. A crown of bent nails sits on his scarred brow, and his roar shakes the dust from the rafters. Gorak is the warlord all other orcs obey.",
 			"role": "enemy",
+			"dialogue": [
+				"So. The tiny human has found Gorak's house. Brave. Or stupid. I have not decided yet.",
+				"The goblins snore, the drums never stop, and I have not slept in a week. Do not try my patience, little one.",
+				"I wear the Crown of Nails because I won it. Come closer, and I will show you how.",
+				"Enough talk! Gorak is hungry, and Gorak is tired. Both are bad for you!"
+			],
 			"stats": {
 				"hp": 100,
 				"attack": 20,
@@ -160,6 +203,11 @@
 			"name": "Baby Wolf",
 			"description": "A fluffy gray wolf pup with oversized paws and a wobbly tail. It growls with all its might, which is not much, and tumbles over its own feet.",
 			"role": "enemy",
+			"dialogue": [
+				"Yip! The little wolf puffs out its chest and growls, which sounds more like a squeak.",
+				"The pup whimpers and wags its tail, then growls again as though it just remembered it was supposed to be fierce.",
+				"Awoo? A tiny, wobbly howl rises from the grass. Somewhere nearby, you hear an answer."
+			],
 			"stats": {
 				"hp": 5,
 				"attack": 2,
@@ -171,6 +219,12 @@
 			"name": "Dark Lord, Nub-Shegorath",
 			"description": "A towering figure of living shadow, crowned with a ring of cold violet flame. Its voice is the sound of a distant storm, and the air itself seems to bend away from it. Nub-Shegorath, the end of all quests.",
 			"role": "enemy",
+			"dialogue": [
+				"You cannot hear me with your ears, small one. I speak with the silence between your heartbeats.",
+				"I am Nub-Shegorath. Every torch you carry only makes my shadow longer.",
+				"Kneel, and I may let you serve me. Stand, and I will end your story in a single line.",
+				"Even the stars look away when I am near. Why would you not?"
+			],
 			"stats": {
 				"hp": 200,
 				"attack": 30,
