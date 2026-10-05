@@ -2,8 +2,8 @@
 # define GLOBALS_HPP
 
 // Default window settings
-# define WINDOW_HEIGHT 720
-# define WINDOW_WIDTH 1080
+# define WINDOW_HEIGHT 1080
+# define WINDOW_WIDTH 720
 
 // Default error window settings
 # define ERROR_WINDOW_HEIGHT 360

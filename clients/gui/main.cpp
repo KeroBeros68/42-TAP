@@ -1,27 +1,48 @@
-
 #include <QtWidgets>
-
-#include "globals.hpp"
-#include "src/windows/windows.hpp"
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <csignal>
+
+#include "src/windows/windows.hpp"
+#include "../client.hpp"
+#include "globals.hpp"
 
 int main(int argc, char *argv[])
 {
 	QApplication		app(argc, argv); // Initialization of the QT engine
-	app.setWindowIcon(QIcon(":/src/icon.ico"));
+	// app.setWindowIcon(QIcon(":/src/icon.ico"));
+
+	// Ctrl+C signal handling for clean exit
+	std::signal(SIGINT, [](int) {
+		// Add the app.quit method to the QT event queue
+        QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
+    });
+
+	// // Connection window
 	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
 	// 	"42 TAP GUI",
 	// 	WINDOW_WIDTH,
 	// 	WINDOW_HEIGHT
 	// );
+	// connection_window.show();
 
+	// // Error window
 	// TAPErrorWindow error_window = TAPErrorWindow();
 	// error_window.setErrorMessage("Test error :-)");
-
 	// error_window.show();
-	// connection_window.show();
-	TAPGameWindow game_window = TAPGameWindow();
-	game_window.show();
-	return app.exec();
+
+	// // Game window
+	// TAPGameWindow game_window = TAPGameWindow();
+	// game_window.show();
+	// game_window.update_total_players_label(42);
+	// game_window.update_players_in_room_label(21);
+	// game_window.update_room_name("42 datacenter");
+	// game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty.");
+
+	try {
+		app.exec();
+	}
+	catch (const std::exception& e) {
+		app.quit();
+	}
 }

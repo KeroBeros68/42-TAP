@@ -3,6 +3,18 @@
 #include "../../../globals.hpp"
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 #include <QWidget>
+#include <string>
+
+// findSystemUsername
+std::string TAPConnectionWindow::findSystemUsername()
+{
+    char file_content[255]; // buffer
+    FILE *name; // file containing username
+    name = popen("whoami", "r");
+    fgets(file_content, sizeof(file_content), name);
+    file_content[strlen(file_content) - 1] = '\0'; // remove \n
+    return std::string(file_content);
+}
 
 // setRemoteAddress
 void TAPConnectionWindow::setRemoteAddress(std::string address)
@@ -33,6 +45,8 @@ std::string TAPConnectionWindow::getRemotePort()
 // Init window with elements
 TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height)
 {
+    this->_username = findSystemUsername();
+
     // Apply title
 	this->setWindowTitle(window_title.c_str());
 
@@ -40,36 +54,37 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 	this->resize(width, height);
 
     // Create text block
-    TAPLabel *info_text = new TAPLabel();
-    info_text->setText("Enter server address and port :");
+    this->_info_text.setText("Enter server address and port :");
+
+    // Create username field
+	this->_username_filed.setPlaceholderText(this->_username.c_str());
+	this->_username_filed.setText(this->_username.c_str());
 
     // Create address field
-	TAPLineEdit *address_filed = new TAPLineEdit(); // Create text area for IP address
-	address_filed->setPlaceholderText(this->_remote_address.c_str());
-	address_filed->setText(this->_remote_address.c_str());
+	this->_address_filed.setPlaceholderText(this->_remote_address.c_str());
+	this->_address_filed.setText(this->_remote_address.c_str());
 
     // Create port fiels
-	TAPLineEdit *port_filed = new TAPLineEdit(); // Create text area for IP address
-	port_filed->setPlaceholderText(this->_remote_port.c_str());
-	port_filed->setText(this->_remote_port.c_str());
+	this->_port_filed.setPlaceholderText(this->_remote_port.c_str());
+	this->_port_filed.setText(this->_remote_port.c_str());
 
     // Create button
-	QPushButton *button = new QPushButton("Connect"); // Create connect button
-	button->setStyleSheet(VALIDATE_BUTTON_PROPERTIES);
+	this->_button.setText("Connect");
+	this->_button.setStyleSheet(VALIDATE_BUTTON_PROPERTIES);
 
     // Create layout
-    QVBoxLayout *layout = new QVBoxLayout();
-	layout->addStretch();
-    layout->addWidget(info_text, 0, Qt::AlignCenter);
-	layout->addWidget(address_filed, 0, Qt::AlignCenter);
-	layout->addWidget(port_filed, 0, Qt::AlignCenter);
-	layout->addWidget(button, 0, Qt::AlignCenter);
-	layout->addStretch();
-	this->setLayout(layout);
+	this->_layout.addStretch();
+    this->_layout.addWidget(&_info_text, 0, Qt::AlignCenter);
+	this->_layout.addWidget(&_username_filed, 0, Qt::AlignCenter);
+	this->_layout.addWidget(&_address_filed, 0, Qt::AlignCenter);
+	this->_layout.addWidget(&_port_filed, 0, Qt::AlignCenter);
+	this->_layout.addWidget(&_button, 0, Qt::AlignCenter);
+	this->_layout.addStretch();
+	this->setLayout(&this->_layout);
 
     // Connect button
-	this->connect(button, &QPushButton::clicked, this, [this, address_filed, port_filed]() {
-        this->setRemoteAddress(address_filed->text().toStdString()); // Set address
-        this->setRemotePort(port_filed->text().toStdString()); // Set port
-    });
+	// this->connect(&this->_button, &QPushButton::clicked, this, [this, &_address_filed, &_port_filed]() {
+    //     this->setRemoteAddress(this->_address_filed.text().toStdString()); // Set address
+    //     this->setRemotePort(this->_port_filed.text().toStdString()); // Set port
+    // });
 }

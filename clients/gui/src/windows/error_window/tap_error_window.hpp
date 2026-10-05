@@ -7,7 +7,8 @@
 class TAPErrorWindow : public TAPBaseWindow
 {
     private:
-        TAPLabel *_error_text_label = new TAPLabel();
+        TAPLabel _error_text_label;
+        QVBoxLayout _layout;
 
     public:
         // Constructor
