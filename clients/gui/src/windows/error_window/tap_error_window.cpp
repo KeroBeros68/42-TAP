@@ -12,21 +12,20 @@ TAPErrorWindow::TAPErrorWindow()
     // Default error message
     this->setErrorMessage(ERROR_WINDOW_DEFAULT_MESSAGE);
 
-    QVBoxLayout *layout = new QVBoxLayout();
-	layout->addStretch();
-    layout->addWidget(_error_text_label, 0, Qt::AlignCenter);
-	layout->addStretch();
-	this->setLayout(layout);
+	_layout.addStretch();
+    _layout.addWidget(&_error_text_label, 0, Qt::AlignCenter);
+	_layout.addStretch();
+	this->setLayout(&_layout);
 };
 
 // setErrorMessage
 void TAPErrorWindow::setErrorMessage(std::string message)
 {
-    this->_error_text_label->setText(message.c_str());
+    this->_error_text_label.setText(message.c_str());
 };
 
 // getErrorMessage
 std::string TAPErrorWindow::getErrorMessage()
 {
-    return this->_error_text_label->text().toStdString();
+    return this->_error_text_label.text().toStdString();
 };

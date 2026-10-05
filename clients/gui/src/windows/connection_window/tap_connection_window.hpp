@@ -2,13 +2,23 @@
 # define CONNECTION_WINDOW_HPP
 
 # include "../base_window/tap_base_window.hpp"
+#include "../../custom_ui_elements/custom_ui_elements.hpp"
 # include <iostream>
 
 class TAPConnectionWindow : public TAPBaseWindow
 {
 	private:
+		std::string	_username; // Server address
 		std::string	_remote_address = "127.0.0.1"; // Server address
 		std::string _remote_port	= "4224"; // Server port
+
+		// Labels
+    	TAPLabel _info_text;
+		TAPLineEdit _username_filed; // Create text area for IP address
+		TAPLineEdit _address_filed; // Create text area for IP address
+		TAPLineEdit _port_filed; // Create text area for IP address
+		QPushButton _button; // Create connect button
+    	QVBoxLayout _layout;
 
 	public:
 		// init window
@@ -17,6 +27,9 @@ class TAPConnectionWindow : public TAPBaseWindow
 			int width,
 			int height
 		);
+
+		// Username related function
+		std::string findSystemUsername();
 
 		// Address related functions
 		void		setRemoteAddress(std::string address);
