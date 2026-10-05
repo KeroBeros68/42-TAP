@@ -1,7 +1,8 @@
-#ifndef ITEMDEF_HPP
-#define ITEMDEF_HPP
+#ifndef ITEM_HPP
+# define ITEM_HPP
 
-#include <string>
+# include <string>
+# include <unordered_map>
 
 class ItemDef {
 	private:
@@ -18,4 +19,15 @@ class ItemDef {
 		const std::string& description() const;
 		bool isObtainable() const;
 };
+
+class ItemDb {
+	private:
+		std::unordered_map<std::string, ItemDef> _items;
+
+	public:
+		bool addItem(const ItemDef& item);
+		const ItemDef& item(const std::string& id) const;
+		const std::unordered_map<std::string, ItemDef>& items() const;
+};
+
 #endif
