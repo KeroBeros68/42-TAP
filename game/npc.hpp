@@ -1,7 +1,8 @@
-#ifndef NPCDEF_HPP
-# define NPCDEF_HPP
+#ifndef NPC_HPP
+# define NPC_HPP
 
 # include <string>
+# include <unordered_map>
 # include <vector>
 
 # include "stats.hpp"
@@ -29,6 +30,16 @@ class NpcDef {
 		const std::string& description() const;
 		const std::string& dialogue() const;
 		const Stats& stats() const;
+};
+
+class NpcDb {
+	private:
+		std::unordered_map<std::string, NpcDef> _npcs;
+
+	public:
+		bool addNpc(const NpcDef& npc);
+		const NpcDef& npc(const std::string& id) const;
+		const std::unordered_map<std::string, NpcDef>& npcs() const;
 };
 
 #endif

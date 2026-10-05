@@ -34,12 +34,10 @@ SRCS =	server.cpp \
 	commands.cpp \
 	game.cpp \
 	main.cpp \
-	itemDef.cpp \
-	itemDb.cpp \
-	npcDef.cpp \
-	npcDb.cpp \
-	roomDef.cpp \
-	roomDb.cpp \
+	item.cpp \
+	npc.cpp \
+	room.cpp \
+	parser.cpp \
 	world.cpp
 
 # The game sources live in ../game
@@ -103,9 +101,9 @@ $(OBJ_DIR)/%.o: %.cpp $(INCLUDES) | $(OBJ_DIR)
 		$(CC) $(CFLAGS) -c $< -o $@; \
 	fi
 
-# Only world.cpp reads the JSON files: it needs the library and the absolute path of the project
+# Only parser.cpp uses the JSON library, only world.cpp needs the absolute path of the project
 # (after moving the project folder, run "make re")
-$(OBJ_DIR)/world.o: $(JSON)
+$(OBJ_DIR)/parser.o: $(JSON)
 $(OBJ_DIR)/world.o: CFLAGS += '-DPROJECT_ROOT="$(abspath ..)"'
 
 $(JSON):
