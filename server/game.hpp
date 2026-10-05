@@ -30,6 +30,8 @@ class Game {
 		std::string look(long long player_id) const;
 		const std::string& playerMap(long long id) const;
 
+		bool move(long long player_id, const std::string& direction);
+
 		bool hasPlayer(long long id) const;
 		bool isNameTaken(const std::string& name) const;
 		size_t playerCount() const;
