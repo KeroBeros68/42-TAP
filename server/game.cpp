@@ -72,3 +72,26 @@ std::string Game::look(long long player_id) const {
 	}
 	return _world.look(map, names);
 }
+
+bool Game::move(long long player_id, const std::string& direction) {
+	auto player = _players.find(player_id);
+	if (player == _players.end())
+		return false;
+
+	auto origin = _world.rooms.find(player->second.current_map);
+	if (origin == _world.rooms.end())
+		return false;
+
+	auto exit = origin->second.exits().find(direction);
+	if (exit == origin->second.exits().end())
+		return false;
+
+	auto destination = _world.rooms.find(exit->second);
+	if (destination == _world.rooms.end())
+		return false;
+
+	origin->second.removePlayer(player_id);
+	destination->second.addPlayer(player_id);
+	player->second.current_map = exit->second;
+	return true;
+}
