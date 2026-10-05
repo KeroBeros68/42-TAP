@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "../shared/logger.hpp"
 
 #include <iostream>
 
@@ -12,10 +13,11 @@ void Game::addPlayer(const User& user) {
 
 	auto room = _world.rooms.find(p.current_map);
 	if (room == _world.rooms.end()) {
-		std::cerr << "[WARN] player " << user.id() << ": unknown map '" << p.current_map << "'" << std::endl;
+		LOG_WARN("unknown map for player", {"client", user.id()}, {"room", p.current_map});
 		return;
 	}
 	room->second.addPlayer(user.id());
+	LOG_INFO("player entered room", {"client", user.id()}, {"player", p.name}, {"room", p.current_map});
 }
 
 void Game::removePlayer(long long id) {
@@ -26,6 +28,7 @@ void Game::removePlayer(long long id) {
 	auto room = _world.rooms.find(player->second.current_map);
 	if (room != _world.rooms.end())
 		room->second.removePlayer(id);
+	LOG_INFO("player left room", {"client", id}, {"player", player->second.name}, {"room", player->second.current_map});
 	_players.erase(player);
 }
 
@@ -75,16 +78,22 @@ std::string Game::look(long long player_id) const {
 
 bool Game::move(long long player_id, const std::string& direction) {
 	auto player = _players.find(player_id);
-	if (player == _players.end())
+	if (player == _players.end()) {
+		LOG_WARN("move of an unknown player", {"client", player_id});
 		return false;
+	}
 
 	auto origin = _world.rooms.find(player->second.current_map);
-	if (origin == _world.rooms.end())
+	if (origin == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.current_map});
 		return false;
+	}
 
 	auto exit = origin->second.exits().find(direction);
-	if (exit == origin->second.exits().end())
+	if (exit == origin->second.exits().end()) {
+		LOG_DEBUG("no exit in this direction", {"client", player_id}, {"player", player->second.name}, {"room", origin->first}, {"direction", direction});
 		return false;
+	}
 
 	auto destination = _world.rooms.find(exit->second);
 	if (destination == _world.rooms.end())
@@ -93,5 +102,6 @@ bool Game::move(long long player_id, const std::string& direction) {
 	origin->second.removePlayer(player_id);
 	destination->second.addPlayer(player_id);
 	player->second.current_map = exit->second;
+	LOG_INFO("player moved", {"client", player_id}, {"player", player->second.name}, {"from", origin->first}, {"to", exit->second}, {"direction", direction});
 	return true;
 }

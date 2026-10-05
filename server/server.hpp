@@ -16,6 +16,7 @@
 # include <unistd.h>
 
 # include "defines.hpp"
+# include "../shared/logger.hpp"
 # include "../shared/errors.hpp"
 # include "signalFd.hpp"
 # include "../shared/success.hpp"

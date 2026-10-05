@@ -1,5 +1,7 @@
 #include "server.hpp"
 
+static std::string playerName(const User& user);
+
 
 Server::Session::Session(int fd, const std::string& ip, long long id) : conn(fd, ip), user(id) {}
 
@@ -7,68 +9,68 @@ Server::Server() {}
 
 Server::~Server() {
 	if (_listen_socket != INVALID_FD) {
-		std::cout << "Closing listen socket..." << std::endl;
+		LOG_DEBUG("closing listen socket");
 		if (close(_listen_socket) == SYSCALL_ERROR) {
-			std::cerr << "Failed to close listen socket: " << strerror(errno) << std::endl;
+			LOG_ERROR("failed to close listen socket", {"error", strerror(errno)});
 		}
-		std::cout << "Listen socket closed successfully" << std::endl;
+		LOG_DEBUG("listen socket closed");
 	}
 	for (const auto& session : _sessions) {
-		std::cout << "Closing client socket..." << std::endl;
+		LOG_DEBUG("closing client socket");
 		if (close(session.second.conn.fd()) == SYSCALL_ERROR) {
-			std::cerr << "Failed to close client socket: " << strerror(errno) << std::endl;
+			LOG_ERROR("failed to close client socket", {"error", strerror(errno)});
 		}
-		std::cout << "Client socket closed successfully" << std::endl;
+		LOG_DEBUG("client socket closed");
 	}
 }
 
 void Server::start(const size_t& port) {
-	std::cout << "Starting server on port " << port << std::endl;
+	LOG_INFO("starting server", {"port", port});
 
 	_listen_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (_listen_socket == INVALID_FD) {
-		std::cerr << "Failed to create socket: " << strerror(errno) << std::endl;
+		LOG_ERROR("failed to create socket", {"error", strerror(errno)});
 		throw std::runtime_error("Failed to create socket");
 	}
 
-	std::cout << "Socket created successfully" << std::endl;
+	LOG_DEBUG("socket created");
 
-	std::cout << "Setting socket options..." << std::endl;
+	LOG_DEBUG("setting socket options");
 	int opt = 1;
 	if (setsockopt(_listen_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == SYSCALL_ERROR) {
-		std::cerr << "Failed to set socket options: " << strerror(errno) << std::endl;
+		LOG_ERROR("failed to set socket options", {"error", strerror(errno)});
 		throw std::runtime_error("Failed to set socket options");
 	}
 
-	std::cout << "Socket options set successfully" << std::endl;
+	LOG_DEBUG("socket options set");
 
-	std::cout << "Binding socket to port " << port << "..." << std::endl;
+	LOG_DEBUG("binding socket", {"port", port});
 	sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
 	server_addr.sin_port = htons(port);
 
 	if (bind(_listen_socket, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SYSCALL_ERROR) {
-		std::cerr << "Failed to bind socket: " << strerror(errno) << std::endl;
+		LOG_ERROR("failed to bind socket", {"port", port}, {"error", strerror(errno)});
 		throw std::runtime_error("Failed to bind socket");
 	}
 
-	std::cout << "Socket bound successfully" << std::endl;
+	LOG_DEBUG("socket bound");
 
-	std::cout << "Listening for incoming connections..." << std::endl;
+	LOG_DEBUG("listening for incoming connections");
 	if (listen(_listen_socket, SOMAXCONN) == SYSCALL_ERROR) {
-		std::cerr << "Failed to listen on socket: " << strerror(errno) << std::endl;
+		LOG_ERROR("failed to listen on socket", {"error", strerror(errno)});
 		throw std::runtime_error("Failed to listen on socket");
 	}
 
-	std::cout << "Server started successfully on port " << port << std::endl;
+	LOG_INFO("server started", {"port", port});
 
-	std::cout << "Setting listen socket to non-blocking mode..." << std::endl;
+	LOG_DEBUG("setting listen socket to non-blocking mode");
 	if (fcntl(_listen_socket, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
-		std::cerr << "Failed to set listen socket to non-blocking mode: " << strerror(errno) << std::endl;
+		LOG_ERROR("failed to set listen socket to non-blocking mode", {"error", strerror(errno)});
 		throw std::runtime_error("Failed to set listen socket to non-blocking mode");
 	}
-	std::cout << "Listen socket set to non-blocking mode successfully" << std::endl;
+	LOG_DEBUG("listen socket set to non-blocking mode");
 
 	_sigs.add(SIGINT);
 	_sigs.add(SIGTERM);
@@ -77,7 +79,7 @@ void Server::start(const size_t& port) {
 }
 
 void Server::defineAction(const std::string& type, const std::function<Response(User&, const std::string&)>& action) {
-	std::cout << "Defining action for message type: " << type << std::endl;
+	LOG_DEBUG("action defined", {"cmd", type});
 	_actions[type] = action;
 }
 
@@ -94,11 +96,11 @@ void Server::disconnect(long long client_id) {
 void Server::sendTo(const std::string& message, long long client_id) {
 	auto it = _sessions.find(client_id);
 	if (it != _sessions.end()) {
-		std::cout << "Sending message to client ID " << client_id << std::endl;
+		LOG_DEBUG("sending message", {"client", client_id});
 		reply(it->second.conn, message);
 		flush(it->second.conn);
 	} else {
-		std::cerr << "Client ID " << client_id << " not found" << std::endl;
+		LOG_WARN("client not found", {"client", client_id});
 	}
 }
 
@@ -121,7 +123,7 @@ void Server::updatePoll() {
 			if (_onDisconnect)
 				_onDisconnect(it->second.user);
 			close(it->second.conn.fd());
-			std::cout << "Client socket closed for client: " << it->first << std::endl;
+			LOG_INFO("client disconnected", {"client", it->first}, {"ip", it->second.conn.ip()}, {"player", playerName(it->second.user)});
 			_available_id.push_back(it->first);
 			it = _sessions.erase(it);
 		} else {
@@ -147,7 +149,7 @@ void Server::updatePoll() {
 	int ret = poll(fds.data(), fds.size(), POLL_TIMEOUT_MS);
 	if (ret < 0) {
 		if (errno != EINTR)
-			std::cerr << "Poll error: " << strerror(errno) << std::endl;
+			LOG_ERROR("poll failed", {"error", strerror(errno)});
 		return;
 	}
 
@@ -157,8 +159,10 @@ void Server::updatePoll() {
 
 	if (fds[POLL_SIGNAL_IDX].revents & POLLIN) {
 		int sig = _sigs.read();
-		if (sig == SIGINT || sig == SIGTERM)
+		if (sig == SIGINT || sig == SIGTERM) {
+			LOG_INFO("signal received, shutting down", {"signal", sig});
 			_running = false;
+		}
 	}
 
 	if (fds[POLL_LISTEN_IDX].revents & POLLIN) {
@@ -166,10 +170,10 @@ void Server::updatePoll() {
 		socklen_t client_len = sizeof(client_addr);
 		int client_socket = accept(_listen_socket, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
 		if (client_socket < 0) {
-			std::cerr << "Accept error: " << strerror(errno) << std::endl;
+			LOG_ERROR("accept failed", {"error", strerror(errno)});
 		} else {
 			if (fcntl(client_socket, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
-				std::cerr << "Failed to set client socket to non-blocking mode: " << strerror(errno) << std::endl;
+				LOG_ERROR("failed to set client socket to non-blocking mode", {"error", strerror(errno)});
 				close(client_socket);
 			}
 			else {
@@ -183,7 +187,7 @@ void Server::updatePoll() {
 				char ip[INET_ADDRSTRLEN] = "unknown";
 				inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
 				Session& session = _sessions.emplace(client_id, Session(client_socket, ip, client_id)).first->second;
-				std::cout << "New client connected with ID: " << client_id << " (" << ip << ")" << std::endl;
+				LOG_INFO("client connected", {"client", client_id}, {"ip", ip});
 				reply(session.conn, tapOkLine(TapOk::HELLO));
 				flush(session.conn);
 			}
@@ -212,6 +216,7 @@ void Server::readFrom(Session& s) {
 			continue;
 		}
 		if (n == 0) {
+			LOG_DEBUG("client closed the connection", {"client", s.user.id()});
 			c.setClosing(true);
 			break;
 		}
@@ -220,6 +225,7 @@ void Server::readFrom(Session& s) {
 		if (errno == EINTR)
 			continue;
 
+		LOG_WARN("recv failed", {"client", s.user.id()}, {"error", strerror(errno)});
 		c.setClosing(true);
 		break;
 	}
@@ -232,9 +238,25 @@ void Server::readFrom(Session& s) {
 		handeLine(s, line);
 	}
 	if (c.in().size() > MAX_LINE_LENGTH) {
+		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
 		c.setClosing(true);
 		reply(c, tapErrorLine(TapError::BAD_REQUEST));
 	}
+}
+
+// The name of an authenticated user, "" before CONNECT
+static std::string playerName(const User& user) {
+	return user.isAuthenticated() ? user.name() : std::string();
+}
+
+// The beginning of a long text (a LOOK response is about 600 bytes), never cut inside a UTF-8 character
+static std::string shorten(const std::string& text, size_t max) {
+	if (text.size() <= max)
+		return text;
+	size_t cut = max;
+	while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
+		cut--;
+	return text.substr(0, cut) + "...";
 }
 
 void Server::handeLine(Session& s, const std::string& line)
@@ -243,7 +265,10 @@ void Server::handeLine(Session& s, const std::string& line)
 	std::string cmd = line.substr(0, sp);
 	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
+	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
+
 	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
+		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
 		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
 		return;
 	}
@@ -251,12 +276,15 @@ void Server::handeLine(Session& s, const std::string& line)
 	if (it != _actions.end())
 	{
 		Response r = it->second(s.user, args);
+		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
+			{"response", r.isOk ? shorten(r.line(), 100) : r.line()});
 		reply(s.conn, r.line());
 		if (r.close)
 			s.conn.setClosing(true);
 	}
 	else
 	{
+		LOG_WARN("unknown command", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
 		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
 	}
 }
@@ -274,6 +302,7 @@ void Server::flush(Connection& c) {
 		}
         if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			break;
+        LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
         c.setClosing(true); break;
     }
 }

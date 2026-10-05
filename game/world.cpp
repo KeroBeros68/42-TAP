@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "parser.hpp"
+#include "../shared/logger.hpp"
 
 // Absolute path of the project root, given by the Makefile (-DPROJECT_ROOT="...").
 // Without it, the data files are searched from the current directory.
@@ -25,7 +26,7 @@ static void validateExits(const RoomMap& rooms) {
 			const auto& back = destination->second.exits();
 			auto way_back = back.find(oppositeDirection(direction));
 			if (way_back == back.end() || way_back->second != id)
-				std::cerr << "[WARN] room.json: " << id << " --" << direction << "--> " << target << " is a one-way exit" << std::endl;
+				LOG_WARN("one-way exit", {"room", id}, {"direction", direction}, {"to", target});
 		}
 	}
 }
@@ -41,6 +42,7 @@ void World::loadWorld() {
 	validateExits(rooms);
 	validateRoomId(rooms, start_room, "start_room");
 	validateRoomId(rooms, respawn_room, "respawn room");
+	LOG_INFO("world loaded", {"npcs", npc_database.npcs().size()}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
 }
 
 std::string World::look(const std::string& room_id, const std::vector<std::string>& players) const {
