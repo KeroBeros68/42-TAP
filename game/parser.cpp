@@ -113,3 +113,18 @@ void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room
 		throw std::runtime_error(std::string("invalid room.json: ") + e.what());
 	}
 }
+
+std::string serializeLook(const Room& room, const std::vector<std::string>& players, const std::vector<std::string>& npcs) {
+	nlohmann::ordered_json look;
+	look["room"]["id"] = room.id();
+	look["room"]["name"] = room.name();
+	look["room"]["description"] = room.description();
+	look["room"]["exits"] = nlohmann::ordered_json::object();
+	for (const auto& [direction, target] : room.exits())
+		look["room"]["exits"][direction] = target;
+	look["players"] = players;
+	look["items"] = room.items();
+	look["npcs"] = npcs;
+
+	return look.dump(-1, ' ', false, nlohmann::ordered_json::error_handler_t::replace);
+}

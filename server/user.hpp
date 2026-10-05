@@ -3,7 +3,6 @@
 
 # include <string>
 
-// Everything the game knows about a player. No network data here.
 class User {
 	private:
 		long long	_id;
