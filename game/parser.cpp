@@ -1,4 +1,5 @@
 #include "parser.hpp"
+#include "../shared/logger.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -51,7 +52,7 @@ static void readNpc(NpcDb& database, json& data) {
 			database.addNpc(def);
 		}
 	} else {
-		std::cerr << "[WARN] npc.json: no \"npcs\" object found, no NPC loaded" << std::endl;
+		LOG_WARN("no \"npcs\" object found in npc.json, no NPC loaded");
 	}
 }
 

@@ -1,13 +1,17 @@
 #include "commands.hpp"
 
 static Response cmdConnect(Game& game, User& user, const std::string& name) {
-	if (!user.setName(name))
+	if (!user.setName(name)) {
+		LOG_WARN("invalid player name", {"client", user.id()}, {"name", name});
 		return Response::failure(TapError::BAD_REQUEST);
-	if (game.isNameTaken(name))
+	}
+	if (game.isNameTaken(name)) {
+		LOG_INFO("player name already in use", {"client", user.id()}, {"name", name});
 		return Response::failure(TapError::NAME_IN_USE);
+	}
 	user.authenticate();
 	game.addPlayer(user);
-	std::cout << "User " << user.id() << " connected as " << user.name() << " on " << game.playerMap(user.id()) << std::endl;
+	LOG_INFO("player connected", {"client", user.id()}, {"player", user.name()});
 	return Response::success(TapOk::CONNECTED);
 }
 
@@ -27,8 +31,7 @@ static Response cmdMove(Game& game, User& user, const std::string& direction) {
 
 // Placeholder for the commands that are not implemented yet
 static Response cmdStub(const std::string& cmd, User& user, const std::string& args) {
-	std::cout << "Received " << cmd << " message from user " << user.id() << std::endl;
-	std::cout << "Message content: " << args << std::endl;
+	LOG_DEBUG("command not implemented", {"client", user.id()}, {"cmd", cmd}, {"args", args});
 	return Response::success(TapOk::DATA, "Message received");
 }
 
