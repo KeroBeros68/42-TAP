@@ -30,7 +30,6 @@ static void validateExits(const RoomMap& rooms) {
 	}
 }
 
-// The start room and the respawn room must be rooms of the world
 static void validateRoomId(const RoomMap& rooms, const std::string& id, const std::string& role) {
 	if (rooms.find(id) == rooms.end())
 		throw std::runtime_error("invalid room.json: " + role + " '" + id + "' is not a room");
@@ -42,4 +41,8 @@ void World::loadWorld() {
 	validateExits(rooms);
 	validateRoomId(rooms, start_room, "start_room");
 	validateRoomId(rooms, respawn_room, "respawn room");
+}
+
+std::string World::look(const std::string& room_id, const std::vector<std::string>& players) const {
+	return serializeLook(rooms.at(room_id), players, {});
 }
