@@ -22,4 +22,4 @@ run: $EXECUTABLE_NAME
 re: fclean install
 
 valgrind: $EXECUTABLE_NAME
-	QT_XCB_GL_INTEGRATION=none valgrind --leak-check=full --suppressions=ignore_library.supp ./$(EXECUTABLE_NAME)
+	QT_XCB_GL_INTEGRATION=none valgrind --leak-check=full ./$(EXECUTABLE_NAME)

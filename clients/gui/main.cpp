@@ -6,11 +6,12 @@
 #include "src/windows/windows.hpp"
 #include "../client.hpp"
 #include "globals.hpp"
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
 	QApplication		app(argc, argv); // Initialization of the QT engine
-	// app.setWindowIcon(QIcon(":/src/icon.ico"));
+	app.setWindowIcon(QIcon(":/src/icon.ico"));
 
 	// Ctrl+C signal handling for clean exit
 	std::signal(SIGINT, [](int) {
@@ -18,13 +19,13 @@ int main(int argc, char *argv[])
         QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
     });
 
-	// // Connection window
-	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
-	// 	"42 TAP GUI",
-	// 	WINDOW_WIDTH,
-	// 	WINDOW_HEIGHT
-	// );
-	// connection_window.show();
+	// Connection window
+	TAPConnectionWindow	connection_window = TAPConnectionWindow(
+		"42 TAP GUI",
+		WINDOW_WIDTH,
+		WINDOW_HEIGHT
+	);
+	connection_window.show();
 
 	// // Error window
 	// TAPErrorWindow error_window = TAPErrorWindow();

@@ -30,6 +30,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 
 		// Username related function
 		std::string findSystemUsername();
+		std::string getUsername();
 
 		// Address related functions
 		void		setRemoteAddress(std::string address);
@@ -38,6 +39,9 @@ class TAPConnectionWindow : public TAPBaseWindow
 		// Port related functions
 		void		setRemotePort(std::string port);
 		std::string	getRemotePort();
+
+		// Connection related functions
+		void		connectToServer();
 };
 
 #endif // !CONNECTION_WINDOW_HPP

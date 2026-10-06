@@ -51,7 +51,7 @@ INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hp
 
 # Compilation
 CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++23 -pthread
+CFLAGS = -Wall -Werror -Wextra -std=c++17 -pthread
 
 # Object name
 OBJS = $(addprefix $(OBJ_DIR)/, $(notdir $(SRCS:.cpp=.o)))

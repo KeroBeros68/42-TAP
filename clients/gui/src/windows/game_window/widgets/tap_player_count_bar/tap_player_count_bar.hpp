@@ -7,7 +7,7 @@
 class TAPPlayerCountBar : public TAPGameSectionWidget
 {
     private:
-        QHBoxLayout *_layout = new QHBoxLayout();
+        QHBoxLayout _layout;
         TAPLabel    _label_players_in_room;
         TAPLabel    _label_total_players;
 
