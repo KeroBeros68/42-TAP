@@ -19,24 +19,24 @@ int main(int argc, char *argv[])
         QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
     });
 
-	// Connection window
-	TAPConnectionWindow	connection_window = TAPConnectionWindow(
-		"42 TAP GUI",
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT
-	);
-	connection_window.show();
+	// // Connection window
+	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
+	// 	"42 TAP GUI",
+	// 	WINDOW_WIDTH,
+	// 	WINDOW_HEIGHT
+	// );
+	// connection_window.show();
 
 	// // Error window
 	// TAPErrorWindow error_window = TAPErrorWindow();
 	// error_window.setErrorMessage("Test error :-)");
 	// error_window.show();
 
-	// // Game window
-	// TAPGameWindow game_window = TAPGameWindow();
-	// game_window.show();
-	// game_window.update_total_players_label(42);
-	// game_window.update_players_in_room_label(21);
+	// Game window
+	TAPGameWindow game_window = TAPGameWindow();
+	game_window.show();
+	game_window.update_total_players_label(42);
+	game_window.update_players_in_room_label(21);
 	// game_window.update_room_name("42 datacenter");
 	// game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty.");
 
