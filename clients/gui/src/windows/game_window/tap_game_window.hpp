@@ -9,9 +9,10 @@ class TAPGameWindow : public TAPBaseWindow
 {
     private:
         // GUI
-        TAPPlayerCountBar player_count_bar;
-        TAPRoomView room_view;
-        QVBoxLayout _window_layout;
+        QVBoxLayout         _window_layout;
+        TAPPlayerCountBar   player_count_bar;
+        TAPRoomView         room_view;
+        TAPExitView         exit_view;
 
     public:
         // Constructor
@@ -23,6 +24,7 @@ class TAPGameWindow : public TAPBaseWindow
         void update_total_players_label(int value);
         void update_room_name(std::string name);
         void update_room_description(std::string description);
+        void update_available_exits(std::map<std::string, std::string> data);
 
 };
 

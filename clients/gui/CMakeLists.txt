@@ -34,6 +34,8 @@ add_executable(${PROJECT_NAME}
     # Game widgets
     src/windows/game_window/widgets/tap_player_count_bar/tap_player_count_bar.cpp
     src/windows/game_window/widgets/tap_room_view/tap_room_view.cpp
+    src/windows/game_window/widgets/tap_exit_view/tap_exit_view.cpp
+    src/windows/game_window/widgets/tap_exit_view/exit_buttons/tap_exit_buttons.cpp
 )
 # ...
 

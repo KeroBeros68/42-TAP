@@ -83,7 +83,7 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 
     // Create button
 	this->_button.setText("Connect");
-	this->_button.setStyleSheet(VALIDATE_BUTTON_PROPERTIES);
+	this->_button.setStyleSheet(BUTTON_PROPERTIES);
 
     // Create layout
 	this->_layout.addStretch();
