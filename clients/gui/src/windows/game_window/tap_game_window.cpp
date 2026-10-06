@@ -13,6 +13,7 @@ TAPGameWindow::TAPGameWindow()
     // Add widgets to the window layout
     this->_window_layout.addWidget(&player_count_bar);
     this->_window_layout.addWidget(&room_view);
+    this->_window_layout.addWidget(&exit_view);
     this->_window_layout.addStretch();
 };
 
@@ -39,4 +40,9 @@ void TAPGameWindow::update_room_name(std::string name)
 void TAPGameWindow::update_room_description(std::string description)
 {
     this->room_view.update_room_description(description);
+};
+
+void TAPGameWindow::update_available_exits(std::map<std::string, std::string> data)
+{
+    this->exit_view.update_available_exits(data);
 };
