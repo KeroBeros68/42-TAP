@@ -8,8 +8,7 @@ TAPExitButtons::TAPExitButtons()
     {
         this->_buttons[i].setStyleSheet(BUTTON_PROPERTIES);
         this->_buttons[i].hide();
-        this->_layout.addWidget(&this->_buttons[i], 0, Qt::AlignCenter);
-        this->_layout.addStretch();
+        this->_layout.addWidget(&this->_buttons[i]);
     }
 
     this->setLayout(&this->_layout);

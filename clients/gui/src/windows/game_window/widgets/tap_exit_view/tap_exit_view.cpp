@@ -7,7 +7,7 @@ TAPExitView::TAPExitView()
     this->_label_exits.setText(DEFAULT_EXIT_SECTION_LABEL_NAME);
     
     this->_layout.addWidget(&this->_label_exits, 0, Qt::AlignCenter);
-    this->_layout.addWidget(&this->_exit_buttons_widget, 0, Qt::AlignCenter);
+    this->_layout.addWidget(&this->_exit_buttons_widget);
     this->setLayout(&this->_layout);
 };
 

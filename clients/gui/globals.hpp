@@ -20,7 +20,7 @@
 // Custom UI Elements properties
 # define TAP_LINE_EDIT_PROPERTIES "background-color: #f5f6fa; color: #2f3640;"
 # define TAP_LABEL_PROPERTIES "color: #f5f6fa;"
-# define TAP_GAME_SECTION_NAME_PROPERTIES "font-size: 24px;"
+# define TAP_GAME_SECTION_NAME_PROPERTIES "font-size: 30px;"
 
 // Game window properties
 # define GAME_WINDOW_TITLE "42 TAP"

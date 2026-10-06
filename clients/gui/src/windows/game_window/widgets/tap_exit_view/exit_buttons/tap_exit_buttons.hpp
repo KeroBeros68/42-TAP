@@ -3,12 +3,12 @@
 
 # include <QPushButton>
 # include <QWidget>
-# include <QHBoxLayout>
+# include <QVBoxLayout>
 
 class TAPExitButtons : public QWidget
 {
     private:
-        QHBoxLayout _layout;
+        QVBoxLayout _layout;
         QPushButton _buttons[4];
         std::map<std::string, std::string> _exit_names;
 
