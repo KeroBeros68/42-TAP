@@ -35,7 +35,7 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: clean fclean re bonus run build client gui help install-deps
+.PHONY: clean fclean re bonus run build client gui valgrind help install-deps
 
 .DEFAULT_GOAL := all
 
@@ -105,6 +105,9 @@ run: build
 	launch "TAP server" "make -C '$(CURDIR)/server' run"
 	sleep 1
 	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
+
+valgrind:
+	make -C clients/gui valgrind
 
 # Build and run the CLI client alone, in the current terminal
 client:
