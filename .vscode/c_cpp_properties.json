@@ -5,9 +5,11 @@
             "includePath": [
                 "${workspaceFolder}/**"
             ],
-            "compileCommands": "${workspaceFolder}/clients/gui/build/compile_commands.json",
+            "compileCommands": [
+                "${workspaceFolder}/clients/gui/build/compile_commands.json"
+            ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang++",
+            "compilerPath": "/usr/bin/clang-19",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-arm64"
