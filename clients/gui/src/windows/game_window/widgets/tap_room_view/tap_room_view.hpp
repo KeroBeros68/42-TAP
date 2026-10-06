@@ -8,7 +8,7 @@
 class TAPRoomView : public TAPGameSectionWidget
 {
     private:
-        QVBoxLayout *_layout = new QVBoxLayout();
+        QVBoxLayout _layout;
         TAPRoomNameLabel _room_name;
         TAPLabel _room_description;
 

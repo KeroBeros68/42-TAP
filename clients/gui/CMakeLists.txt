@@ -15,7 +15,7 @@ set(CMAKE_AUTORCC ON) # Load .rqc
 
 # Liste des executables a creer
 add_executable(${PROJECT_NAME}
-    ressources.qrc
+    # ressources.qrc
     # Main
     main.cpp
 

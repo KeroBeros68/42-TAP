@@ -28,19 +28,32 @@ void TAPConnectionWindow::setRemotePort(std::string port)
 {
     this->_remote_port= port;
     std::cout << "Server port has been set to : " << this->_remote_port << std::endl;
+    std::cout << "[WIP IMPLEMENTATION]" << std::endl;
 };
 
 // getRemoteAddress
 std::string TAPConnectionWindow::getRemoteAddress()
 {
-    return this->_remote_address;
+    return this->_address_filed.text().toStdString();
 };
 
 // getRemotePort
 std::string TAPConnectionWindow::getRemotePort()
 {
-    return this->_remote_port;
+    return this->_port_filed.text().toStdString();
 };
+
+// getUsername
+std::string TAPConnectionWindow::getUsername()
+{
+    return this->_username_filed.text().toStdString();
+};
+
+// connectToServer
+void TAPConnectionWindow::connectToServer()
+{
+    std::cout << "Connecting to " << this->getUsername() << "@" << this->getRemoteAddress() << ":" << this->getRemotePort() << std::endl;
+}
 
 // Init window with elements
 TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height)
@@ -83,8 +96,10 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 	this->setLayout(&this->_layout);
 
     // Connect button
-	// this->connect(&this->_button, &QPushButton::clicked, this, [this, &_address_filed, &_port_filed]() {
-    //     this->setRemoteAddress(this->_address_filed.text().toStdString()); // Set address
-    //     this->setRemotePort(this->_port_filed.text().toStdString()); // Set port
-    // });
+	this->connect(&this->_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            this->connectToServer();
+    });
 }
