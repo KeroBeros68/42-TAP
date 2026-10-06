@@ -15,8 +15,9 @@ int main() {
 		while (server.getStatus()) {
 			server.updatePoll();
 		}
+		LOG_INFO("server stopped");
 	} catch (const std::exception& e) {
-		std::cerr << "Error: " << e.what() << std::endl;
+		LOG_ERROR("fatal error", {"error", e.what()});
 		return 1;
 	}
 

@@ -38,10 +38,11 @@ SRCS =	server.cpp \
 	npc.cpp \
 	room.cpp \
 	parser.cpp \
-	world.cpp
+	world.cpp \
+	logger.cpp
 
 # The game sources live in ../game
-vpath %.cpp ../game
+vpath %.cpp ../game:../shared
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
