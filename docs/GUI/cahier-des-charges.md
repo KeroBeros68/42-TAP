@@ -82,7 +82,7 @@ Fenêtre principale, affichée après authentification réussie. Elle se décomp
 
 - ✅ **Nom** de la pièce (widget présent, non alimenté par le serveur).
 - ✅ **Description** (widget présent, non alimenté par le serveur).
-- ❌ **Sorties** disponibles → un contrôle cliquable par direction, qui envoie `MOVE <direction>`.
+- 🟠 **Sorties** disponibles → un contrôle cliquable par direction, qui envoie `MOVE <direction>`.
 - ❌ **Items présents au sol** → liste cliquable, chaque item pouvant être pris (`TAKE`).
 - ❌ **NPCs présents** → liste cliquable (voir 2.3.6).
 - ❌ **Autres joueurs présents** dans la pièce.

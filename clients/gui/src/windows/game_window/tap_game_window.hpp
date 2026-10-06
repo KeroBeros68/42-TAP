@@ -17,7 +17,6 @@ class TAPGameWindow : public TAPBaseWindow
     public:
         // Constructor
         TAPGameWindow();
-        // ~TAPGameWindow();
 
         // Update labels
         void update_players_in_room_label(int value);
@@ -25,7 +24,6 @@ class TAPGameWindow : public TAPBaseWindow
         void update_room_name(std::string name);
         void update_room_description(std::string description);
         void update_available_exits(std::map<std::string, std::string> data);
-
 };
 
 #endif // !TAP_GAME_WINDOW_HPP
