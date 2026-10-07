@@ -1,5 +1,5 @@
 #include "tap_exit_view.hpp"
-#include "../../../../../globals.hpp"
+#include "globals.hpp"
 
 TAPExitView::TAPExitView()
 {

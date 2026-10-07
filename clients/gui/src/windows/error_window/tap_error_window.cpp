@@ -1,5 +1,5 @@
 #include "tap_error_window.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 
 // Constructor

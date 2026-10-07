@@ -1,4 +1,4 @@
-#include "../../../globals.hpp"
+#include "globals.hpp"
 #include "tap_line_edit.hpp"
 
 // Init the button with default properties

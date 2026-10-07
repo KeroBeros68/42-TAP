@@ -36,8 +36,13 @@ add_executable(${PROJECT_NAME}
     src/windows/game_window/widgets/tap_room_view/tap_room_view.cpp
     src/windows/game_window/widgets/tap_exit_view/tap_exit_view.cpp
     src/windows/game_window/widgets/tap_exit_view/exit_buttons/tap_exit_buttons.cpp
+    src/windows/game_window/widgets/tap_ground_items_view/tap_ground_items_view.cpp
 )
 # ...
+
+# Dossiers de recherche pour les includes :
+#  - la racine du projet : permet "#include "globals.hpp"" depuis n'importe quel fichier
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Libraries a ajouter pour chaque executable
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)

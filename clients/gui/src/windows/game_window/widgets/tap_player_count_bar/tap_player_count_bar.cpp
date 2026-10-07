@@ -1,5 +1,5 @@
 #include "tap_player_count_bar.hpp"
-#include "../../../../../globals.hpp"
+#include "globals.hpp"
 
 TAPPlayerCountBar::TAPPlayerCountBar()
 {
