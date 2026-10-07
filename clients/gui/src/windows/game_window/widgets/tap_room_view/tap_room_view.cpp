@@ -1,5 +1,5 @@
 #include "tap_room_view.hpp"
-#include "../../../../../globals.hpp"
+#include "globals.hpp"
 
 TAPRoomView::TAPRoomView()
 {

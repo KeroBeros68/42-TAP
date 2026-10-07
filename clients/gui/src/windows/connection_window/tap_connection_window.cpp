@@ -1,6 +1,6 @@
 #include "tap_connection_window.hpp"
 #include <iostream>
-#include "../../../globals.hpp"
+#include "globals.hpp"
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 #include <QWidget>
 #include <string>

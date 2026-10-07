@@ -1,5 +1,5 @@
 #include "tap_game_section_widget.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 
 TAPGameSectionWidget::TAPGameSectionWidget()
 {

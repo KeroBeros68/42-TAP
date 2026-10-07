@@ -1,5 +1,5 @@
 #include "tap_room_name_label.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 
 TAPRoomNameLabel::TAPRoomNameLabel()
 {

@@ -1,5 +1,5 @@
 #include "tap_base_window.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 
 TAPBaseWindow::TAPBaseWindow()
 {

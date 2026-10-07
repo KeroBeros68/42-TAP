@@ -1,5 +1,5 @@
 #include "tap_game_window.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 #include <QWidget>
 
 // constructor

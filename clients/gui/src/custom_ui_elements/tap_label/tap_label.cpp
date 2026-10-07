@@ -1,5 +1,5 @@
 #include "tap_label.hpp"
-#include "../../../globals.hpp"
+#include "globals.hpp"
 
 TAPLabel::TAPLabel()
 {

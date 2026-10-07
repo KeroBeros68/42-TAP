@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty. As you slowly walk here, a thick fog starts to form. You feel observed.");
 
 	try {
-		app.exec();
+		app.exec;
 	}
 	catch (const std::exception& e) {
 		app.quit();
