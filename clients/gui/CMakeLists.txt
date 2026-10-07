@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2) # CMake version
+cmake_minimum_required(VERSION 3.5...4.2) # 3.5 = minimum required, 4.2 = policy ceiling
 project(42TAP) # Project name
 
 # Include a compile_commands.json file in the build folder
