@@ -13,6 +13,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPPlayerCountBar   player_count_bar;
         TAPRoomView         room_view;
         TAPExitView         exit_view;
+        TAPGroundItemsView  ground_items_view;
 
     public:
         // Constructor
@@ -24,6 +25,7 @@ class TAPGameWindow : public TAPBaseWindow
         void update_room_name(std::string name);
         void update_room_description(std::string description);
         void update_available_exits(std::map<std::string, std::string> data);
+        void update_ground_items(std::map<std::string, std::string> data);
 };
 
 #endif // !TAP_GAME_WINDOW_HPP
