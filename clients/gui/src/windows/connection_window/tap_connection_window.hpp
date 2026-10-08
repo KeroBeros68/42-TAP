@@ -10,7 +10,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 	private:
 		std::string	_username; // Server address
 		std::string	_remote_address = "127.0.0.1"; // Server address
-		std::string _remote_port	= "4224"; // Server port
+		std::string _remote_port	= "8080"; // Server port
 
 		// Labels
     	TAPLabel _info_text;

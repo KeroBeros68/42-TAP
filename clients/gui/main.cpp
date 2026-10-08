@@ -43,12 +43,17 @@ int main(int argc, char *argv[])
 		{"east", "Gambrinus"},
 		{"west", "KM0"}
 	};
-	game_window.update_available_exits(ex);
 	game_window.update_room_name("42 datacenter");
 	game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty. As you slowly walk here, a thick fog starts to form. You feel observed.");
-
+	game_window.update_available_exits(ex);
+	game_window.update_ground_items(
+        std::map<std::string, std::string> {
+            {"item.cigaret", "Kevin's cigaret"},
+            {"item.marvin", "Rusty marvin figurine"}
+        }
+    );
 	try {
-		app.exec;
+		app.exec();
 	}
 	catch (const std::exception& e) {
 		app.quit();
