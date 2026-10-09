@@ -57,12 +57,15 @@ class Logger {
 		std::ostream*			_out;
 		std::mutex				_mutex;
 		std::atomic<LogLevel>	_min_level;
+		std::string				_formattedUtcOffset;
 
 		Logger();
 		Logger(const Logger&);
 		Logger& operator=(const Logger&);
 
-		static bool	useColor(const std::ostream& os);
+		static bool			useColor(const std::ostream& os);
+		static std::string	timestamp();
+		static std::string calculateOffset();
 
 	public:
 		static Logger&	instance();
