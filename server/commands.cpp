@@ -15,6 +15,13 @@ static Response cmdConnect(Game& game, User& user, const std::string& name) {
 	return Response::success(TapOk::CONNECTED);
 }
 
+static Response cmdQuit(Game& game, User& user) {
+	game.removePlayer(user.id());
+	LOG_INFO("player disconnected", {"client", user.id()}, {"player", user.name()});
+	user.authenticate();
+	return Response::success(TapOk::BYE);
+}
+
 static Response cmdLook(Game& game, User& user) {
 	if (!game.hasPlayer(user.id()))
 		return Response::failure(TapError::BAD_REQUEST);
@@ -24,9 +31,7 @@ static Response cmdLook(Game& game, User& user) {
 static Response cmdMove(Game& game, User& user, const std::string& direction) {
 	if (!game.move(user.id(), direction))
 		return Response::failure(TapError::NO_EXIT);
-	std::string res = "room=";
-	res.append(game.playerMap(user.id()));
-	return Response::success(TapOk::DATA, res);
+	return Response::success(TapOk::ROOM, game.playerMap(user.id()));
 }
 
 // Placeholder for the commands that are not implemented yet
@@ -45,12 +50,15 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_MOVE, [&game](User& user, const std::string& dir) {
 		return cmdMove(game, user, dir);
 	});
+	server.defineAction(CMD_QUIT, [&game](User& user, const std::string&) {
+		return cmdQuit(game, user);
+	});
 
 
 	// Replace an entry by a real handler (like cmdConnect) once the command is implemented
 	const std::string stubs[] = {
 		CMD_CHAT, CMD_TAKE, CMD_DROP, CMD_INVENTORY, CMD_TALK,
-		CMD_ATTACK, CMD_STATUS, CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP, CMD_QUIT
+		CMD_ATTACK, CMD_STATUS, CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP
 	};
 	for (const std::string& cmd : stubs) {
 		server.defineAction(cmd, [cmd](User& user, const std::string& args) {
