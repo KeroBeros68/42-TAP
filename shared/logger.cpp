@@ -95,9 +95,7 @@ const std::string& LogValue::json() const {
 	return _json;
 }
 
-Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {
-	_formattedUtcOffset = std::format("{:%Ez}", std::chrono::zoned_time{std::chrono::current_zone(), std::chrono::system_clock::now()});
-}
+Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {}
 
 Logger& Logger::instance() {
 	static Logger logger;
@@ -141,7 +139,7 @@ void Logger::log(LogLevel level, const char* file, int line, const std::string& 
 	if (!enabled(level))
 		return;
 
-	std::string json = "{\"ts\":\"" + timestamp() + _formattedUtcOffset + "\",\"level\":\"" + levelName(level) + "\",\"msg\":\"" + jsonEscape(message) + "\"";
+	std::string json = "{\"ts\":\"" + timestamp() + "+02:00" + "\",\"level\":\"" + levelName(level) + "\",\"msg\":\"" + jsonEscape(message) + "\"";
 	if (level >= LogLevel::Warn)
 		json += ",\"src\":\"" + jsonEscape(std::string(file) + ":" + std::to_string(line)) + "\"";
 	for (const auto& [key, value] : fields)

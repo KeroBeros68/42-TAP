@@ -57,7 +57,6 @@ class Logger {
 		std::ostream*			_out;
 		std::mutex				_mutex;
 		std::atomic<LogLevel>	_min_level;
-		std::string 			_formattedUtcOffset;
 
 		Logger();
 		Logger(const Logger&);
