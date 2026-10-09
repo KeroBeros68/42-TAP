@@ -1,6 +1,6 @@
 #include "logger.hpp"
 
-static std::string timestamp() {
+std::string Logger::timestamp() {
 	const auto now = std::chrono::system_clock::now();
 	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 	const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
@@ -14,6 +14,24 @@ static std::string timestamp() {
 	char out[48];
 	std::snprintf(out, sizeof(out), "%s.%03d", date, static_cast<int>(ms.count()));
 	return out;
+}
+
+std::string Logger::calculateOffset() {
+	const auto now = std::chrono::system_clock::now();
+	const std::time_t timeT = std::chrono::system_clock::to_time_t(now);
+
+	std::tm localTm{};
+	localtime_r(&timeT, &localTm);
+
+	char buffer[16];
+	std::strftime(buffer, sizeof(buffer), "%z", &localTm);
+	std::string rawOffset(buffer);
+
+	if (rawOffset.length() >= 5) {
+		return rawOffset.substr(0, 3) + ":" + rawOffset.substr(3);
+	} else {
+		return "+00:00";
+	}
 }
 
 std::string jsonEscape(const std::string& text) {
@@ -95,7 +113,9 @@ const std::string& LogValue::json() const {
 	return _json;
 }
 
-Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {}
+Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {
+	_formattedUtcOffset = calculateOffset();
+}
 
 Logger& Logger::instance() {
 	static Logger logger;
@@ -139,7 +159,7 @@ void Logger::log(LogLevel level, const char* file, int line, const std::string& 
 	if (!enabled(level))
 		return;
 
-	std::string json = "{\"ts\":\"" + timestamp() + "+02:00" + "\",\"level\":\"" + levelName(level) + "\",\"msg\":\"" + jsonEscape(message) + "\"";
+	std::string json = "{\"ts\":\"" + Logger::timestamp() + _formattedUtcOffset + "\",\"level\":\"" + levelName(level) + "\",\"msg\":\"" + jsonEscape(message) + "\"";
 	if (level >= LogLevel::Warn)
 		json += ",\"src\":\"" + jsonEscape(std::string(file) + ":" + std::to_string(line)) + "\"";
 	for (const auto& [key, value] : fields)
