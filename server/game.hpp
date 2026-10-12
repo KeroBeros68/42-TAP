@@ -1,6 +1,7 @@
 #ifndef GAME_HPP
 # define GAME_HPP
 
+# include <optional>
 # include <string>
 # include <unordered_map>
 # include <vector>
@@ -31,6 +32,7 @@ class Game {
 		const std::string& playerMap(long long id) const;
 
 		bool move(long long player_id, const std::string& direction);
+		std::optional<std::string> talk(long long player_id, const std::string& target) const;
 
 		bool hasPlayer(long long id) const;
 		bool isNameTaken(const std::string& name) const;

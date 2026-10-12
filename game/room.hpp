@@ -41,6 +41,9 @@ class Room {
 		std::vector<std::string> npcs() const;
 		const std::unordered_map<std::string, Npc>& aliveNpcs() const;
 		void addNpc(const Npc& npc);
+		// The NPC designated by a player: its instance id, the id of its definition (with or without "npc."),
+		// its name or a word of its name, in any case. nullptr if there is none.
+		const Npc* findNpc(const std::string& query) const;
 
 		const std::vector<long long>& currentPlayer() const;
 		void addPlayer(long long id);
