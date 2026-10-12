@@ -39,7 +39,8 @@ SRCS =	server.cpp \
 	room.cpp \
 	parser.cpp \
 	world.cpp \
-	logger.cpp
+	logger.cpp \
+	utf8.cpp
 
 # The game sources live in ../game
 vpath %.cpp ../game:../shared
