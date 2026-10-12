@@ -6,9 +6,11 @@
 # include <vector>
 
 # include "npc.hpp"
+# include "item.hpp"
 
+// Used for the NPCs ("spawns") and for the items ("items") of a room in room.json
 struct Spawn {
-	std::string	npc;
+	std::string	id;						// id of the NPC or of the item
 	int			count = 1;
 	int			respawn_seconds = 0;
 };
@@ -20,15 +22,16 @@ class Room {
 		std::string _description;
 
 		std::unordered_map<std::string, std::string> _exits;
-		std::vector<std::string> _items;
-		std::vector<Spawn> _spawns;
+		std::vector<Spawn> _item_spawns;
+		std::vector<Spawn> _npc_spawns;
 		std::unordered_map<std::string, Npc> _alive_npcs;
+		std::unordered_map<std::string, Item> _alive_items;
 		std::vector<long long> _current_player;
 
 	public:
 		Room(const std::string& id, const std::string& name, const std::string& description,
-			const std::unordered_map<std::string, std::string>& exits, const std::vector<std::string>& items,
-			const std::vector<Spawn>& spawns
+			const std::unordered_map<std::string, std::string>& exits,
+			const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns
 		);
 
 		const std::string& id() const;
@@ -36,14 +39,16 @@ class Room {
 		const std::string& description() const;
 		const std::unordered_map<std::string, std::string>& exits() const;
 
-		const std::vector<std::string>& items() const;
-		const std::vector<Spawn>& spawns() const;
+		const std::vector<Spawn>& itemSpawns() const;
+		const std::vector<Spawn>& npcSpawns() const;
 		std::vector<std::string> npcs() const;
+		std::vector<std::string> items() const;
 		const std::unordered_map<std::string, Npc>& aliveNpcs() const;
+		const std::unordered_map<std::string, Item>& aliveItems() const;
 		void addNpc(const Npc& npc);
-		// The NPC designated by a player: its instance id, the id of its definition (with or without "npc."),
-		// its name or a word of its name, in any case. nullptr if there is none.
 		const Npc* findNpc(const std::string& query) const;
+
+		void addItem(const Item& item);
 
 		const std::vector<long long>& currentPlayer() const;
 		void addPlayer(long long id);

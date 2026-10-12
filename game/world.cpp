@@ -29,11 +29,20 @@ static void validateExits(const RoomMap& rooms) {
 	}
 }
 
-static void validateSpawns(const RoomMap& rooms, const NpcDb& npc_database) {
+static void validateNpcSpawns(const RoomMap& rooms, const NpcDb& npc_database) {
 	for (const auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.spawns()) {
-			if (npc_database.npcs().find(spawn.npc) == npc_database.npcs().end())
-				throw std::runtime_error("invalid room.json: " + id + ": spawn of unknown NPC '" + spawn.npc + "'");
+		for (const Spawn& spawn : room.npcSpawns()) {
+			if (npc_database.npcs().find(spawn.id) == npc_database.npcs().end())
+				throw std::runtime_error("invalid room.json: " + id + ": spawn of unknown NPC '" + spawn.id + "'");
+		}
+	}
+}
+
+static void validateItemSpawns(const RoomMap& rooms, const ItemDb& item_database) {
+	for (const auto& [id, room] : rooms) {
+		for (const Spawn& spawn : room.itemSpawns()) {
+			if (item_database.items().find(spawn.id) == item_database.items().end())
+				throw std::runtime_error("invalid room.json: " + id + ": unknown item '" + spawn.id + "'");
 		}
 	}
 }
@@ -46,9 +55,22 @@ static void validateRoomId(const RoomMap& rooms, const std::string& id, const st
 static size_t createNpcs(RoomMap& rooms, const NpcDb& npc_database) {
 	size_t created = 0;
 	for (auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.spawns()) {
+		for (const Spawn& spawn : room.npcSpawns()) {
 			for (int i = 0; i < spawn.count; i++) {
-				room.addNpc(npc_database.instantiate(spawn.npc));
+				room.addNpc(npc_database.instantiate(spawn.id));
+				created++;
+			}
+		}
+	}
+	return created;
+}
+
+static size_t createItems(RoomMap& rooms, const ItemDb& item_database) {
+	size_t created = 0;
+	for (auto& [id, room] : rooms) {
+		for (const Spawn& spawn : room.itemSpawns()) {
+			for (int i = 0; i < spawn.count; i++) {
+				room.addItem(item_database.instantiate(spawn.id));
 				created++;
 			}
 		}
@@ -58,15 +80,18 @@ static size_t createNpcs(RoomMap& rooms, const NpcDb& npc_database) {
 
 void World::loadWorld() {
 	parseNpcs(DATA_DIR + "npc.json", npc_database);
+	parseItems(DATA_DIR + "items.json", item_database);
 	parseRooms(DATA_DIR + "room.json", rooms, start_room, respawn_room);
 	validateExits(rooms);
-	validateSpawns(rooms, npc_database);
-	size_t spawned = createNpcs(rooms, npc_database);
+	validateNpcSpawns(rooms, npc_database);
+	validateItemSpawns(rooms, item_database);
+	size_t spawned_npc = createNpcs(rooms, npc_database);
+	size_t spawned_item = createItems(rooms, item_database);
 	validateRoomId(rooms, start_room, "start_room");
 	validateRoomId(rooms, respawn_room, "respawn room");
-	LOG_INFO("world loaded", {"npcs", npc_database.npcs().size()}, {"spawned_npcs", spawned}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
+	LOG_INFO("world loaded", {"npcs", npc_database.npcs().size()}, {"items", item_database.items().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
 }
 
 std::string World::look(const std::string& room_id, const std::vector<std::string>& players) const {
-	return serializeLook(rooms.at(room_id), players, rooms.at(room_id).npcs());
+	return serializeLook(rooms.at(room_id), players, rooms.at(room_id).npcs(), rooms.at(room_id).items());
 }
