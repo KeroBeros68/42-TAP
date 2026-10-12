@@ -105,3 +105,26 @@ bool Game::move(long long player_id, const std::string& direction) {
 	LOG_INFO("player moved", {"client", player_id}, {"player", player->second.name}, {"from", origin->first}, {"to", exit->second}, {"direction", direction});
 	return true;
 }
+
+std::optional<std::string> Game::talk(long long player_id, const std::string& target) const {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("talk of an unknown player", {"client", player_id});
+		return std::nullopt;
+	}
+
+	auto room = _world.rooms.find(player->second.current_map);
+	if (room == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.current_map});
+		return std::nullopt;
+	}
+
+	const Npc* npc = room->second.findNpc(target);
+	if (!npc) {
+		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"target", target});
+		return std::nullopt;
+	}
+
+	LOG_INFO("player talked to an npc", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"npc", npc->id()});
+	return npc->talk();
+}
