@@ -7,10 +7,10 @@
 #include "../shared/defines.hpp"
 
 Room::Room(const std::string& id, const std::string& name, const std::string& description,
-	const std::unordered_map<std::string, std::string>& exits, const std::vector<std::string>& items,
-	const std::vector<Spawn>& spawns
+	const std::unordered_map<std::string, std::string>& exits,
+	const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns
 )
-	: _id(id), _name(name), _description(description), _exits(exits), _items(items), _spawns(spawns) {}
+	: _id(id), _name(name), _description(description), _exits(exits), _item_spawns(item_spawns), _npc_spawns(npc_spawns) {}
 
 const std::string& Room::id() const {
 	return _id;
@@ -28,12 +28,12 @@ const std::unordered_map<std::string, std::string>& Room::exits() const {
 	return _exits;
 }
 
-const std::vector<std::string>& Room::items() const {
-	return _items;
+const std::vector<Spawn>& Room::itemSpawns() const {
+	return _item_spawns;
 }
 
-const std::vector<Spawn>& Room::spawns() const {
-	return _spawns;
+const std::vector<Spawn>& Room::npcSpawns() const {
+	return _npc_spawns;
 }
 
 std::vector<std::string> Room::npcs() const {
@@ -44,8 +44,24 @@ std::vector<std::string> Room::npcs() const {
 	return ids;
 }
 
+std::vector<std::string> Room::items() const {
+	std::vector<std::string> ids;
+	for (const auto& [id, npc] : _alive_items)
+		ids.push_back(id);
+	std::sort(ids.begin(), ids.end());
+	return ids;
+}
+
 const std::unordered_map<std::string, Npc>& Room::aliveNpcs() const {
 	return _alive_npcs;
+}
+
+const std::unordered_map<std::string, Item>& Room::aliveItems() const {
+	return _alive_items;
+}
+
+void Room::addItem(const Item& item) {
+	_alive_items.emplace(item.id(), item);
 }
 
 void Room::addNpc(const Npc& npc) {

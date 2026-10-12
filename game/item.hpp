@@ -20,6 +20,20 @@ class ItemDef {
 		bool isObtainable() const;
 };
 
+class Item {
+	private:
+		static inline int _current_id = 0;
+		std::string _id;
+		const ItemDef* _definition;
+
+	public:
+		Item(const ItemDef& def);
+
+		const std::string& id() const;
+		const ItemDef& definition() const;
+		const std::string& name() const;
+};
+
 class ItemDb {
 	private:
 		std::unordered_map<std::string, ItemDef> _items;
@@ -28,6 +42,8 @@ class ItemDb {
 		bool addItem(const ItemDef& item);
 		const ItemDef& item(const std::string& id) const;
 		const std::unordered_map<std::string, ItemDef>& items() const;
+
+		Item instantiate(const std::string& id) const;
 };
 
 #endif

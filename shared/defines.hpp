@@ -14,6 +14,9 @@
 # define MAX_LINE_LENGTH	1024
 # define MAX_NAME_LENGTH	32
 
+// Between the id of a definition and the counter of an instance: "npc.spider#13", "item.herbs#4"
+# define INSTANCE_SEPARATOR	"#"
+
 # define DIR_NORTH			"north"
 # define DIR_EAST			"east"
 # define DIR_SOUTH			"south"

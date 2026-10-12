@@ -9,9 +9,6 @@
 
 # define NPC_ROLE_ENEMY "enemy"
 
-// Between the id of the definition and the counter of the instance: "npc.spider#13"
-# define NPC_INSTANCE_SEPARATOR "#"
-
 class NpcDef {
 	private:
 		std::string _id;
@@ -37,8 +34,8 @@ class NpcDef {
 
 class Npc {
 	private:
-		static inline int _current_id = 0;		// counter of the instances, shared by all the NPCs
-		std::string _id;						// id of the definition + counter: unique for each instance
+		static inline int _current_id = 0;
+		std::string _id;
 		const NpcDef* _definition;
 		Stats _stats;
 

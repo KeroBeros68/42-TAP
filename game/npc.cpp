@@ -1,4 +1,5 @@
 #include "npc.hpp"
+#include "../shared/defines.hpp"
 #include "../shared/random.hpp"
 
 NpcDef::NpcDef(const std::string& id, const std::string& name, const std::string& role,
@@ -52,7 +53,7 @@ Npc NpcDb::instantiate(const std::string& id) const {
 }
 
 Npc::Npc(const NpcDef& def)
-	: _id(def.id() + NPC_INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def), _stats(def.stats()) {}
+	: _id(def.id() + INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def), _stats(def.stats()) {}
 
 const std::string& Npc::id() const {
 	return _id;
