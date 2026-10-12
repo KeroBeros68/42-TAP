@@ -5,8 +5,10 @@
 #include "../shared/defines.hpp"
 
 Room::Room(const std::string& id, const std::string& name, const std::string& description,
-	const std::unordered_map<std::string, std::string>& exits, const std::vector<std::string>& items)
-	: _id(id), _name(name), _description(description), _exits(exits), _items(items) {}
+	const std::unordered_map<std::string, std::string>& exits, const std::vector<std::string>& items,
+	const std::vector<Spawn>& spawns
+)
+	: _id(id), _name(name), _description(description), _exits(exits), _items(items), _spawns(spawns) {}
 
 const std::string& Room::id() const {
 	return _id;
@@ -26,6 +28,26 @@ const std::unordered_map<std::string, std::string>& Room::exits() const {
 
 const std::vector<std::string>& Room::items() const {
 	return _items;
+}
+
+const std::vector<Spawn>& Room::spawns() const {
+	return _spawns;
+}
+
+std::vector<std::string> Room::npcs() const {
+	std::vector<std::string> ids;
+	for (const auto& [id, npc] : _alive_npcs)
+		ids.push_back(id);
+	std::sort(ids.begin(), ids.end());
+	return ids;
+}
+
+const std::unordered_map<std::string, Npc>& Room::aliveNpcs() const {
+	return _alive_npcs;
+}
+
+void Room::addNpc(const Npc& npc) {
+	_alive_npcs.emplace(npc.id(), npc);
 }
 
 const std::vector<long long>& Room::currentPlayer() const {

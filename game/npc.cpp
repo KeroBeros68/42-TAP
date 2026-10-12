@@ -46,3 +46,26 @@ const NpcDef& NpcDb::npc(const std::string& id) const {
 const std::unordered_map<std::string, NpcDef>& NpcDb::npcs() const {
 	return _npcs;
 }
+
+Npc NpcDb::instantiate(const std::string& id) const {
+	return Npc(npc(id));
+}
+
+Npc::Npc(const NpcDef& def)
+	: _id(def.id() + NPC_INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def), _stats(def.stats()) {}
+
+const std::string& Npc::id() const {
+	return _id;
+}
+
+const NpcDef& Npc::definition() const {
+	return *_definition;
+}
+
+const std::string& Npc::name() const {
+	return _definition->name();
+}
+
+const std::string& Npc::talk() const {
+	return _definition->dialogue();
+}

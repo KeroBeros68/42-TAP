@@ -67,6 +67,23 @@ static void readRoom(RoomMap& rooms, json& data) {
 				}
 			}
 
+			std::vector<Spawn> spawns;
+			if (room.contains("spawns") && room["spawns"].is_array()) {
+				for (const auto& entry : room["spawns"]) {
+					Spawn spawn;
+					spawn.npc = entry.at("npc").get<std::string>();
+					spawn.count = entry.value("count", 1);
+					spawn.respawn_seconds = entry.value("respawn_seconds", 0);
+					if (spawn.npc.empty())
+						throw std::runtime_error("invalid room.json: " + room_id + ": a spawn has no npc");
+					if (spawn.count < 1 || spawn.count > MAX_SPAWN_COUNT)
+						throw std::runtime_error("invalid room.json: " + room_id + ": spawn of " + spawn.npc + ": count must be between 1 and " + std::to_string(MAX_SPAWN_COUNT));
+					if (spawn.respawn_seconds < 0)
+						throw std::runtime_error("invalid room.json: " + room_id + ": spawn of " + spawn.npc + ": respawn_seconds can not be negative");
+					spawns.push_back(spawn);
+				}
+			}
+
 			const auto exits = room.at("exits").get<std::unordered_map<std::string, std::string>>();
 			for (const auto& [direction, target] : exits) {
 				if (oppositeDirection(direction).empty())
@@ -79,7 +96,8 @@ static void readRoom(RoomMap& rooms, json& data) {
 				room.at("name").get<std::string>(),
 				room.at("description").get<std::string>(),
 				exits,
-				items
+				items,
+				spawns
 			);
 
 			rooms.emplace(room_id, def);
