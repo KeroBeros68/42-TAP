@@ -7,6 +7,8 @@
 # include "npc.hpp"
 # include "room.hpp"
 
+# define MAX_SPAWN_COUNT 100
+
 void parseNpcs(const std::string& path, NpcDb& npcs);
 void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room);
 
