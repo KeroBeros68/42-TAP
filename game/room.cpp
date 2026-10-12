@@ -1,9 +1,8 @@
 #include "room.hpp"
 
 #include <algorithm>
-#include <cctype>
-#include <sstream>
 
+#include "lookup.hpp"
 #include "../shared/defines.hpp"
 
 Room::Room(const std::string& id, const std::string& name, const std::string& description,
@@ -64,48 +63,25 @@ void Room::addItem(const Item& item) {
 	_alive_items.emplace(item.id(), item);
 }
 
+std::optional<Item> Room::removeItem(const std::string& id) {
+	auto it = _alive_items.find(id);
+	if (it == _alive_items.end())
+		return std::nullopt;
+	Item item = it->second;
+	_alive_items.erase(it);
+	return item;
+}
+
 void Room::addNpc(const Npc& npc) {
 	_alive_npcs.emplace(npc.id(), npc);
 }
 
-static std::string lowerCase(const std::string& text) {
-	std::string lower = text;
-	std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return std::tolower(c); });
-	return lower;
+const Npc*  Room::findNpc(const std::string& query)  const {
+	return lookup::findIn(_alive_npcs, query);
 }
 
-static bool designates(const Npc& npc, const std::string& query) {
-	const std::string definition_id = lowerCase(npc.definition().id());
-	const size_t dot = definition_id.find('.');
-	const std::string short_id = (dot == std::string::npos) ? definition_id : definition_id.substr(dot + 1);	// "guard"
-	const std::string name = lowerCase(npc.name());
-
-	if (query == lowerCase(npc.id()) || query == definition_id || query == short_id || query == name)
-		return true;
-
-	std::istringstream words(name);
-	std::string word;
-	while (words >> word) {
-		if (word.back() == ',')
-			word.pop_back();
-		if (word == query)
-			return true;
-	}
-	return false;
-}
-
-const Npc* Room::findNpc(const std::string& query) const {
-	const size_t first = query.find_first_not_of(' ');
-	if (first == std::string::npos)
-		return nullptr;
-	const std::string wanted = lowerCase(query.substr(first, query.find_last_not_of(' ') - first + 1));
-
-	for (const std::string& id : npcs()) {
-		const Npc& npc = _alive_npcs.at(id);
-		if (designates(npc, wanted))
-			return &npc;
-	}
-	return nullptr;
+const Item* Room::findItem(const std::string& query) const {
+	return lookup::findIn(_alive_items, query);
 }
 
 const std::vector<long long>& Room::currentPlayer() const {

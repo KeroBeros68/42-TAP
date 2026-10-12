@@ -41,6 +41,20 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
 	return Response::success(TapOk::DATA, *dialogue);
 }
 
+static Response cmdTake(Game& game, User& user, const std::string& target) {
+	const std::optional<std::string> taken = game.take(user.id(), target);
+	if (!taken)
+		return Response::failure(TapError::ITEM_NOT_FOUND);
+	return Response::success(TapOk::TAKEN, *taken);
+}
+
+static Response cmdDrop(Game& game, User& user, const std::string& target) {
+	const std::optional<std::string> dropped = game.drop(user.id(), target);
+	if (!dropped)
+		return Response::failure(TapError::ITEM_NOT_FOUND);
+	return Response::success(TapOk::DROPPED, *dropped);
+}
+
 // Placeholder for the commands that are not implemented yet
 static Response cmdStub(const std::string& cmd, User& user, const std::string& args) {
 	LOG_DEBUG("command not implemented", {"client", user.id()}, {"cmd", cmd}, {"args", args});
@@ -63,10 +77,15 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_TALK, [&game](User& user, const std::string& npc_id) {
 		return cmdTalk(game, user, npc_id);
 	});
-
+	server.defineAction(CMD_TAKE, [&game](User& user, const std::string& target) {
+		return cmdTake(game, user, target);
+	});
+	server.defineAction(CMD_DROP, [&game](User& user, const std::string& target) {
+		return cmdDrop(game, user, target);
+	});
 	// Replace an entry by a real handler (like cmdConnect) once the command is implemented
 	const std::string stubs[] = {
-		CMD_CHAT, CMD_TAKE, CMD_DROP, CMD_INVENTORY,
+		CMD_CHAT, CMD_INVENTORY,
 		CMD_ATTACK, CMD_STATUS, CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP
 	};
 	for (const std::string& cmd : stubs) {

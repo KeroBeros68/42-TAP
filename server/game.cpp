@@ -128,3 +128,69 @@ std::optional<std::string> Game::talk(long long player_id, const std::string& ta
 	LOG_INFO("player talked to an npc", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"npc", npc->id()});
 	return npc->talk();
 }
+
+std::optional<std::string> Game::take(long long player_id, const std::string& target) {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("take of an unknown player", {"client", player_id});
+		return std::nullopt;
+	}
+
+	auto room = _world.rooms.find(player->second.current_map);
+	if (room == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.current_map});
+		return std::nullopt;
+	}
+
+	const Item* found = room->second.findItem(target);
+	if (!found || !found->definition().isObtainable()) {
+		LOG_DEBUG("no such item to take", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"target", target});
+		return std::nullopt;
+	}
+
+	const std::string id = found->id();
+	std::optional<Item> item = room->second.removeItem(id);
+	player->second.inventory.emplace(id, *item);
+	LOG_INFO("player took an item", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"item", id});
+	return id;
+}
+
+const Item* Game::Player::findItem(const std::string& query) const {
+	return lookup::findIn(inventory, query);
+}
+
+std::optional<Item> Game::Player::removeItem(const std::string& id) {
+	auto it = inventory.find(id);
+	if (it == inventory.end())
+		return std::nullopt;
+	Item item = it->second;
+	inventory.erase(it);
+	return item;
+}
+
+std::optional<std::string> Game::drop(long long player_id, const std::string& target) {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("drop of an unknown player", {"client", player_id});
+		return std::nullopt;
+	}
+
+	auto room = _world.rooms.find(player->second.current_map);
+	if (room == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.current_map});
+		return std::nullopt;
+	}
+
+	const Item* found = player->second.findItem(target);
+	if (!found || !found->definition().isObtainable()) {
+		LOG_DEBUG("no such item to drop", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"target", target});
+		return std::nullopt;
+	}
+
+	const std::string id = found->id();
+
+	std::optional<Item> item = player->second.removeItem(id);
+	room->second.addItem(*item);
+	LOG_INFO("player took an item", {"client", player_id}, {"player", player->second.name}, {"room", room->first}, {"item", id});
+	return id;
+}

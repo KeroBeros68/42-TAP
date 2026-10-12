@@ -4,13 +4,14 @@
 # include <string>
 # include <unordered_map>
 # include <vector>
+# include <optional>
 
 # include "npc.hpp"
 # include "item.hpp"
+# include "lookup.hpp"
 
-// Used for the NPCs ("spawns") and for the items ("items") of a room in room.json
 struct Spawn {
-	std::string	id;						// id of the NPC or of the item
+	std::string	id;
 	int			count = 1;
 	int			respawn_seconds = 0;
 };
@@ -47,8 +48,10 @@ class Room {
 		const std::unordered_map<std::string, Item>& aliveItems() const;
 		void addNpc(const Npc& npc);
 		const Npc* findNpc(const std::string& query) const;
+		const Item* findItem(const std::string& query) const;
 
 		void addItem(const Item& item);
+		std::optional<Item> removeItem(const std::string& id);
 
 		const std::vector<long long>& currentPlayer() const;
 		void addPlayer(long long id);
