@@ -17,7 +17,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 		TAPLineEdit _username_filed; // Create text area for IP address
 		TAPLineEdit _address_filed; // Create text area for IP address
 		TAPLineEdit _port_filed; // Create text area for IP address
-		QPushButton _button; // Create connect button
+		TAPButton _button; // Create connect button
     	QVBoxLayout _layout;
 
 	public:
