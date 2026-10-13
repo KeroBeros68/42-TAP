@@ -9,6 +9,7 @@ enum class TapError {
 	NO_EXIT,				// 301
 	NOT_IN_GROUP,			// 401
 	ALREADY_IN_GROUP,		// 402
+	INVENTORY_FULL,			// 403 (not in the RFC: TAKE with a full inventory)
 	ITEM_NOT_FOUND,			// 404
 	ITEM_NOT_IN_INVENTORY,	// 404
 	NPC_NOT_FOUND,			// 404
@@ -25,6 +26,7 @@ inline int tapErrorCode(TapError e) {
 		case TapError::NO_EXIT:					return 301;
 		case TapError::NOT_IN_GROUP:			return 401;
 		case TapError::ALREADY_IN_GROUP:		return 402;
+		case TapError::INVENTORY_FULL:			return 403;
 		case TapError::ITEM_NOT_FOUND:			return 404;
 		case TapError::ITEM_NOT_IN_INVENTORY:	return 404;
 		case TapError::NPC_NOT_FOUND:			return 404;
@@ -43,6 +45,7 @@ inline const char* tapErrorName(TapError e) {
 		case TapError::NO_EXIT:					return "NO_EXIT";
 		case TapError::NOT_IN_GROUP:			return "NOT_IN_GROUP";
 		case TapError::ALREADY_IN_GROUP:		return "ALREADY_IN_GROUP";
+		case TapError::INVENTORY_FULL:			return "INVENTORY_FULL";
 		case TapError::ITEM_NOT_FOUND:			return "ITEM_NOT_FOUND";
 		case TapError::ITEM_NOT_IN_INVENTORY:	return "ITEM_NOT_IN_INVENTORY";
 		case TapError::NPC_NOT_FOUND:			return "NPC_NOT_FOUND";

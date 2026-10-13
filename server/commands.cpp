@@ -42,17 +42,19 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
 }
 
 static Response cmdTake(Game& game, User& user, const std::string& target) {
-	const std::optional<std::string> taken = game.take(user.id(), target);
-	if (!taken)
+	const TransferResult taken = game.take(user.id(), target);
+	if (taken.status == TransferStatus::DestinationFull)
+		return Response::failure(TapError::INVENTORY_FULL);
+	if (taken.status == TransferStatus::NotFound)
 		return Response::failure(TapError::ITEM_NOT_FOUND);
-	return Response::success(TapOk::TAKEN, *taken);
+	return Response::success(TapOk::TAKEN, taken.id);
 }
 
 static Response cmdDrop(Game& game, User& user, const std::string& target) {
-	const std::optional<std::string> dropped = game.drop(user.id(), target);
-	if (!dropped)
-		return Response::failure(TapError::ITEM_NOT_FOUND);
-	return Response::success(TapOk::DROPPED, *dropped);
+	const TransferResult dropped = game.drop(user.id(), target);
+	if (dropped.status != TransferStatus::Moved)
+		return Response::failure(TapError::ITEM_NOT_IN_INVENTORY);
+	return Response::success(TapOk::DROPPED, dropped.id);
 }
 
 // Placeholder for the commands that are not implemented yet
