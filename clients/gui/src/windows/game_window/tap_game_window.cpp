@@ -15,6 +15,7 @@ TAPGameWindow::TAPGameWindow()
     this->_window_layout.addWidget(&room_view);
     this->_window_layout.addWidget(&exit_view);
     this->_window_layout.addWidget(&ground_items_view);
+    this->_window_layout.addWidget(&inventory_view);
     this->_window_layout.addStretch();
 };
 
