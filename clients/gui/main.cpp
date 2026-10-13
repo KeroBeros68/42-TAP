@@ -46,7 +46,17 @@ int main(int argc, char *argv[])
 	game_window.update_room_name("42 datacenter");
 	game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty. As you slowly walk here, a thick fog starts to form. You feel observed.");
 	game_window.update_available_exits(ex);
-	try {
+
+    // Debug items : ground and inventory
+    game_window.update_ground_items(std::map<std::string, std::string> {
+        {"item.kevin_sword#1", "kevin sword"},
+        {"item.kevin_bouclier#2", "kevin bouclier"},
+    });
+    game_window.update_inventory(std::map<std::string, std::string> {
+        {"item.herbs#3", "herbs"},
+    });
+
+    try {
 		app.exec();
 	}
 	catch (const std::exception& e) {

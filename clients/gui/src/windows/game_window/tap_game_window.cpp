@@ -14,8 +14,10 @@ TAPGameWindow::TAPGameWindow()
     this->_window_layout.addWidget(&player_count_bar);
     this->_window_layout.addWidget(&room_view);
     this->_window_layout.addWidget(&exit_view);
-    this->_window_layout.addWidget(&ground_items_view);
-    this->_window_layout.addWidget(&inventory_view);
+    // Ground items and inventory side by side
+    this->_items_row_layout.addWidget(&ground_items_view);
+    this->_items_row_layout.addWidget(&inventory_view);
+    this->_window_layout.addLayout(&this->_items_row_layout);
     this->_window_layout.addStretch();
 };
 
@@ -47,4 +49,14 @@ void TAPGameWindow::update_room_description(std::string description)
 void TAPGameWindow::update_available_exits(std::map<std::string, std::string> data)
 {
     this->exit_view.update_available_exits(data);
+};
+
+void TAPGameWindow::update_ground_items(std::map<std::string, std::string> data)
+{
+    this->ground_items_view.update_ground_items(data);
+};
+
+void TAPGameWindow::update_inventory(std::map<std::string, std::string> data)
+{
+    this->inventory_view.update_inventory(data);
 };

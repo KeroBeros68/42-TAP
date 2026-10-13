@@ -4,11 +4,16 @@
 
 TAPInventoryView::TAPInventoryView()
 {
+    // Section title
+    this->_section_title.setText("INVENTORY");
+    this->_layout.addWidget(&this->_section_title, 0, Qt::AlignCenter);
+
     this->_no_items_label.setText("(empty inventory)");
     this->_layout.addWidget(&this->_no_items_label, 0, Qt::AlignCenter);
     this->_layout.addLayout(&this->_layout_items);
 
     this->_validate_button.setText("DROP");
+    this->_layout.addStretch();
     this->_layout.addWidget(&this->_validate_button);
         this->connect(&this->_validate_button,
             &QPushButton::clicked,

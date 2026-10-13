@@ -3,11 +3,16 @@
 
 TAPGroundItemsView::TAPGroundItemsView()
 {
-    this->_no_items_label.setText("(empty inventory)");
+    // Section title
+    this->_section_title.setText("GROUND ITEMS");
+    this->_layout.addWidget(&this->_section_title, 0, Qt::AlignCenter);
+
+    this->_no_items_label.setText("(no ground items available)");
     this->_layout.addWidget(&this->_no_items_label, 0, Qt::AlignCenter);
     this->_layout.addLayout(&this->_layout_items);
 
     this->_validate_button.setText("TAKE");
+    this->_layout.addStretch();
     this->_layout.addWidget(&this->_validate_button);
         this->connect(&this->_validate_button,
             &QPushButton::clicked,
