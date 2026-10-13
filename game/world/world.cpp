@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 #include "parser.hpp"
-#include "../shared/logger.hpp"
+#include "../../shared/logger.hpp"
 
 #ifndef PROJECT_ROOT
 # define PROJECT_ROOT "."

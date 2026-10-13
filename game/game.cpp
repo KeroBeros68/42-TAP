@@ -5,18 +5,18 @@
 
 Game::Game() {}
 
-void Game::addPlayer(const User& user) {
+void Game::addPlayer(long long id, const std::string& name) {
 	// a new player starts on the start room of the world
-	Player player(user.id(), user.name(), _world.start_room);
-	_players.insert_or_assign(user.id(), player);
+	Player player(id, name, _world.start_room);
+	_players.insert_or_assign(id, player);
 
 	auto room = _world.rooms.find(player.currentMap());
 	if (room == _world.rooms.end()) {
-		LOG_WARN("unknown map for player", {"client", user.id()}, {"room", player.currentMap()});
+		LOG_WARN("unknown map for player", {"client", id}, {"room", player.currentMap()});
 		return;
 	}
-	room->second.addPlayer(user.id());
-	LOG_INFO("player entered room", {"client", user.id()}, {"player", player.name()}, {"room", player.currentMap()});
+	room->second.addPlayer(id);
+	LOG_INFO("player entered room", {"client", id}, {"player", player.name()}, {"room", player.currentMap()});
 }
 
 void Game::removePlayer(long long id) {

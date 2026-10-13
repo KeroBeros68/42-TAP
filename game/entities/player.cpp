@@ -1,5 +1,5 @@
 #include "player.hpp"
-#include "../shared/defines.hpp"
+#include "../../shared/defines.hpp"
 
 Player::Player(long long id, const std::string& name, const std::string& map)
 	: _id(id), _name(name), _current_map(map), _inventory(PLAYER_INVENTORY_CAPACITY) {}

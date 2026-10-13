@@ -1,5 +1,5 @@
 #include "item.hpp"
-#include "../shared/defines.hpp"
+#include "../../shared/defines.hpp"
 
 ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable) 
 	: _id(id), _name(name), _description(description), _obtainable(obtainable) {}

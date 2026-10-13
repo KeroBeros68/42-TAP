@@ -4,8 +4,8 @@
 # include <string>
 # include <vector>
 
-# include "item.hpp"
-# include "npc.hpp"
+# include "../entities/item.hpp"
+# include "../entities/npc.hpp"
 # include "room.hpp"
 
 class World {

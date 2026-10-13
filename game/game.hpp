@@ -6,9 +6,8 @@
 # include <unordered_map>
 # include <vector>
 
-# include "user.hpp"
-# include "../game/player.hpp"
-# include "../game/world.hpp"
+# include "entities/player.hpp"
+# include "world/world.hpp"
 
 
 class Game {
@@ -20,7 +19,7 @@ class Game {
 	public:
 		Game();
 
-		void addPlayer(const User& user);
+		void addPlayer(long long id, const std::string& name);
 		void removePlayer(long long id);
 
 		const World& world() const;

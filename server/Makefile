@@ -45,12 +45,12 @@ SRCS =	server.cpp \
 	utf8.cpp
 
 # The game sources live in ../game
-vpath %.cpp ../game:../shared
+vpath %.cpp ../game:../game/world:../game/entities:../shared
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
 
-INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp)
+INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
 
 # Compilation
 CC = c++

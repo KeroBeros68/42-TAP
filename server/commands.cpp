@@ -10,7 +10,7 @@ static Response cmdConnect(Game& game, User& user, const std::string& name) {
 		return Response::failure(TapError::NAME_IN_USE);
 	}
 	user.authenticate();
-	game.addPlayer(user);
+	game.addPlayer(user.id(), user.name());
 	LOG_INFO("player connected", {"client", user.id()}, {"player", user.name()});
 	return Response::success(TapOk::CONNECTED);
 }
