@@ -2,8 +2,8 @@
 
 #include <algorithm>
 
-#include "lookup.hpp"
-#include "../shared/defines.hpp"
+#include "../utils/lookup.hpp"
+#include "../../shared/defines.hpp"
 
 Room::Room(const std::string& id, const std::string& name, const std::string& description,
 	const std::unordered_map<std::string, std::string>& exits,

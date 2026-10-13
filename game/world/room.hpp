@@ -6,9 +6,9 @@
 # include <vector>
 # include <optional>
 
-# include "npc.hpp"
-# include "inventory.hpp"
-# include "lookup.hpp"
+# include "../entities/npc.hpp"
+# include "../entities/inventory.hpp"
+# include "../utils/lookup.hpp"
 
 struct Spawn {
 	std::string	id;

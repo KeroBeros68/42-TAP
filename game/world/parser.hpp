@@ -4,8 +4,8 @@
 # include <string>
 # include <vector>
 
-# include "npc.hpp"
-# include "item.hpp"
+# include "../entities/npc.hpp"
+# include "../entities/item.hpp"
 # include "room.hpp"
 
 # define MAX_SPAWN_COUNT 100

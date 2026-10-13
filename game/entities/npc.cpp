@@ -1,6 +1,6 @@
 #include "npc.hpp"
-#include "../shared/defines.hpp"
-#include "../shared/random.hpp"
+#include "../../shared/defines.hpp"
+#include "../../shared/random.hpp"
 
 NpcDef::NpcDef(const std::string& id, const std::string& name, const std::string& role,
 	const std::string& description, const std::vector<std::string>& dialogues,

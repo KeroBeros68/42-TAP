@@ -1,5 +1,5 @@
 #include "inventory.hpp"
-#include "lookup.hpp"
+#include "../utils/lookup.hpp"
 
 #include <algorithm>
 

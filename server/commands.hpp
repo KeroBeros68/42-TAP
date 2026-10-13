@@ -2,7 +2,7 @@
 # define COMMANDS_HPP
 
 # include "server.hpp"
-# include "game.hpp"
+# include "../game/game.hpp"
 
 
 void registerCommands(Server& server, Game& game);

@@ -1,12 +1,12 @@
 #include "parser.hpp"
-#include "../shared/logger.hpp"
+#include "../../shared/logger.hpp"
 
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
 
-#include "../third_party/json.hpp"
+#include "../../third_party/json.hpp"
 
 using json = nlohmann::json;
 
