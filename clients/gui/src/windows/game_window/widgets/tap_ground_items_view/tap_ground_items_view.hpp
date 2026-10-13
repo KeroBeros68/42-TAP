@@ -9,6 +9,7 @@ class TAPGroundItemsView : public TAPGameSectionWidget
     private:
         QVBoxLayout _layout;
         QVBoxLayout _layout_items;
+        TAPRoomNameLabel _section_title;
         TAPButton _validate_button;
         TAPLabel    _no_items_label;
         // items list : canonical_id, human_readable_name
