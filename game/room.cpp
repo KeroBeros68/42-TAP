@@ -44,32 +44,19 @@ std::vector<std::string> Room::npcs() const {
 }
 
 std::vector<std::string> Room::items() const {
-	std::vector<std::string> ids;
-	for (const auto& [id, npc] : _alive_items)
-		ids.push_back(id);
-	std::sort(ids.begin(), ids.end());
-	return ids;
+	return _inventory.ids();
 }
 
 const std::unordered_map<std::string, Npc>& Room::aliveNpcs() const {
 	return _alive_npcs;
 }
 
-const std::unordered_map<std::string, Item>& Room::aliveItems() const {
-	return _alive_items;
+Inventory& Room::inventory() {
+	return _inventory;
 }
 
-void Room::addItem(const Item& item) {
-	_alive_items.emplace(item.id(), item);
-}
-
-std::optional<Item> Room::removeItem(const std::string& id) {
-	auto it = _alive_items.find(id);
-	if (it == _alive_items.end())
-		return std::nullopt;
-	Item item = it->second;
-	_alive_items.erase(it);
-	return item;
+const Inventory& Room::inventory() const {
+	return _inventory;
 }
 
 void Room::addNpc(const Npc& npc) {
@@ -78,10 +65,6 @@ void Room::addNpc(const Npc& npc) {
 
 const Npc*  Room::findNpc(const std::string& query)  const {
 	return lookup::findIn(_alive_npcs, query);
-}
-
-const Item* Room::findItem(const std::string& query) const {
-	return lookup::findIn(_alive_items, query);
 }
 
 const std::vector<long long>& Room::currentPlayer() const {

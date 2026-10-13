@@ -7,7 +7,7 @@
 # include <optional>
 
 # include "npc.hpp"
-# include "item.hpp"
+# include "inventory.hpp"
 # include "lookup.hpp"
 
 struct Spawn {
@@ -26,7 +26,7 @@ class Room {
 		std::vector<Spawn> _item_spawns;
 		std::vector<Spawn> _npc_spawns;
 		std::unordered_map<std::string, Npc> _alive_npcs;
-		std::unordered_map<std::string, Item> _alive_items;
+		Inventory _inventory;
 		std::vector<long long> _current_player;
 
 	public:
@@ -45,13 +45,11 @@ class Room {
 		std::vector<std::string> npcs() const;
 		std::vector<std::string> items() const;
 		const std::unordered_map<std::string, Npc>& aliveNpcs() const;
-		const std::unordered_map<std::string, Item>& aliveItems() const;
 		void addNpc(const Npc& npc);
 		const Npc* findNpc(const std::string& query) const;
-		const Item* findItem(const std::string& query) const;
 
-		void addItem(const Item& item);
-		std::optional<Item> removeItem(const std::string& id);
+		Inventory& inventory();
+		const Inventory& inventory() const;
 
 		const std::vector<long long>& currentPlayer() const;
 		void addPlayer(long long id);

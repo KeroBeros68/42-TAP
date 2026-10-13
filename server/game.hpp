@@ -7,19 +7,12 @@
 # include <vector>
 
 # include "user.hpp"
+# include "../game/player.hpp"
 # include "../game/world.hpp"
 
 
 class Game {
 	private:
-		struct Player {
-			std::string	name;
-			std::string	current_map;
-			std::unordered_map<std::string, Item> inventory;
-			// later: hp, inventory, group, quests...
-			const Item* findItem(const std::string& query) const;
-			std::optional<Item> removeItem(const std::string& id);
-		};
 		std::unordered_map<long long, Player> _players;
 
 		World _world;
@@ -35,8 +28,9 @@ class Game {
 		const std::string& playerMap(long long id) const;
 
 		bool move(long long player_id, const std::string& direction);
-		std::optional<std::string> take(long long player_id, const std::string& target);
-		std::optional<std::string> drop(long long player_id, const std::string& item_id);
+
+		TransferResult take(long long player_id, const std::string& target);
+		TransferResult drop(long long player_id, const std::string& target);
 
 		std::optional<std::string> talk(long long player_id, const std::string& target) const;
 

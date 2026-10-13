@@ -14,6 +14,8 @@
 # define MAX_LINE_LENGTH	1024
 # define MAX_NAME_LENGTH	32
 
+# define PLAYER_INVENTORY_CAPACITY	10
+
 // Between the id of a definition and the counter of an instance: "npc.spider#13", "item.herbs#4"
 # define INSTANCE_SEPARATOR	"#"
 

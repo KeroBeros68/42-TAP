@@ -37,6 +37,8 @@ SRCS =	server.cpp \
 	item.cpp \
 	npc.cpp \
 	room.cpp \
+	inventory.cpp \
+	player.cpp \
 	parser.cpp \
 	world.cpp \
 	logger.cpp \
