@@ -14,6 +14,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPRoomView         room_view;
         TAPExitView         exit_view;
         TAPGroundItemsView  ground_items_view;
+        TAPInventoryView    inventory_view;
 
     public:
         // Constructor

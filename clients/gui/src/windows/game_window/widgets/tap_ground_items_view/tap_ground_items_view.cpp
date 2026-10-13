@@ -18,10 +18,14 @@ TAPGroundItemsView::TAPGroundItemsView()
 
     this->setLayout(&this->_layout);
 
-    this->update_ground_items(std::map<std::string, std::string> {
-        {"kevin bouclier", "kevin bouclier "},
-        {"kevin sword", "kevin sword"},
-    });
+    // Empty ground at startup
+    this->update_ground_items({});
+
+    // // Debug example : uncomment to display items on the ground
+    // this->update_ground_items(std::map<std::string, std::string> {
+    //     {"item.kevin_bouclier#1", "kevin bouclier"},
+    //     {"item.kevin_sword#2", "kevin sword"},
+    // });
 }
 
 void TAPGroundItemsView::update_ground_items(std::map<std::string, std::string> data)

@@ -38,6 +38,7 @@ add_executable(${PROJECT_NAME}
     src/windows/game_window/widgets/tap_exit_view/tap_exit_view.cpp
     src/windows/game_window/widgets/tap_exit_view/exit_buttons/tap_exit_buttons.cpp
     src/windows/game_window/widgets/tap_ground_items_view/tap_ground_items_view.cpp
+    src/windows/game_window/widgets/tap_inventory_view/tap_inventory_view.cpp
 )
 # ...
 
