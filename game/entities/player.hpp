@@ -6,6 +6,7 @@
 # include <unordered_map>
 
 # include "inventory.hpp"
+# include "stats.hpp"
 
 class Player {
 	private:
@@ -13,7 +14,7 @@ class Player {
 		std::string	_name;
 		std::string	_current_map;		// id of the room where the player is
 		Inventory	_inventory;			// limited to PLAYER_INVENTORY_CAPACITY items
-		// later: hp, group, quests...
+		Stats		_stats;				// later: hp, group, quests...
 
 	public:
 		Player(long long id, const std::string& name, const std::string& map);
@@ -26,6 +27,8 @@ class Player {
 
 		Inventory& inventory();
 		const Inventory& inventory() const;
+		const Stats& stats() const;
+		Stats& stats();
 };
 
 #endif

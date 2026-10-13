@@ -3,6 +3,7 @@
 
 # include "server.hpp"
 # include "../game/game.hpp"
+# include "serializer.hpp"
 
 
 void registerCommands(Server& server, Game& game);

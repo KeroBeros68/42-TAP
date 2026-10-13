@@ -21,8 +21,6 @@ class World {
 
 		World();
 
-		std::string look(const std::string& room_id, const std::vector<std::string>& players) const;
-
 };
 
 #endif

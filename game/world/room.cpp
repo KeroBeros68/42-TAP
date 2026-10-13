@@ -67,6 +67,10 @@ const Npc*  Room::findNpc(const std::string& query)  const {
 	return lookup::findIn(_alive_npcs, query);
 }
 
+Npc*  Room::findNpc(const std::string& query) {
+	return lookup::findIn(_alive_npcs, query);
+}
+
 const std::vector<long long>& Room::currentPlayer() const {
 	return _current_player;
 }
@@ -90,4 +94,8 @@ std::string oppositeDirection(const std::string& direction) {
 	if (direction == DIR_WEST)
 		return DIR_EAST;
 	return "";
+}
+
+void Room::removeNpc(Npc* npc) {
+	_alive_npcs.erase(npc->id());
 }
