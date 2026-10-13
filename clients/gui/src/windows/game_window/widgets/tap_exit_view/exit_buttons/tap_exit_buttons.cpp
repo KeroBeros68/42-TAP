@@ -13,11 +13,25 @@ TAPExitButtons::TAPExitButtons()
 
     this->setLayout(&this->_layout);
 
+    // Connect each button to emit the name of the exit it points to
+    const char *directions[4] = {"north", "south", "east", "west"};
+    for (int i = 0; i < 4; i++)
+    {
+        const char *direction = directions[i];
+        this->connect(&this->_buttons[i],
+            &QPushButton::clicked,
+            this,
+            [this, direction] {
+                std::cout << "[WIP] MOVE " << direction << std::endl;
+        });
+    }
+
     // this->update_available_exits(ex);
 };
 
 void TAPExitButtons::update_available_exits(std::map<std::string, std::string> data)
 {
+    this->_exit_names = data;
     // North update
     if (data["north"] != "")
     {

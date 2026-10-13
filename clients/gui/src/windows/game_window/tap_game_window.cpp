@@ -47,8 +47,3 @@ void TAPGameWindow::update_available_exits(std::map<std::string, std::string> da
 {
     this->exit_view.update_available_exits(data);
 };
-
-void TAPGameWindow::update_ground_items(std::map<std::string, std::string> data)
-{
-    this->ground_items_view.update_ground_items(data);
-}

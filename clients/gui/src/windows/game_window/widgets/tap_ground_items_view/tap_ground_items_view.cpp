@@ -1,66 +1,64 @@
 #include "tap_ground_items_view.hpp"
-# include "globals.hpp"
+#include <iostream>
 
 TAPGroundItemsView::TAPGroundItemsView()
-    : TAPGameSectionWidget(),
-      _layout(this),
-      _validate_button("TAKE")
 {
-    this->_validate_button.setStyleSheet(BUTTON_PROPERTIES);
-    this->_layout.addWidget(&this->_validate_button);
+    this->_no_items_label.setText("(empty inventory)");
+    this->_layout.addWidget(&this->_no_items_label, 0, Qt::AlignCenter);
+    this->_layout.addLayout(&this->_layout_items);
 
-    QObject::connect(&this->_validate_button, &QPushButton::clicked,
-        this, &TAPGroundItemsView::on_validate_clicked);
-};
+    this->_validate_button.setText("TAKE");
+    this->_layout.addWidget(&this->_validate_button);
+        this->connect(&this->_validate_button,
+            &QPushButton::clicked,
+            this,
+            [this] {
+                std::cout << "[WIP] TAKE " << this->get_selected_item_id() << std::endl;
+        });
+
+    this->setLayout(&this->_layout);
+
+    this->update_ground_items(std::map<std::string, std::string> {
+        {"kevin bouclier", "kevin bouclier "},
+        {"kevin sword", "kevin sword"},
+    });
+}
 
 void TAPGroundItemsView::update_ground_items(std::map<std::string, std::string> data)
 {
+    // Genocide previous buttons
+    for (auto *btn: this->_item_buttons)
+    {
+        delete btn;
+    }
+    this->_item_buttons.clear();
+
     this->_items = data;
-    this->rebuild_buttons();
-};
 
-void TAPGroundItemsView::rebuild_buttons(void)
-{
-    // Destroy every radio button of the previous update
-    QLayoutItem *item;
-    while ((item = this->_layout.takeAt(0)) != nullptr)
-    {
-        if (item->widget() && item->widget() != &this->_validate_button)
-            delete item->widget();
-        delete item;
+    for (auto &[id, name] : data) {
+        auto *btn = new QRadioButton(QString::fromStdString(name), this);
+        btn->setProperty("canonical_id", QString::fromStdString(id));
+        btn->setStyleSheet(TAP_LABEL_PROPERTIES);
+        this->_layout_items.addWidget(btn);
+        this->_item_buttons.push_back(btn);
     }
 
-    // Rebuild one radio button per item on the ground
-    for (const auto &[id, name] : this->_items)
-    {
-        QRadioButton *radio = new QRadioButton();
-        radio->setText(name.c_str());
-        radio->setStyleSheet(TAP_LABEL_PROPERTIES);
-        // Store the canonical id inside the widget itself
-        radio->setProperty("item_id", id.c_str());
-        this->_layout.addWidget(radio);
+    // No items are present
+    if (data.size() == 0) {
+        this->_no_items_label.show();
+        this->_validate_button.hide();
+    }
+    else {
+        this->_no_items_label.hide();
+        this->_validate_button.show();
     }
 
-    // Keep the validate button last
-    this->_layout.addWidget(&this->_validate_button);
-};
+}
 
 std::string TAPGroundItemsView::get_selected_item_id(void) const
 {
-    QList<QRadioButton *> radios = this->findChildren<QRadioButton *>();
-    for (QRadioButton *radio : radios)
-    {
-        if (radio->isChecked())
-            return radio->property("item_id").toString().toStdString();
-    }
-    return "";
-};
-
-void TAPGroundItemsView::on_validate_clicked(void)
-{
-    std::string id = this->get_selected_item_id();
-    if (id.empty())
-        return; // nothing selected
-    qDebug() << "Took item :" << id.c_str();
-    // TODO : envoyer la demande de ramassage au serveur
-};
+    for (auto *btn : this->_item_buttons)
+        if (btn->isChecked())
+            return btn->property("canonical_id").toString().toStdString();
+    return "";  // rien de sélectionné
+}
