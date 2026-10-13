@@ -40,7 +40,11 @@ INCLUDES =	../client.hpp \
 
 # Compilation
 CC = c++
+<<<<<<< HEAD
 CFLAGS = -Wall -Werror -Wextra -std=c++17 -pthread
+=======
+CFLAGS = -Wall -Werror -Wextra -std=c++20 -pthread
+>>>>>>> main
 
 # Object name
 OBJS = $(addprefix $(OBJ_DIR)/, $(notdir $(SRCS:.cpp=.o)))

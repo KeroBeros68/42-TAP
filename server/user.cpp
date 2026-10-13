@@ -27,6 +27,5 @@ bool User::isAuthenticated() const {
 }
 
 void User::authenticate() {
-	if (!_name.empty())
-		_authenticated = true;
+	_authenticated = _authenticated ? false : true;
 }
