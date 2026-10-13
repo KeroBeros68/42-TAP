@@ -63,16 +63,26 @@ const std::string& Game::playerMap(long long id) const {
 	return _players.at(id).currentMap();
 }
 
-std::string Game::look(long long player_id) const {
-	const std::string& map = _players.at(player_id).currentMap();
-
-	std::vector<std::string> names;
-	for (long long id : _world.rooms.at(map).currentPlayer()) {
-		auto player = _players.find(id);
-		if (player != _players.end())
-			names.push_back(player->second.name());
+std::optional<LookData> Game::look(long long player_id) const {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("look of an unknown player", {"client", player_id});
+		return std::nullopt;
 	}
-	return _world.look(map, names);
+
+	auto room = _world.rooms.find(player->second.currentMap());
+	if (room == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
+		return std::nullopt;
+	}
+
+	LookData data{&room->second, {}};
+	for (long long id : room->second.currentPlayer()) {
+		auto other = _players.find(id);
+		if (other != _players.end())
+			data.players.push_back(other->second.name());
+	}
+	return data;
 }
 
 bool Game::move(long long player_id, const std::string& direction) {
@@ -98,6 +108,7 @@ bool Game::move(long long player_id, const std::string& direction) {
 	if (destination == _world.rooms.end())
 		return false;
 
+	player->second.stats().in_combat = false;
 	origin->second.removePlayer(player_id);
 	destination->second.addPlayer(player_id);
 	player->second.setCurrentMap(exit->second);
@@ -174,4 +185,58 @@ TransferResult Game::drop(long long player_id, const std::string& target) {
 	else if (result.status == TransferStatus::Moved)
 		LOG_INFO("player dropped an item", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"item", result.id});
 	return result;
+}
+
+CombatResult Game::attack(long long player_id, const std::string& target) {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("attack of an unknown player", {"client", player_id});
+		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
+	}
+
+	auto room = _world.rooms.find(player->second.currentMap());
+	if (room == _world.rooms.end()) {
+		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
+		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
+	}
+
+	Npc* npc = room->second.findNpc(target);
+	if (!npc) {
+		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
+	}
+
+	if (npc->definition().role() != NPC_ROLE_ENEMY) {
+		LOG_DEBUG("player tried to attack a non-hostile NPC", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+		return {AttackStatus::NOT_HOSTILE, 0, 0, 0, 0, false, false};
+	}
+
+	LOG_INFO("player attacked an npc", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+
+	CombatResult result = fight(player->second.stats(), npc->stats());
+
+	if (result.defender_dead) {
+		const std::string npc_id = npc->id();
+		const std::vector<std::string> dropped = npc->dropLoot(room->second.inventory(), _world.item_database);
+		std::string loot;
+		for (const std::string& item : dropped)
+			loot += (loot.empty() ? "" : ",") + item;
+		LOG_INFO("npc died", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc_id}, {"loot", loot});
+		room->second.removeNpc(npc);
+	}
+
+	if (result.attacker_dead) {
+		LOG_INFO("player died", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+	}
+
+	return result;
+}
+
+const Stats* Game::status(long long player_id) const {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("status of an unknown player", {"client", player_id});
+		return nullptr;
+	}
+	return &player->second.stats();
 }

@@ -42,10 +42,12 @@ SRCS =	server.cpp \
 	parser.cpp \
 	world.cpp \
 	logger.cpp \
-	utf8.cpp
+	utf8.cpp \
+	combat.cpp \
+	serializer.cpp
 
 # The game sources live in ../game
-vpath %.cpp ../game:../game/world:../game/entities:../shared
+vpath %.cpp ../game:../game/world:../game/entities:../shared:../game/combat
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
@@ -108,6 +110,7 @@ $(OBJ_DIR)/%.o: %.cpp $(INCLUDES) | $(OBJ_DIR)
 # Only parser.cpp uses the JSON library, only world.cpp needs the absolute path of the project
 # (after moving the project folder, run "make re")
 $(OBJ_DIR)/parser.o: $(JSON)
+$(OBJ_DIR)/serializer.o: $(JSON)
 $(OBJ_DIR)/world.o: CFLAGS += '-DPROJECT_ROOT="$(abspath ..)"'
 
 $(JSON):

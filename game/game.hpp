@@ -7,8 +7,13 @@
 # include <vector>
 
 # include "entities/player.hpp"
+# include "combat/combat.hpp"
 # include "world/world.hpp"
 
+struct LookData {
+	const Room* room;
+	std::vector<std::string> players;
+};
 
 class Game {
 	private:
@@ -23,7 +28,7 @@ class Game {
 		void removePlayer(long long id);
 
 		const World& world() const;
-		std::string look(long long player_id) const;
+		std::optional<LookData> look(long long player_id) const;
 		const std::string& playerMap(long long id) const;
 
 		bool move(long long player_id, const std::string& direction);
@@ -32,6 +37,10 @@ class Game {
 		TransferResult drop(long long player_id, const std::string& target);
 
 		std::optional<std::string> talk(long long player_id, const std::string& target) const;
+
+		CombatResult attack(long long player_id, const std::string& target);
+
+		const Stats* status(long long player_id) const;
 
 		bool hasPlayer(long long id) const;
 		bool isNameTaken(const std::string& name) const;

@@ -91,7 +91,3 @@ void World::loadWorld() {
 	validateRoomId(rooms, respawn_room, "respawn room");
 	LOG_INFO("world loaded", {"npcs", npc_database.npcs().size()}, {"items", item_database.items().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
 }
-
-std::string World::look(const std::string& room_id, const std::vector<std::string>& players) const {
-	return serializeLook(rooms.at(room_id), players, rooms.at(room_id).npcs(), rooms.at(room_id).items());
-}

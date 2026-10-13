@@ -47,6 +47,7 @@ class Room {
 		const std::unordered_map<std::string, Npc>& aliveNpcs() const;
 		void addNpc(const Npc& npc);
 		const Npc* findNpc(const std::string& query) const;
+		Npc* findNpc(const std::string& query);
 
 		Inventory& inventory();
 		const Inventory& inventory() const;
@@ -54,6 +55,8 @@ class Room {
 		const std::vector<long long>& currentPlayer() const;
 		void addPlayer(long long id);
 		void removePlayer(long long id);
+
+		void removeNpc(Npc* npc);
 };
 
 std::string oppositeDirection(const std::string& direction);

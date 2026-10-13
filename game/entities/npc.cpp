@@ -70,3 +70,25 @@ const std::string& Npc::name() const {
 const std::string& Npc::talk() const {
 	return _definition->dialogue();
 }
+
+const Stats& Npc::stats() const {
+	return _stats;
+}
+
+Stats& Npc::stats() {
+	return _stats;
+}
+
+const std::vector<std::string>& NpcDef::loots() const {
+	return _loots;
+}
+
+std::vector<std::string> Npc::dropLoot(Inventory& floor, const ItemDb& items) const {
+	std::vector<std::string> dropped;
+	for (const std::string& loot : _definition->loots()) {
+		Item item = items.instantiate(loot);
+		dropped.push_back(item.id());
+		floor.add(item);
+	}
+	return dropped;
+}

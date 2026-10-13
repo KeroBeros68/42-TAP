@@ -2,7 +2,7 @@
 #include "../../shared/defines.hpp"
 
 Player::Player(long long id, const std::string& name, const std::string& map)
-	: _id(id), _name(name), _current_map(map), _inventory(PLAYER_INVENTORY_CAPACITY) {}
+	: _id(id), _name(name), _current_map(map), _inventory(PLAYER_INVENTORY_CAPACITY), _stats(100, 100, 10, 10) {}
 
 long long Player::id() const {
 	return _id;
@@ -26,4 +26,12 @@ Inventory& Player::inventory() {
 
 const Inventory& Player::inventory() const {
 	return _inventory;
+}
+
+const Stats& Player::stats() const {
+	return _stats;
+}
+
+Stats& Player::stats() {
+	return _stats;
 }
