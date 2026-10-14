@@ -1,0 +1,74 @@
+#include "tap_npc_talk.hpp"
+#include <iostream>
+
+TAPNPCTalkView::TAPNPCTalkView()
+{
+    // Section title
+    this->_section_title.setText("NPC TALK");
+    this->_layout.addWidget(&this->_section_title, 0, Qt::AlignCenter);
+
+    this->_no_items_label.setText("(no npcs available)");
+    this->_layout.addWidget(&this->_no_items_label, 0, Qt::AlignCenter);
+    this->_layout.addLayout(&this->_layout_items);
+
+    this->_validate_button.setText("TALK");
+    this->_layout.addStretch();
+    this->_layout.addWidget(&this->_validate_button);
+        this->connect(&this->_validate_button,
+            &QPushButton::clicked,
+            this,
+            [this] {
+                if (this->get_selected_npc_id() == "") {return ;}
+                std::cout << "[WIP] TALK " << this->get_selected_npc_id() << std::endl;
+        });
+
+    this->setLayout(&this->_layout);
+
+    // Empty ground at startup
+    this->update_npcs({});
+
+    // Debug example
+    // this->update_npcs(std::map<std::string, std::string> {
+    //     {"npc.kevin_bertrand_cheronnet", "Kevin Bertrand Cheronnet"},
+    //     {"npc.laurent", "Laurent"},
+    // });
+}
+
+void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
+{
+    // Genocide previous buttons
+    for (auto *btn: this->_npc_buttons)
+    {
+        delete btn;
+    }
+    this->_npc_buttons.clear();
+
+    this->_npcs = data;
+
+    for (auto &[id, name] : data) {
+        auto *btn = new QRadioButton(QString::fromStdString(name), this);
+        btn->setProperty("canonical_id", QString::fromStdString(id));
+        btn->setStyleSheet(TAP_LABEL_PROPERTIES);
+        this->_layout_items.addWidget(btn);
+        this->_npc_buttons.push_back(btn);
+    }
+
+    // No items are present
+    if (data.size() == 0) {
+        this->_no_items_label.show();
+        this->_validate_button.hide();
+    }
+    else {
+        this->_no_items_label.hide();
+        this->_validate_button.show();
+    }
+
+}
+
+std::string TAPNPCTalkView::get_selected_npc_id(void) const
+{
+    for (auto *btn : this->_npc_buttons)
+        if (btn->isChecked())
+            return btn->property("canonical_id").toString().toStdString();
+    return "";  // rien de sélectionné
+}

@@ -37,15 +37,14 @@ int main(int argc, char *argv[])
 	game_window.show();
 	game_window.update_total_players_label(42);
 	game_window.update_players_in_room_label(21);
-    std::map<std::string, std::string> ex = {
+	game_window.update_room_name("42 datacenter");
+	game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty. As you slowly walk here, a thick fog starts to form. You feel observed.");
+	game_window.update_available_exits({
         {"north", "Datacenter hall"},
         {"south", "Napo office"},
 		{"east", "Gambrinus"},
 		{"west", "KM0"}
-	};
-	game_window.update_room_name("42 datacenter");
-	game_window.update_room_description("A silent and strange feeling fills this place. It looks... empty. As you slowly walk here, a thick fog starts to form. You feel observed.");
-	game_window.update_available_exits(ex);
+	});
 
     // Debug items : ground and inventory
     game_window.update_ground_items(std::map<std::string, std::string> {
@@ -54,6 +53,10 @@ int main(int argc, char *argv[])
     });
     game_window.update_inventory(std::map<std::string, std::string> {
         {"item.herbs#3", "herbs"},
+    });
+    game_window.update_npcs(std::map<std::string, std::string> {
+        {"npc.kevin_bertrand_cheronnet", "Kevin Bertrand Cheronnet"},
+        {"npc.laurent", "Laurent"},
     });
 
     try {

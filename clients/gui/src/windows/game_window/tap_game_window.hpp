@@ -17,6 +17,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPExitView         exit_view;
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;
+        TAPNPCTalkView      npc_talk_view;
 
     public:
         // Constructor
@@ -30,6 +31,7 @@ class TAPGameWindow : public TAPBaseWindow
         void update_available_exits(std::map<std::string, std::string> data);
         void update_ground_items(std::map<std::string, std::string> data);
         void update_inventory(std::map<std::string, std::string> data);
+        void update_npcs(std::map<std::string, std::string> data);
 };
 
 #endif // !TAP_GAME_WINDOW_HPP
