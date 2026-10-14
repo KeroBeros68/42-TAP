@@ -8,6 +8,7 @@ class TAPExitView : public TAPGameSectionWidget
 {
     private:
         QVBoxLayout         _layout;
+        TAPLabel            _no_exit_label;
         TAPRoomNameLabel    _label_exits;
         TAPExitButtons      _exit_buttons_widget;
 

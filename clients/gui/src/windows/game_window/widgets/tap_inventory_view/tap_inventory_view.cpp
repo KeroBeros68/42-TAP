@@ -19,6 +19,7 @@ TAPInventoryView::TAPInventoryView()
             &QPushButton::clicked,
             this,
             [this] {
+                if (this->get_selected_item_id() == "") {return ;}
                 std::cout << "[WIP] DROP " << this->get_selected_item_id() << std::endl;
         });
 

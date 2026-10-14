@@ -18,6 +18,7 @@ TAPGroundItemsView::TAPGroundItemsView()
             &QPushButton::clicked,
             this,
             [this] {
+                if (this->get_selected_item_id() == "") {return ;}
                 std::cout << "[WIP] TAKE " << this->get_selected_item_id() << std::endl;
         });
 

@@ -18,6 +18,7 @@ TAPGameWindow::TAPGameWindow()
     this->_items_row_layout.addWidget(&ground_items_view);
     this->_items_row_layout.addWidget(&inventory_view);
     this->_window_layout.addLayout(&this->_items_row_layout);
+    this->_window_layout.addWidget(&this->npc_talk_view);
     this->_window_layout.addStretch();
 };
 
@@ -59,4 +60,9 @@ void TAPGameWindow::update_ground_items(std::map<std::string, std::string> data)
 void TAPGameWindow::update_inventory(std::map<std::string, std::string> data)
 {
     this->inventory_view.update_inventory(data);
+};
+
+void TAPGameWindow::update_npcs(std::map<std::string, std::string> data)
+{
+    this->npc_talk_view.update_npcs(data);
 };
