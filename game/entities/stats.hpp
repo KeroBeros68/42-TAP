@@ -15,11 +15,13 @@ struct Stats {
 	int hp = 0;
 	int attack = 0;
 	int defense = 0;
+	int hit = 0;		// accuracy: against the flee of the target, gives the chance to hit
+	int flee = 0;		// evasion
 	bool in_combat = false;
 
 	Stats() = default;
-	Stats(int max_hp, int hp, int attack, int defense)
-		: max_hp(max_hp), hp(hp), attack(attack), defense(defense) {}
+	Stats(int max_hp, int hp, int attack, int defense, int hit, int flee)
+		: max_hp(max_hp), hp(hp), attack(attack), defense(defense), hit(hit), flee(flee) {}
 
 	bool isDead() const {
 		return hp <= 0;

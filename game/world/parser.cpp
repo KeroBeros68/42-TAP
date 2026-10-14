@@ -30,8 +30,10 @@ static void readNpc(NpcDb& database, json& data) {
 				stats.hp = stats.max_hp;
 				stats.attack = s.at("attack").get<int>();
 				stats.defense = s.at("defense").get<int>();
-				if (stats.hp <= 0 || stats.attack < 0 || stats.defense < 0)
-					throw std::runtime_error("invalid npc.json: " + npc_id + ": hp must be > 0, attack and defense >= 0");
+				stats.hit = s.at("hit").get<int>();
+				stats.flee = s.at("flee").get<int>();
+				if (stats.hp <= 0 || stats.attack < 0 || stats.defense < 0 || stats.hit < 0 || stats.flee < 0)
+					throw std::runtime_error("invalid npc.json: " + npc_id + ": hp must be > 0, attack, defense, hit and flee >= 0");
 			}
 
 			std::vector<std::string> loot;

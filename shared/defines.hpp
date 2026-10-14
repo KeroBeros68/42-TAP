@@ -15,6 +15,11 @@
 # define MAX_NAME_LENGTH	32
 
 # define PLAYER_INVENTORY_CAPACITY	10
+# define PLAYER_HIT				10
+# define PLAYER_FLEE				10
+
+// Chance to hit = hit / (hit + COMBAT_FLEE_WEIGHT * flee): 8 hit against 10 flee gives 80%
+# define COMBAT_FLEE_WEIGHT		0.2
 
 // Between the id of a definition and the counter of an instance: "npc.spider#13", "item.herbs#4"
 # define INSTANCE_SEPARATOR	"#"
