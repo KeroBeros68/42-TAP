@@ -40,6 +40,8 @@ class Npc {
 		std::string _id;
 		const NpcDef* _definition;
 		Stats _stats;
+		std::string _home_room;
+		int _respawn_seconds = 0;
 
 	public:
 		Npc(const NpcDef& def);
@@ -51,6 +53,10 @@ class Npc {
 		const Stats& stats() const;
 		Stats& stats();
 		std::vector<std::string> dropLoot(Inventory& floor, const ItemDb& items) const;
+
+		void setOrigin(const std::string& room, int respawn_seconds);
+		const std::string& homeRoom() const;
+		int respawnSeconds() const;
 };
 
 class NpcDb {

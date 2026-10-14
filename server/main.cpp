@@ -14,6 +14,7 @@ int main() {
 
 		while (server.getStatus()) {
 			server.updatePoll();
+			game.tick(std::chrono::steady_clock::now());
 		}
 		LOG_INFO("server stopped");
 	} catch (const std::exception& e) {

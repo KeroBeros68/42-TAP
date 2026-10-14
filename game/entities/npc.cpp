@@ -92,3 +92,16 @@ std::vector<std::string> Npc::dropLoot(Inventory& floor, const ItemDb& items) co
 	}
 	return dropped;
 }
+
+void Npc::setOrigin(const std::string& room, int respawn_seconds) {
+	_home_room = room;
+	_respawn_seconds = respawn_seconds;
+}
+
+const std::string& Npc::homeRoom() const {
+	return _home_room;
+}
+
+int Npc::respawnSeconds() const {
+	return _respawn_seconds;
+}

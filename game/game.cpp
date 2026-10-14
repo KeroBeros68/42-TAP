@@ -207,6 +207,9 @@ CombatResult Game::attack(long long player_id, const std::string& target) {
 		for (const std::string& item : dropped)
 			loot += (loot.empty() ? "" : ",") + item;
 		LOG_INFO("npc died", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc_id}, {"loot", loot});
+		if (npc->respawnSeconds() > 0)
+			_respawns.emplace(std::chrono::steady_clock::now() + std::chrono::seconds(npc->respawnSeconds()),
+				Respawn{npc->definition().id(), npc->homeRoom(), npc->respawnSeconds()});
 		here.room->removeNpc(npc);
 	}
 
@@ -227,4 +230,21 @@ const Stats* Game::status(long long player_id) const {
 		return nullptr;
 	}
 	return &player->second.stats();
+}
+
+void Game::tick(std::chrono::steady_clock::time_point now) {
+	while (!_respawns.empty() && _respawns.begin()->first <= now) {
+		const Respawn respawn = _respawns.begin()->second;
+		_respawns.erase(_respawns.begin());
+
+		auto room = _world.rooms.find(respawn.room_id);
+		if (room == _world.rooms.end()) {
+			LOG_ERROR("respawn in an unknown room", {"room", respawn.room_id}, {"npc", respawn.npc_id});
+			continue;
+		}
+		Npc npc = _world.npc_database.instantiate(respawn.npc_id);
+		npc.setOrigin(respawn.room_id, respawn.seconds);
+		room->second.addNpc(npc);
+		LOG_INFO("npc respawned", {"room", respawn.room_id}, {"npc", npc.id()});
+	}
 }
