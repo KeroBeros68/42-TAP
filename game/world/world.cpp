@@ -57,7 +57,9 @@ static size_t createNpcs(RoomMap& rooms, const NpcDb& npc_database) {
 	for (auto& [id, room] : rooms) {
 		for (const Spawn& spawn : room.npcSpawns()) {
 			for (int i = 0; i < spawn.count; i++) {
-				room.addNpc(npc_database.instantiate(spawn.id));
+				Npc npc = npc_database.instantiate(spawn.id);
+				npc.setOrigin(id, spawn.respawn_seconds);
+				room.addNpc(npc);
 				created++;
 			}
 		}
