@@ -80,7 +80,9 @@
 			"stats": {
 				"hp": 10,
 				"attack": 4,
-				"defense": 0
+				"defense": 0,
+				"hit": 6,
+				"flee": 12
 			},
 			"loot": []
 		},
@@ -96,7 +98,9 @@
 			"stats": {
 				"hp": 15,
 				"attack": 6,
-				"defense": 2
+				"defense": 2,
+				"hit": 8,
+				"flee": 10
 			},
 			"loot": []
 		},
@@ -112,7 +116,9 @@
 			"stats": {
 				"hp": 20,
 				"attack": 8,
-				"defense": 4
+				"defense": 4,
+				"hit": 8,
+				"flee": 14
 			},
 			"loot": [ "item.deer_antler" ]
 		},
@@ -128,7 +134,9 @@
 			"stats": {
 				"hp": 10,
 				"attack": 5,
-				"defense": 1
+				"defense": 1,
+				"hit": 8,
+				"flee": 12
 			},
 			"loot": [ "item.spider_silk" ]
 		},
@@ -145,7 +153,9 @@
 			"stats": {
 				"hp": 50,
 				"attack": 15,
-				"defense": 5
+				"defense": 5,
+				"hit": 12,
+				"flee": 8
 			},
 			"loot": []
 		},
@@ -162,7 +172,9 @@
 			"stats": {
 				"hp": 20,
 				"attack": 8,
-				"defense": 4
+				"defense": 4,
+				"hit": 9,
+				"flee": 12
 			},
 			"loot": []
 		},
@@ -178,7 +190,9 @@
 			"stats": {
 				"hp": 30,
 				"attack": 10,
-				"defense": 5
+				"defense": 5,
+				"hit": 10,
+				"flee": 6
 			},
 			"loot": []
 		},
@@ -195,7 +209,9 @@
 			"stats": {
 				"hp": 100,
 				"attack": 20,
-				"defense": 10
+				"defense": 10,
+				"hit": 14,
+				"flee": 6
 			},
 			"loot": [ "item.nail_crown" ]
 		},
@@ -211,7 +227,9 @@
 			"stats": {
 				"hp": 5,
 				"attack": 2,
-				"defense": 1
+				"defense": 1,
+				"hit": 6,
+				"flee": 12
 			},
 			"loot": []
 		},
@@ -228,7 +246,9 @@
 			"stats": {
 				"hp": 200,
 				"attack": 30,
-				"defense": 15
+				"defense": 15,
+				"hit": 16,
+				"flee": 8
 			},
 			"loot": []
 		}

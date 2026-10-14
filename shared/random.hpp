@@ -14,6 +14,12 @@ inline int randomInt(int min, int max) {
 	return dist(randomGenerator());
 }
 
+// A number in [0, 1)
+inline double randomUnit() {
+	std::uniform_real_distribution<double> dist(0.0, 1.0);
+	return dist(randomGenerator());
+}
+
 inline size_t randomIndex(size_t size) {
 	std::uniform_int_distribution<size_t> dist(0, size - 1);
 	return dist(randomGenerator());
