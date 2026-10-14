@@ -153,7 +153,7 @@ void parseItems(const std::string& path, ItemDb& items) {
 	}
 }
 
-void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room) {
+void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room, int& respawn_life) {
 	std::ifstream file(path);
 	if (!file)
 		throw std::runtime_error("cannot open " + path);
@@ -163,6 +163,7 @@ void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room
 		readRoom(rooms, data);
 		start_room = data.at("start_room").get<std::string>();
 		respawn_room = data.at("respawn").at("room").get<std::string>();
+		respawn_life = data.at("respawn").at("hp").get<int>();
 	} catch (const json::exception& e) {
 		throw std::runtime_error(std::string("invalid room.json: ") + e.what());
 	}
