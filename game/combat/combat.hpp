@@ -5,7 +5,14 @@
 # include "../entities/stats.hpp"
 
 // Part of the attack that goes through the defense of the target: with a defense of 100, the damage is halved
-# define DEFENSE_FACTOR(defense) (100.0 / (100.0 + (defense)))
+# define COMBAT_DEFENSE_SCALE	100.0
+# define DEFENSE_FACTOR(defense) (COMBAT_DEFENSE_SCALE / (COMBAT_DEFENSE_SCALE + (defense)))
+
+// A strike that goes through always does at least this damage
+# define COMBAT_MIN_DAMAGE		1
+
+// Chance to hit = hit / (hit + COMBAT_FLEE_WEIGHT * flee): 8 hit against 10 flee gives 80%
+# define COMBAT_FLEE_WEIGHT		0.2
 
 enum class AttackStatus{
 	DONE,

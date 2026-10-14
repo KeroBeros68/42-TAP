@@ -3,6 +3,8 @@
 
 # include <string>
 
+# include "defines.hpp"
+
 enum class TapError {
 	BAD_REQUEST,			// 400 (not in the RFC: unknown command / malformed message)
 	NAME_IN_USE,			// 201
@@ -59,7 +61,7 @@ inline const char* tapErrorName(TapError e) {
 
 // Full protocol line, e.g. "ERR 201 NAME_IN_USE" (without the trailing '\n')
 inline std::string tapErrorLine(TapError e) {
-	return "ERR " + std::to_string(tapErrorCode(e)) + " " + tapErrorName(e);
+	return std::string(RESPONSE_ERR) + " " + std::to_string(tapErrorCode(e)) + " " + tapErrorName(e);
 }
 
 #endif

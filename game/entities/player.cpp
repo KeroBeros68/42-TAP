@@ -2,7 +2,7 @@
 #include "../../shared/defines.hpp"
 
 Player::Player(long long id, const std::string& name, const std::string& map)
-	: _id(id), _name(name), _current_map(map), _inventory(PLAYER_INVENTORY_CAPACITY), _stats(100, 100, 10, 10, PLAYER_HIT, PLAYER_FLEE) {}
+	: _id(id), _name(name), _current_map(map), _inventory(PLAYER_INVENTORY_CAPACITY), _stats(PLAYER_MAX_HP, PLAYER_MAX_HP, PLAYER_ATTACK, PLAYER_DEFENSE, PLAYER_HIT, PLAYER_FLEE) {}
 
 long long Player::id() const {
 	return _id;

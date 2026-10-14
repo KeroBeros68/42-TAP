@@ -2,13 +2,11 @@
 
 # include <algorithm>
 
-# include "../../shared/defines.hpp"
-
 int computeDamage(const Stats& attacker, const Stats& defender) {
 	int damage = attacker.attack * DEFENSE_FACTOR(defender.defense);
 	if (damage < 0)
 		damage = 0;
-	return std::max(1, static_cast<int>(damage));
+	return std::max(COMBAT_MIN_DAMAGE, static_cast<int>(damage));
 }
 
 double hitChance(const Stats& attacker, const Stats& defender) {

@@ -8,6 +8,11 @@
 # include "../entities/npc.hpp"
 # include "room.hpp"
 
+# define DATA_DIR_RELATIVE	"/game/ressources/"
+# define NPC_FILE			"npc.json"
+# define ITEM_FILE			"items.json"
+# define ROOM_FILE			"room.json"
+
 class World {
 	private:
 		void loadWorld();

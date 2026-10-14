@@ -19,6 +19,23 @@
 # define COLOR_YELLOW	"\033[33m"
 # define COLOR_RESET	"\033[0m"
 
+// Format of the lines of the log
+# define LOG_TIMESTAMP_FORMAT	"%Y-%m-%dT%H:%M:%S"
+# define LOG_MS_FORMAT			"%s.%03d"
+# define LOG_OFFSET_FORMAT		"%z"			// "+0200"
+# define LOG_UTC_OFFSET			"+00:00"
+# define LOG_MS_PER_SECOND		1000
+# define LOG_DATE_SIZE			32
+# define LOG_STAMP_SIZE			48
+# define LOG_OFFSET_SIZE		16
+# define LOG_RAW_OFFSET_LENGTH	5				// "+hhmm"
+# define LOG_OFFSET_HOURS_LENGTH	3			// "+hh"
+# define LOG_NO_COLOR_ENV		"NO_COLOR"
+# define LOG_KEY_TS				"ts"
+# define LOG_KEY_LEVEL			"level"
+# define LOG_KEY_MSG			"msg"
+# define LOG_KEY_SRC			"src"
+
 enum class LogLevel { Debug, Info, Warn, Error };
 
 class LogValue {
