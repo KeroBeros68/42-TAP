@@ -25,6 +25,8 @@ class Item {
 		static inline int _current_id = 0;
 		std::string _id;
 		const ItemDef* _definition;
+		std::string _home_room;
+		int _respawn_seconds = 0;
 
 	public:
 		Item(const ItemDef& def);
@@ -32,6 +34,11 @@ class Item {
 		const std::string& id() const;
 		const ItemDef& definition() const;
 		const std::string& name() const;
+
+		void setOrigin(const std::string& room, int respawn_seconds);
+		void clearOrigin();
+		const std::string& homeRoom() const;
+		int respawnSeconds() const;
 };
 
 class ItemDb {
