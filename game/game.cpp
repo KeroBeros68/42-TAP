@@ -159,11 +159,22 @@ TransferResult Game::take(long long player_id, const std::string& target) {
 		return {TransferStatus::NotFound, ""};
 	}
 
+	const std::string item_def = found->definition().id();
+	const std::string home_room = found->homeRoom();
+	const int respawn_seconds = found->respawnSeconds();
+
 	TransferResult result = transfer(here.room->inventory(), here.player->inventory(), found->id());
 	if (result.status == TransferStatus::DestinationFull)
 		LOG_INFO("inventory full", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
-	else if (result.status == TransferStatus::Moved)
+	else if (result.status == TransferStatus::Moved) {
 		LOG_INFO("player took an item", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"item", result.id});
+		if (respawn_seconds > 0) {
+			_respawns.emplace(std::chrono::steady_clock::now() + std::chrono::seconds(respawn_seconds),
+				Respawn{RespawnKind::Item, item_def, home_room, respawn_seconds});
+			if (Item* taken = here.player->inventory().findItem(result.id))
+				taken->clearOrigin();
+		}
+	}
 	return result;
 }
 
@@ -209,7 +220,7 @@ CombatResult Game::attack(long long player_id, const std::string& target) {
 		LOG_INFO("npc died", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc_id}, {"loot", loot});
 		if (npc->respawnSeconds() > 0)
 			_respawns.emplace(std::chrono::steady_clock::now() + std::chrono::seconds(npc->respawnSeconds()),
-				Respawn{npc->definition().id(), npc->homeRoom(), npc->respawnSeconds()});
+				Respawn{RespawnKind::Npc, npc->definition().id(), npc->homeRoom(), npc->respawnSeconds()});
 		here.room->removeNpc(npc);
 	}
 
@@ -239,12 +250,19 @@ void Game::tick(std::chrono::steady_clock::time_point now) {
 
 		auto room = _world.rooms.find(respawn.room_id);
 		if (room == _world.rooms.end()) {
-			LOG_ERROR("respawn in an unknown room", {"room", respawn.room_id}, {"npc", respawn.npc_id});
+			LOG_ERROR("respawn in an unknown room", {"room", respawn.room_id}, {"definition", respawn.def_id});
 			continue;
 		}
-		Npc npc = _world.npc_database.instantiate(respawn.npc_id);
-		npc.setOrigin(respawn.room_id, respawn.seconds);
-		room->second.addNpc(npc);
-		LOG_INFO("npc respawned", {"room", respawn.room_id}, {"npc", npc.id()});
+		if (respawn.kind == RespawnKind::Npc) {
+			Npc npc = _world.npc_database.instantiate(respawn.def_id);
+			npc.setOrigin(respawn.room_id, respawn.seconds);
+			room->second.addNpc(npc);
+			LOG_INFO("npc respawned", {"room", respawn.room_id}, {"npc", npc.id()});
+		} else {
+			Item item = _world.item_database.instantiate(respawn.def_id);
+			item.setOrigin(respawn.room_id, respawn.seconds);
+			room->second.inventory().add(item);
+			LOG_INFO("item respawned", {"room", respawn.room_id}, {"item", item.id()});
+		}
 	}
 }

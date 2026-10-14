@@ -32,6 +32,24 @@ const std::unordered_map<std::string, ItemDef>& ItemDb::items() const {
 	return _items;
 }
 
+void Item::setOrigin(const std::string& room, int respawn_seconds) {
+	_home_room = room;
+	_respawn_seconds = respawn_seconds;
+}
+
+void Item::clearOrigin() {
+	_home_room.clear();
+	_respawn_seconds = 0;
+}
+
+const std::string& Item::homeRoom() const {
+	return _home_room;
+}
+
+int Item::respawnSeconds() const {
+	return _respawn_seconds;
+}
+
 Item ItemDb::instantiate(const std::string& id) const {
 	return Item(item(id));
 }

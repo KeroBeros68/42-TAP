@@ -17,6 +17,7 @@ class Inventory {
 		explicit Inventory(size_t capacity = 0);
 
 		const Item* findItem(const std::string& query) const;
+		Item* findItem(const std::string& query);
 		bool isFull() const;
 
 		bool add(const Item& item);

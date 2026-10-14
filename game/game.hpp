@@ -23,9 +23,10 @@ class Game {
 
 		World _world;
 
-		// A dead npc that comes back: when, where, and what
+		enum class RespawnKind { Npc, Item };
 		struct Respawn {
-			std::string npc_id;		// id of the definition
+			RespawnKind kind;
+			std::string def_id;
 			std::string room_id;
 			int seconds;
 		};

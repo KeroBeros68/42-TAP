@@ -72,7 +72,9 @@ static size_t createItems(RoomMap& rooms, const ItemDb& item_database) {
 	for (auto& [id, room] : rooms) {
 		for (const Spawn& spawn : room.itemSpawns()) {
 			for (int i = 0; i < spawn.count; i++) {
-				room.inventory().add(item_database.instantiate(spawn.id));
+				Item item = item_database.instantiate(spawn.id);
+				item.setOrigin(id, spawn.respawn_seconds);
+				room.inventory().add(item);
 				created++;
 			}
 		}

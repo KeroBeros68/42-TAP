@@ -9,6 +9,10 @@ const Item* Inventory::findItem(const std::string& query) const {
 	return lookup::findIn(_items, query);
 }
 
+Item* Inventory::findItem(const std::string& query) {
+	return lookup::findIn(_items, query);
+}
+
 bool Inventory::isFull() const {
 	return _capacity != 0 && _items.size() >= _capacity;
 }
