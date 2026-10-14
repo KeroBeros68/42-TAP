@@ -17,7 +17,7 @@ bool User::setName(const std::string& name) {
 		return false;
 	if (!validateUTF8(name))
 		return false;
-	if (name.find(' ') != std::string::npos)
+	if (name.find(CMD_SEPARATOR) != std::string::npos)
 		return false;
 	_name = name;
 	return true;

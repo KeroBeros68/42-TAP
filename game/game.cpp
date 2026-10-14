@@ -216,7 +216,7 @@ CombatResult Game::attack(long long player_id, const std::string& target) {
 		const std::vector<std::string> dropped = npc->dropLoot(here.room->inventory(), _world.item_database);
 		std::string loot;
 		for (const std::string& item : dropped)
-			loot += (loot.empty() ? "" : ",") + item;
+			loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
 		LOG_INFO("npc died", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc_id}, {"loot", loot});
 		if (npc->respawnSeconds() > 0)
 			_respawns.emplace(std::chrono::steady_clock::now() + std::chrono::seconds(npc->respawnSeconds()),

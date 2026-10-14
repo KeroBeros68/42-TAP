@@ -14,12 +14,31 @@
 # define MAX_LINE_LENGTH	1024
 # define MAX_NAME_LENGTH	32
 
-# define PLAYER_INVENTORY_CAPACITY	10
-# define PLAYER_HIT				10
-# define PLAYER_FLEE				10
 
-// Chance to hit = hit / (hit + COMBAT_FLEE_WEIGHT * flee): 8 hit against 10 flee gives 80%
-# define COMBAT_FLEE_WEIGHT		0.2
+// Words and fields of the protocol (the clients read them)
+# define PROTOCOL_VERSION	"1"
+# define RESPONSE_OK		"OK"
+# define RESPONSE_ERR		"ERR"
+
+# define STATUS_HEALTHY		"healthy"
+# define STATUS_WOUNDED		"wounded"
+# define STATUS_COMBAT		"combat"
+# define STATUS_DEAD		"dead"
+
+# define FIELD_ROOM			"room"
+# define FIELD_ID			"id"
+# define FIELD_NAME			"name"
+# define FIELD_DESCRIPTION	"description"
+# define FIELD_EXITS		"exits"
+# define FIELD_PLAYERS		"players"
+# define FIELD_ITEMS		"items"
+# define FIELD_NPCS			"npcs"
+# define FIELD_HP			"hp"
+# define FIELD_MAX_HP		"max_hp"
+# define FIELD_STATUS		"status"
+# define FIELD_ATTACKER_HP	"attacker_hp"
+# define FIELD_TARGET_HP	"target_hp"
+# define FIELD_DAMAGE		"damage"
 
 // Between the id of a definition and the counter of an instance: "npc.spider#13", "item.herbs#4"
 # define INSTANCE_SEPARATOR	"#"

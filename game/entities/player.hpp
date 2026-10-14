@@ -8,6 +8,13 @@
 # include "inventory.hpp"
 # include "stats.hpp"
 
+# define PLAYER_MAX_HP				100
+# define PLAYER_ATTACK				10
+# define PLAYER_DEFENSE				10
+# define PLAYER_HIT					10
+# define PLAYER_FLEE				10
+# define PLAYER_INVENTORY_CAPACITY	10
+
 class Player {
 	private:
 		long long	_id;

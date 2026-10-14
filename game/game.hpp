@@ -12,6 +12,8 @@
 # include "combat/combat.hpp"
 # include "world/world.hpp"
 
+# define LOOT_SEPARATOR	","
+
 struct LookData {
 	const Room* room;
 	std::vector<std::string> players;

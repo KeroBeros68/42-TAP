@@ -3,6 +3,8 @@
 
 # include <algorithm>
 
+# include "../../shared/defines.hpp"
+
 enum class Status {
 	HEALTHY,
 	WOUNDED,
@@ -59,10 +61,10 @@ struct Stats {
 
 inline const char* statusName(Status status) {
 	switch (status) {
-		case Status::HEALTHY:	return "healthy";
-		case Status::WOUNDED:	return "wounded";
-		case Status::COMBAT:	return "combat";
-		case Status::DEAD:		return "dead";
+		case Status::HEALTHY:	return STATUS_HEALTHY;
+		case Status::WOUNDED:	return STATUS_WOUNDED;
+		case Status::COMBAT:	return STATUS_COMBAT;
+		case Status::DEAD:		return STATUS_DEAD;
 	}
 	return "healthy";
 }

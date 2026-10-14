@@ -3,17 +3,17 @@
 
 std::string Logger::timestamp() {
 	const auto now = std::chrono::system_clock::now();
-	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % LOG_MS_PER_SECOND;
 	const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
 
 	std::tm utc;
 	localtime_r(&seconds, &utc);
 
-	char date[32];
-	std::strftime(date, sizeof(date), "%Y-%m-%dT%H:%M:%S", &utc);
+	char date[LOG_DATE_SIZE];
+	std::strftime(date, sizeof(date), LOG_TIMESTAMP_FORMAT, &utc);
 
-	char out[48];
-	std::snprintf(out, sizeof(out), "%s.%03d", date, static_cast<int>(ms.count()));
+	char out[LOG_STAMP_SIZE];
+	std::snprintf(out, sizeof(out), LOG_MS_FORMAT, date, static_cast<int>(ms.count()));
 	return out;
 }
 
@@ -24,14 +24,14 @@ std::string Logger::calculateOffset() {
 	std::tm localTm{};
 	localtime_r(&timeT, &localTm);
 
-	char buffer[16];
-	std::strftime(buffer, sizeof(buffer), "%z", &localTm);
+	char buffer[LOG_OFFSET_SIZE];
+	std::strftime(buffer, sizeof(buffer), LOG_OFFSET_FORMAT, &localTm);
 	std::string rawOffset(buffer);
 
-	if (rawOffset.length() >= 5) {
-		return rawOffset.substr(0, 3) + ":" + rawOffset.substr(3);
+	if (rawOffset.length() >= LOG_RAW_OFFSET_LENGTH) {
+		return rawOffset.substr(0, LOG_OFFSET_HOURS_LENGTH) + ":" + rawOffset.substr(LOG_OFFSET_HOURS_LENGTH);
 	} else {
-		return "+00:00";
+		return LOG_UTC_OFFSET;
 	}
 }
 
@@ -68,7 +68,7 @@ bool Logger::enabled(LogLevel level) const {
 }
 
 bool Logger::useColor(const std::ostream& os) {
-	if (std::getenv("NO_COLOR"))
+	if (std::getenv(LOG_NO_COLOR_ENV))
 		return false;
 	if (&os == &std::cout)
 		return isatty(STDOUT_FILENO);
@@ -91,9 +91,9 @@ void Logger::log(LogLevel level, const char* file, int line, const std::string& 
 	if (!enabled(level))
 		return;
 
-	std::string json = "{\"ts\":\"" + Logger::timestamp() + _formattedUtcOffset + "\",\"level\":\"" + levelName(level) + "\",\"msg\":\"" + jsonEscape(message) + "\"";
+	std::string json = "{\"" LOG_KEY_TS "\":\"" + Logger::timestamp() + _formattedUtcOffset + "\",\"" LOG_KEY_LEVEL "\":\"" + levelName(level) + "\",\"" LOG_KEY_MSG "\":\"" + jsonEscape(message) + "\"";
 	if (level >= LogLevel::Warn)
-		json += ",\"src\":\"" + jsonEscape(std::string(file) + ":" + std::to_string(line)) + "\"";
+		json += ",\"" LOG_KEY_SRC "\":\"" + jsonEscape(std::string(file) + ":" + std::to_string(line)) + "\"";
 	for (const auto& [key, value] : fields)
 		json += ",\"" + jsonEscape(key) + "\":" + value.json();
 	json += "}";

@@ -4,6 +4,8 @@
 # include "../shared/defines.hpp"
 
 # define POLL_TIMEOUT_MS	1000
+# define LOG_RESPONSE_MAX	100		// length of a response in the logs
+# define UNKNOWN_IP		"unknown"
 # define RECV_BUFFER_SIZE	4096
 
 # define POLL_LISTEN_IDX	0

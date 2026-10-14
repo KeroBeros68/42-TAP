@@ -148,7 +148,7 @@ void Server::updatePoll() {
 	}
 
 	int ret = poll(fds.data(), fds.size(), POLL_TIMEOUT_MS);
-	if (ret < 0) {
+	if (ret == SYSCALL_ERROR) {
 		if (errno != EINTR)
 			LOG_ERROR("poll failed", {"error", strerror(errno)});
 		return;
@@ -170,7 +170,7 @@ void Server::updatePoll() {
 		sockaddr_in client_addr{};
 		socklen_t client_len = sizeof(client_addr);
 		int client_socket = accept(_listen_socket, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
-		if (client_socket < 0) {
+		if (client_socket == SYSCALL_ERROR) {
 			LOG_ERROR("accept failed", {"error", strerror(errno)});
 		} else {
 			if (fcntl(client_socket, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
@@ -185,7 +185,7 @@ void Server::updatePoll() {
 					client_id = _available_id.back();
 					_available_id.pop_back();
 				}
-				char ip[INET_ADDRSTRLEN] = "unknown";
+				char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
 				inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
 				Session& session = _sessions.emplace(client_id, Session(client_socket, ip, client_id)).first->second;
 				LOG_INFO("client connected", {"client", client_id}, {"ip", ip});
@@ -278,7 +278,7 @@ void Server::handeLine(Session& s, const std::string& line)
 	{
 		Response r = it->second(s.user, args);
 		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
-			{"response", r.isOk ? shorten(r.line(), 100) : r.line()});
+			{"response", r.isOk ? shorten(r.line(), LOG_RESPONSE_MAX) : r.line()});
 		reply(s.conn, r.line());
 		if (r.close)
 			s.conn.setClosing(true);
@@ -301,7 +301,7 @@ void Server::flush(Connection& c) {
 			c.consumeOut(n);
 			continue;
 		}
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
 			break;
         LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
         c.setClosing(true); break;
