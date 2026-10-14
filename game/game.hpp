@@ -21,6 +21,20 @@ class Game {
 
 		World _world;
 
+		template <typename P, typename R>
+		struct BasicPresence {
+			P* player = nullptr;
+			R* room = nullptr;
+			explicit operator bool() const { return player && room; }
+		};
+		typedef BasicPresence<Player, Room>				Presence;
+		typedef BasicPresence<const Player, const Room>	ConstPresence;
+
+		ConstPresence locate(long long player_id, const char* action) const;
+		Presence locate(long long player_id, const char* action);
+
+		bool teleport(long long player_id, const std::string& target);
+
 	public:
 		Game();
 

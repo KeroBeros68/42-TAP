@@ -12,8 +12,8 @@ class Player {
 	private:
 		long long	_id;
 		std::string	_name;
-		std::string	_current_map;		// id of the room where the player is
-		Inventory	_inventory;			// limited to PLAYER_INVENTORY_CAPACITY items
+		std::string	_current_map;
+		Inventory	_inventory;
 		Stats		_stats;				// later: hp, group, quests...
 
 	public:

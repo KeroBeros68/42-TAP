@@ -16,6 +16,7 @@ class World {
 		RoomMap		rooms;
 		std::string	start_room;
 		std::string	respawn_room;
+		int			respawn_life;
 		NpcDb		npc_database;
 		ItemDb		item_database;
 

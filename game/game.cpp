@@ -2,6 +2,7 @@
 #include "../shared/logger.hpp"
 
 #include <iostream>
+#include <utility>
 
 Game::Game() {}
 
@@ -64,20 +65,12 @@ const std::string& Game::playerMap(long long id) const {
 }
 
 std::optional<LookData> Game::look(long long player_id) const {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("look of an unknown player", {"client", player_id});
+	ConstPresence here = locate(player_id, "look");
+	if (!here)
 		return std::nullopt;
-	}
 
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
-		return std::nullopt;
-	}
-
-	LookData data{&room->second, {}};
-	for (long long id : room->second.currentPlayer()) {
+	LookData data{here.room, {}};
+	for (long long id : here.room->currentPlayer()) {
 		auto other = _players.find(id);
 		if (other != _players.end())
 			data.players.push_back(other->second.name());
@@ -85,148 +78,143 @@ std::optional<LookData> Game::look(long long player_id) const {
 	return data;
 }
 
-bool Game::move(long long player_id, const std::string& direction) {
+Game::ConstPresence Game::locate(long long player_id, const char* action) const {
 	auto player = _players.find(player_id);
 	if (player == _players.end()) {
-		LOG_WARN("move of an unknown player", {"client", player_id});
+		LOG_WARN("unknown player", {"client", player_id}, {"action", action});
+		return {};
+	}
+	auto room = _world.rooms.find(player->second.currentMap());
+	if (room == _world.rooms.end()) {
+		LOG_ERROR("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()}, {"action", action});
+		return {};
+	}
+	return {&player->second, &room->second};
+}
+
+Game::Presence Game::locate(long long player_id, const char* action) {
+	const ConstPresence here = std::as_const(*this).locate(player_id, action);
+	return {const_cast<Player*>(here.player), const_cast<Room*>(here.room)};
+}
+
+bool Game::move(long long player_id, const std::string& direction) {
+	Presence here = locate(player_id, "move");
+	if (!here)
+		return false;
+
+	auto exit = here.room->exits().find(direction);
+	if (exit == here.room->exits().end()) {
+		LOG_DEBUG("no exit in this direction", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"direction", direction});
 		return false;
 	}
 
-	auto origin = _world.rooms.find(player->second.currentMap());
-	if (origin == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
+	const std::string from = here.room->id();
+	if (!teleport(player_id, exit->second))
+		return false;
+	LOG_INFO("player moved", {"client", player_id}, {"player", here.player->name()}, {"from", from}, {"to", exit->second}, {"direction", direction});
+	return true;
+}
+
+bool Game::teleport(long long player_id, const std::string& target) {
+	Presence here = locate(player_id, "teleport");
+	if (!here)
+		return false;
+
+	auto destination = _world.rooms.find(target);
+	if (destination == _world.rooms.end()) {
+		LOG_ERROR("teleport to an unknown room", {"client", player_id}, {"room", target});
 		return false;
 	}
 
-	auto exit = origin->second.exits().find(direction);
-	if (exit == origin->second.exits().end()) {
-		LOG_DEBUG("no exit in this direction", {"client", player_id}, {"player", player->second.name()}, {"room", origin->first}, {"direction", direction});
-		return false;
-	}
-
-	auto destination = _world.rooms.find(exit->second);
-	if (destination == _world.rooms.end())
-		return false;
-
-	player->second.stats().in_combat = false;
-	origin->second.removePlayer(player_id);
+	here.player->stats().in_combat = false;
+	here.room->removePlayer(player_id);
 	destination->second.addPlayer(player_id);
-	player->second.setCurrentMap(exit->second);
-	LOG_INFO("player moved", {"client", player_id}, {"player", player->second.name()}, {"from", origin->first}, {"to", exit->second}, {"direction", direction});
+	here.player->setCurrentMap(target);
 	return true;
 }
 
 std::optional<std::string> Game::talk(long long player_id, const std::string& target) const {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("talk of an unknown player", {"client", player_id});
+	ConstPresence here = locate(player_id, "talk");
+	if (!here)
 		return std::nullopt;
-	}
 
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
-		return std::nullopt;
-	}
-
-	const Npc* npc = room->second.findNpc(target);
+	const Npc* npc = here.room->findNpc(target);
 	if (!npc) {
-		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
 		return std::nullopt;
 	}
 
-	LOG_INFO("player talked to an npc", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+	LOG_INFO("player talked to an npc", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc->id()});
 	return npc->talk();
 }
 
 TransferResult Game::take(long long player_id, const std::string& target) {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("take of an unknown player", {"client", player_id});
+	Presence here = locate(player_id, "take");
+	if (!here)
 		return {TransferStatus::NotFound, ""};
-	}
 
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
-		return {TransferStatus::NotFound, ""};
-	}
-
-	const Item* found = room->second.inventory().findItem(target);
+	const Item* found = here.room->inventory().findItem(target);
 	if (!found || !found->definition().isObtainable()) {
-		LOG_DEBUG("no such item to take", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		LOG_DEBUG("no such item to take", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
 		return {TransferStatus::NotFound, ""};
 	}
 
-	TransferResult result = transfer(room->second.inventory(), player->second.inventory(), found->id());
+	TransferResult result = transfer(here.room->inventory(), here.player->inventory(), found->id());
 	if (result.status == TransferStatus::DestinationFull)
-		LOG_INFO("inventory full", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		LOG_INFO("inventory full", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
 	else if (result.status == TransferStatus::Moved)
-		LOG_INFO("player took an item", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"item", result.id});
+		LOG_INFO("player took an item", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"item", result.id});
 	return result;
 }
 
 TransferResult Game::drop(long long player_id, const std::string& target) {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("drop of an unknown player", {"client", player_id});
+	Presence here = locate(player_id, "drop");
+	if (!here)
 		return {TransferStatus::NotFound, ""};
-	}
 
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
-		return {TransferStatus::NotFound, ""};
-	}
-
-	TransferResult result = transfer(player->second.inventory(), room->second.inventory(), target);
+	TransferResult result = transfer(here.player->inventory(), here.room->inventory(), target);
 	if (result.status == TransferStatus::NotFound)
-		LOG_DEBUG("no such item to drop", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		LOG_DEBUG("no such item to drop", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
 	else if (result.status == TransferStatus::Moved)
-		LOG_INFO("player dropped an item", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"item", result.id});
+		LOG_INFO("player dropped an item", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"item", result.id});
 	return result;
 }
 
 CombatResult Game::attack(long long player_id, const std::string& target) {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("attack of an unknown player", {"client", player_id});
+	Presence here = locate(player_id, "attack");
+	if (!here)
 		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
-	}
 
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_WARN("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()});
-		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
-	}
-
-	Npc* npc = room->second.findNpc(target);
+	Npc* npc = here.room->findNpc(target);
 	if (!npc) {
-		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"target", target});
+		LOG_DEBUG("no such NPC in the room", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"target", target});
 		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
 	}
 
 	if (npc->definition().role() != NPC_ROLE_ENEMY) {
-		LOG_DEBUG("player tried to attack a non-hostile NPC", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+		LOG_DEBUG("player tried to attack a non-hostile NPC", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc->id()});
 		return {AttackStatus::NOT_HOSTILE, 0, 0, 0, 0, false, false};
 	}
 
-	LOG_INFO("player attacked an npc", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+	LOG_INFO("player attacked an npc", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc->id()});
 
-	CombatResult result = fight(player->second.stats(), npc->stats());
+	CombatResult result = fight(here.player->stats(), npc->stats());
 
 	if (result.defender_dead) {
 		const std::string npc_id = npc->id();
-		const std::vector<std::string> dropped = npc->dropLoot(room->second.inventory(), _world.item_database);
+		const std::vector<std::string> dropped = npc->dropLoot(here.room->inventory(), _world.item_database);
 		std::string loot;
 		for (const std::string& item : dropped)
 			loot += (loot.empty() ? "" : ",") + item;
-		LOG_INFO("npc died", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc_id}, {"loot", loot});
-		room->second.removeNpc(npc);
+		LOG_INFO("npc died", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc_id}, {"loot", loot});
+		here.room->removeNpc(npc);
 	}
 
 	if (result.attacker_dead) {
-		LOG_INFO("player died", {"client", player_id}, {"player", player->second.name()}, {"room", room->first}, {"npc", npc->id()});
+		LOG_INFO("player died", {"client", player_id}, {"player", here.player->name()}, {"room", here.room->id()}, {"npc", npc->id()});
+		teleport(player_id, _world.respawn_room);
+		here.player->stats().revive(world().respawn_life);
+		LOG_INFO("player respawned", {"client", player_id}, {"player", here.player->name()}, {"room", _world.respawn_room}, {"hp", here.player->stats().hp});
 	}
 
 	return result;

@@ -81,7 +81,7 @@ static size_t createItems(RoomMap& rooms, const ItemDb& item_database) {
 void World::loadWorld() {
 	parseNpcs(DATA_DIR + "npc.json", npc_database);
 	parseItems(DATA_DIR + "items.json", item_database);
-	parseRooms(DATA_DIR + "room.json", rooms, start_room, respawn_room);
+	parseRooms(DATA_DIR + "room.json", rooms, start_room, respawn_room, respawn_life);
 	validateExits(rooms);
 	validateNpcSpawns(rooms, npc_database);
 	validateItemSpawns(rooms, item_database);

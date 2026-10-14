@@ -12,6 +12,6 @@
 
 void parseNpcs(const std::string& path, NpcDb& npcs);
 void parseItems(const std::string& path, ItemDb& items);
-void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room);
+void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room, int& respawn_life);
 
 #endif
