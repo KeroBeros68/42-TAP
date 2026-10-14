@@ -3,10 +3,10 @@
 > Audit de conformité du client CLI réalisé à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4, §V.3) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-05 — **le code client n'a pas changé** depuis le 2026-10-02 (aucun commit sur `clients/`) ; en revanche le serveur répond désormais à `CONNECT`/`LOOK`/`MOVE`, ce qui a permis de **vérifier en réel des points restés « lecture de code »** (marqués ci-dessous). Seul `shared/defines.hpp` a évolué (voir « Mouvements côté serveur »).
+> **Dernière mise à jour** : 2026-10-14 — le code de `clients/` n'a toujours pas changé (seul `clients/cli/Makefile` passe à `-std=c++20`, commit `80632a8` et voisins) ; le serveur répond maintenant à 9 commandes sur 15, ce qui a permis de vérifier `QUIT` en réel et de relire le client face au logger du serveur. Mise à jour précédente : 2026-10-05 — **le code client n'avait pas changé** depuis le 2026-10-02 (aucun commit sur `clients/`) ; en revanche le serveur répond désormais à `CONNECT`/`LOOK`/`MOVE`, ce qui a permis de **vérifier en réel des points restés « lecture de code »** (marqués ci-dessous). Seul `shared/defines.hpp` a évolué (voir « Mouvements côté serveur »).
 > **Périmètre** : `clients/cli/` (`main.cpp`, `Makefile`) + `clients/client.cpp`, `clients/client.hpp`, `clients/defines.hpp` + `shared/defines.hpp`. Le client GUI (`clients/gui/`) est hors périmètre, mais réutilise la classe `Client` commune.
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -std=c++23` propre ; exécution réelle contre le serveur actuel compilé avec ASAN/UBSAN sur le port 18080 (le 8080 est utilisé par un autre `server` sur la machine). Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -std=c++20` propre ; exécution réelle contre le serveur actuel compilé avec ASAN/UBSAN sur le port 18080 (le 8080 est utilisé par un autre `server` sur la machine). Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
@@ -19,7 +19,8 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 - ❌ **Choix non documenté** — le README fait 8 lignes ; il manque la mention du choix d'interface exigée au §V.3, ainsi que toutes les sections du §VI.
 - ❌ **Serveur et port codés en dur** (`127.0.0.1:8080`, `clients/defines.hpp`, `shared/defines.hpp`) : impossible de se connecter au serveur d'un autre groupe — or le §II exige que les clients soient **interchangeables entre groupes**, ce qui est précisément ce qu'un évaluateur testera.
 - ✅ **Premier test de bout en bout réussi** (nouveau) : stdin ouvert, saisie différée : `CONNECT zed` → `[OK] connected`, `LOOK` → `[OK] {"room":…}`, `MOVE south` → `[OK] room=loc.forest`. Greeting, réponses et JSON longs affichés sans perte.
-- ⚠️ **Seules 3 commandes sur 15 sont réelles côté serveur** : le client ne peut pas encore être éprouvé sur les `EVT` (aucun émis) ni sur `QUIT` (le serveur répond `OK Message received` sans fermer).
+- ✅ **`QUIT` vérifié en réel (2026-10-14)** : `CONNECT qq` puis `QUIT` → `[OK] connected`, `[OK] bye`, puis le serveur ferme la connexion et le client sort proprement (« Disconnected from server. », code `0`). Le client n'a pas de gestion propre de `OK bye` : il ne sort que parce que le serveur coupe.
+- ⚠️ **9 commandes sur 15 sont réelles côté serveur** (`CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`) : le client ne peut toujours pas être éprouvé sur les `EVT` (aucun émis) ni sur `CHAT`/`INVENTORY`/`WHO`/`GROUP`/`QUEST(S)` (stubs `OK Message received`). Les réponses `ATTACK`/`STATUS` en JSON brut s'affichent telles quelles, sans mise en forme.
 
 ---
 
@@ -36,7 +37,7 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 ### ❌ Mauvais
 
 1. **Aucune interface utilisateur au-delà de l'écho brut** — pas de prompt, pas d'aide, pas de liste de commandes, pas d'envoi automatique de `CONNECT`. L'utilisateur doit connaître la RFC et taper `CONNECT <nom>` à la main ; les événements arrivent en plein milieu de la ligne en cours de saisie (aucune gestion de la ligne d'entrée, ni `readline`, ni redessin).
-2. **Sortie des événements non assainie** *(lecture de code)* — le contenu de `EVT … CHAT` est écrit tel quel sur le terminal. La RFC §9.2 (« Control Characters ») demande de rejeter ou traiter prudemment les caractères de contrôle : un autre joueur peut envoyer des séquences d'échappement ANSI (effacement d'écran, retitrage du terminal) via le chat.
+2. **Sortie du serveur non assainie** *(lecture de code)* — tout ce que le serveur envoie (`EVT … CHAT` à venir, dialogues de PNJ, noms) est écrit tel quel sur le terminal. Le serveur valide désormais les noms de joueur en UTF-8 sans contrôle, ce qui ferme le vecteur « nom », mais le futur `CHAT` ne sera pas filtré par le client. La RFC §9.2 (« Control Characters ») demande de rejeter ou traiter prudemment les caractères de contrôle : un autre joueur peut envoyer des séquences d'échappement ANSI (effacement d'écran, retitrage du terminal) via le chat.
 3. **Serveur, port, nom : aucun paramètre** — `main()` ne lit pas `argv`. Ni `./clientCLI host port`, ni variable d'environnement. Bloque les tests multi-machines et inter-groupes (§II).
 4. **« Disconnected from server. » affiché dans tous les cas, `return 0` aussi** — sur Ctrl+D (fin de `stdin`) comme sur perte de connexion — **vérifié en réel le 2026-10-05** : serveur tué par `SIGTERM` pendant que le client tourne → « Disconnecting from server… / Disconnected from server. », code `0`, strictement identique à une sortie volontaire. Impossible de distinguer une sortie voulue d'une coupure ; pas de message de départ distinct après `OK bye`.
 5. **`sleep(5)` bloquant** pendant le retry — pas d'interruption propre, aucune possibilité de saisie, et le message « Disconnecting from server… » sort aussi après une connexion *échouée* (vu en réel), ce qui est trompeur.
@@ -110,6 +111,12 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 - `shared/defines.hpp` expose maintenant `CMD_CONNECT … CMD_QUIT`, `DIR_*` et `MAX_NAME_LENGTH` : le client peut les réutiliser (validation locale du nom, table de traduction pour l'approche (2)) au lieu de redéfinir les chaînes.
 - Le serveur impose `CONNECT <nom>` sans espace, 1 à 32 octets, et répond `ERR 201` / `ERR 400` : le client n'a toujours aucune logique de nouvelle saisie du nom (`client.cpp` ❌ 3).
 - Les réponses `LOOK` font ~700 octets de JSON sur une seule ligne (vérifié) : peu lisibles sans mise en forme côté client, que le client brut n'offre pas.
+
+## Vu depuis le client : ce que change l'évolution du serveur
+
+- **Ids d'instance `#N`** (`taken=item.herbs#3`, `"npcs":["npc.guard#10"]`) : le client brut les affiche sans broncher, mais un utilisateur doit les retaper ou deviner qu'un nom (`TAKE herbs`) suffit — une interface approche (2) devrait l'expliquer ; et le GUI/un autre groupe ne les attend pas (voir `AUDIT_SERVER.md`).
+- **Logs serveur** : chaque commande est journalisée avec le nom du joueur et ses arguments — le client n'envoie rien d'autre que la ligne saisie (pas de `CONNECT` automatique), donc un utilisateur qui oublie `CONNECT` génère un `WARN "command before CONNECT"` par commande.
+- **Compatibilité compilation** : `-std=c++20` côté client aussi ; build propre.
 
 ## Priorités (ordre suggéré)
 
