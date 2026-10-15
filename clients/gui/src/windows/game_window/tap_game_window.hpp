@@ -18,6 +18,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;
         TAPNPCTalkView      npc_talk_view;
+        TAPChatTabs         chat_tabs;
 
     public:
         // Constructor
