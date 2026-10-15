@@ -81,7 +81,7 @@ run: all
 
 valgrind: all
 	$(ECHO) "$(CYAN)Analyse de $(EXECUTABLE_NAME) avec valgrind...$(RESET)"
-	QT_XCB_GL_INTEGRATION=none valgrind --leak-check=full ./$(EXECUTABLE_NAME)
+	QT_XCB_GL_INTEGRATION=none valgrind --leak-check=full ./$(EXECUTABLE_NAME) --tool=helgrind
 
 clean:
 	$(ECHO) "$(CYAN)Suppression de $(BUILD_DIR)...$(RESET) "

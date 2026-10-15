@@ -19,6 +19,7 @@ TAPGameWindow::TAPGameWindow()
     this->_items_row_layout.addWidget(&inventory_view);
     this->_window_layout.addLayout(&this->_items_row_layout);
     this->_window_layout.addWidget(&this->npc_talk_view);
+    this->_window_layout.addWidget(&this->chat_tabs);
     this->_window_layout.addStretch();
 };
 

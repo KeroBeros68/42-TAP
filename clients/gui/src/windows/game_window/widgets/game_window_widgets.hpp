@@ -7,5 +7,6 @@
 # include "tap_ground_items_view/tap_ground_items_view.hpp"
 # include "tap_ncp_talk/tap_npc_talk.hpp"
 # include "tap_inventory_view/tap_inventory_view.hpp"
+# include "tap_chat_tabs/tap_chat_tabs.hpp"
 
 #endif // !GAME_WINDOW_WIDGETS_HPP

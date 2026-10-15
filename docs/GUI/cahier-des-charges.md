@@ -6,7 +6,7 @@
 - `docs/protocol-rfc.html` — RFC 42TAP (commandes, événements, codes d'erreur)
 
 **Objet :** lister ce que le client graphique doit implémenter, fenêtre par fenêtre, puis
-l'état d'avancement à la date du 6 octobre 2026.
+l'état d'avancement à la date du 15 octobre 2026.
 
 **Légende :** ✅ fait et validé · 🟠 en cours d'implémentation · ❌ à faire
 
@@ -46,7 +46,7 @@ Première fenêtre affichée au lancement.
 | --- | --- | --- |
 | ✅ | Saisie du **nom d'utilisateur** | Pré-rempli avec le login système (`whoami`) |
 | ✅ | Saisie de l'**adresse serveur** | Défaut `127.0.0.1` |
-| ✅ | Saisie du **port** | Défaut `4224` |
+| ✅ | Saisie du **port** | Défaut `4224` dans le cahier des charges, mais le code pré-remplit `8080` (voir § 4.6) |
 | 🟠 | Bouton **Connect** | Handler branché, mais n'ouvre pas encore le socket : doit attendre `OK hello proto=1`, envoyer `CONNECT <username>`, attendre `OK connected` |
 | ❌ | Gestion du **déjà pris** | `ERR 201 NAME_IN_USE` → message d'erreur, on reste sur la fenêtre |
 | ❌ | Gestion du **serveur injoignable** | `ERR 900 CONNECTION_FAILED` / échec de `connect()` → message d'erreur |
@@ -82,9 +82,13 @@ Fenêtre principale, affichée après authentification réussie. Elle se décomp
 
 - ✅ **Nom** de la pièce (widget présent, non alimenté par le serveur).
 - ✅ **Description** (widget présent, non alimenté par le serveur).
-- 🟠 **Sorties** disponibles → un contrôle cliquable par direction, qui envoie `MOVE <direction>`.
-- ❌ **Items présents au sol** → liste cliquable, chaque item pouvant être pris (`TAKE`).
-- ❌ **NPCs présents** → liste cliquable (voir 2.3.6).
+- 🟠 **Sorties** disponibles → contrôle cliquable par direction implémenté
+  (`TAPExitView` + `TAPExitButtons`), mais aucun envoi de `MOVE <direction>` : le clic
+  n'est pas encore relié au réseau.
+- 🟠 **Items présents au sol** → widget `TAPGroundItemsView` (liste + sélection radio +
+  bouton valider, `get_selected_item_id()`), mais pas de `TAKE` envoyé.
+- 🟠 **NPCs présents** → widget `TAPNPCTalkView` (même modèle), mais pas de `TALK` envoyé
+  (voir 2.3.6).
 - ❌ **Autres joueurs présents** dans la pièce.
 - ❌ Mise à jour **temps réel** sur réception des événements.
 - ❌ **Rafraîchissement automatique après chaque `TAKE`/`DROP`** (exigence explicite du sujet
@@ -92,7 +96,9 @@ Fenêtre principale, affichée après authentification réussie. Elle se décomp
 
 #### 2.3.3 Inventaire
 
-- ❌ Liste des items portés, alimentée par `INVENTORY` (réponse JSON array).
+- 🟠 Liste des items portés → widget `TAPInventoryView` (liste + sélection radio + bouton
+  valider, `get_selected_item_id()`), UI en place mais non alimentée par `INVENTORY`
+  (réponse JSON array).
 - ❌ Un bouton **DROP** par item.
 - ❌ Un bouton **TAKE** par item présent dans la pièce.
 - ❌ Le déplacement d'un item entre la pièce et l'inventaire doit se refléter immédiatement
@@ -124,7 +130,8 @@ Zone distincte du chat, qui reçoit :
 
 #### 2.3.6 Interaction NPC — dialogue et quêtes
 
-- ❌ Chaque NPC affiché dans la pièce est cliquable.
+- 🟠 Chaque NPC affiché dans la pièce est cliquable (`TAPNPCTalkView`, sélection radio +
+  bouton valider).
 - ❌ `TALK <npc>` → affichage du dialogue renvoyé par le serveur.
 - ❌ `QUEST <npc>` → affichage de la quête proposée (id, description, récompense, statut).
 - ❌ Gestion des erreurs associées : `404 NPC_NOT_FOUND`, `406 NO_QUEST_AVAILABLE`.
@@ -261,6 +268,10 @@ reste utile quand aucune cible n'est sélectionnable.
    jusqu'au prochain `LOOK` → prévoir un `LOOK` de resynchronisation.
 5. ❌ **Séparation chat / log** : exigence explicite du sujet, facile à rater en mettant tout
    dans une seule zone de texte.
+6. ❌ **Port par défaut divergent** : le code de `TAPConnectionWindow` pré-remplit `8080`
+   alors que le sujet/RFC impose `4224`. À corriger.
+7. ❌ **Aucune interaction clavier** dans la fenêtre de jeu : tout passe par la souris
+   (clics). Acceptable pour le sujet, mais la saisie du chat nécessitera une zone de texte.
 
 ---
 
@@ -277,12 +288,20 @@ reste utile quand aucune cible n'est sélectionnable.
 | 🟠 | Fenêtre de connexion — réseau | `src/windows/connection_window/` | `connectToServer()` branché sur le bouton, mais ne fait qu'un `std::cout` |
 | ✅ | Fenêtre d'erreur — UI | `src/windows/error_window/` | 540×360, un label + setter/getter |
 | ❌ | Fenêtre d'erreur — branchement | `src/windows/error_window/` | Instanciée nulle part |
-| ✅ | Fenêtre de jeu — squelette | `src/windows/game_window/` | Empile 2 widgets, 720×1080 |
-| ❌ | Fenêtre de jeu — fonctionnalités | `src/windows/game_window/` | Voir § 2.3 |
+| ✅ | Fenêtre de jeu — squelette | `src/windows/game_window/` | 720×1080, empile les 6 sections + stretch |
+| 🟠 | Fenêtre de jeu — fonctionnalités | `src/windows/game_window/` | Widgets UI en place, aucun branchement réseau (voir § 2.3) |
 | ✅ | Barre de compteurs — UI | `.../widgets/tap_player_count_bar/` | 2 labels + setters |
 | ❌ | Barre de compteurs — données | `.../widgets/tap_player_count_bar/` | Valeurs codées en dur dans `main.cpp` (42 / 21) |
 | ✅ | Vue de la pièce — nom + description | `.../widgets/tap_room_view/` | 2 labels + setters |
-| ❌ | Vue de la pièce — items/NPCs/sorties/joueurs | `.../widgets/tap_room_view/` | Absents |
+| ❌ | Vue de la pièce — joueurs | `.../widgets/tap_room_view/` | Absent |
+| ✅ | Vue des sorties — UI | `.../widgets/tap_exit_view/` | Boutons cliquables par direction, ordre d'affichage trié |
+| 🟠 | Vue des sorties — action | `.../widgets/tap_exit_view/` | Le clic émet la direction, mais rien ne l'écoute ni n'envoie `MOVE` |
+| ✅ | Vue des items au sol — UI | `.../widgets/tap_ground_items_view/` | Liste + sélection radio + bouton valider |
+| 🟠 | Vue des items au sol — action | `.../widgets/tap_ground_items_view/` | `get_selected_item_id()` existe, aucun `TAKE` envoyé |
+| ✅ | Vue d'inventaire — UI | `.../widgets/tap_inventory_view/` | Même modèle que les items au sol |
+| 🟠 | Vue d'inventaire — action | `.../widgets/tap_inventory_view/` | `get_selected_item_id()` existe, aucun `DROP`/`INVENTORY` envoyé |
+| ✅ | Vue de dialogue NPC — UI | `.../widgets/tap_ncp_talk/` | Liste NPC + sélection radio + bouton valider |
+| 🟠 | Vue de dialogue NPC — action | `.../widgets/tap_ncp_talk/` | `get_selected_npc_id()` existe, aucun `TALK` envoyé |
 | ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` — styles uniquement |
 | ✅ | Styles et constantes | `globals.hpp` | Couleurs, dimensions, textes par défaut |
 | ✅ | Build | `CMakeLists.txt` + `Makefile` | `all`, `run`, `valgrind`, `clean`, `fclean`, `re`, `help` |
@@ -294,9 +313,10 @@ reste utile quand aucune cible n'est sélectionnable.
   `std::cout`. Accesseurs `getUsername()` / `getRemoteAddress()` / `getRemotePort()` présents.
 - **`TAPErrorWindow`** — 540×360, titre `42 TAP Error`, un label, `setErrorMessage()` /
   `getErrorMessage()`. Instanciée nulle part.
-- **`TAPGameWindow`** — 720×1080, empile la barre de compteurs et la vue de pièce, puis un
-  stretch. Expose `update_players_in_room_label()`, `update_total_players_label()`,
-  `update_room_name()`, `update_room_description()`.
+- **`TAPGameWindow`** — 720×1080, empile : barre de compteurs, vue de pièce, vue des
+  sorties, ligne items (items au sol et inventaire côte à côte), vue de dialogue NPC, puis
+  un stretch. Expose les `update_*` (compteurs, nom/description de pièce, sorties, items
+  au sol, inventaire, NPCs) — tous alimentés en dur par `main.cpp`, pas par le serveur.
 - **`main.cpp`** — `QApplication`, icône, gestion de SIGINT (`quit` via la queue d'événements
   Qt). Les fenêtres connexion et erreur sont **commentées** ; seule la fenêtre de jeu est
   affichée, avec des compteurs codés en dur (42 / 21).
@@ -307,13 +327,13 @@ reste utile quand aucune cible n'est sélectionnable.
   aucun socket n'est ouvert.
 - ❌ **`clients/client.cpp` n'est pas listé dans `CMakeLists.txt`** (la classe `Client` existe
   côté CLI mais n'est pas utilisée par le GUI).
-- ❌ Aucun envoi de commande.
+- ❌ Aucun envoi de commande (les clics sur sorties/items/NPC n'envoient rien).
 - ❌ Aucun parsing de réponse.
 - ❌ Aucun parsing JSON.
 - ❌ Aucun traitement d'événement asynchrone.
 - ❌ Vue de chat absente.
 - ❌ Vue de log absente.
-- ❌ Inventaire absent.
+- ❌ Inventaire **non branché** (UI présente, données absentes).
 - ❌ Barre d'actions absente.
 - ❌ Panneau de combat absent.
 - ❌ Journal de quêtes absent.
@@ -330,7 +350,10 @@ Dans l'ordre d'implémentation :
    `greeting → CONNECT → OK connected`, puis la transition vers la fenêtre de jeu.
 2. ❌ **Boucle de réception** — lecture non bloquante + découpage par `\n` + dispatch
    `OK` / `ERR` / `EVT`, compatible avec la boucle d'événements Qt.
-3. ❌ **Parsing `LOOK`** — alimenter la vue de pièce et les compteurs.
+3. ❌ **Branchement des widgets existants** — les clics émettent déjà la cible
+   (`get_selected_*`, direction) ; il ne manque que la couche réseau : `MOVE`, `TAKE`,
+   `DROP`, `INVENTORY`, `TALK`, et le rafraîchissement de la vue pièce après chaque action.
+4. ❌ **Parsing `LOOK`** — alimenter la vue de pièce et les compteurs.
 4. ❌ **Chat + log** — les deux vues séparées, avec les trois portées.
 5. ❌ **Inventaire et items** — TAKE / DROP / INVENTORY et rafraîchissement automatique.
 6. ❌ **NPC** — TALK et QUEST.
