@@ -2,7 +2,7 @@
 # define TAP_CHAT_WIDGET_HPP
 
 # include <vector>
-# include <Qwidget>
+# include <QWidget>
 
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
 

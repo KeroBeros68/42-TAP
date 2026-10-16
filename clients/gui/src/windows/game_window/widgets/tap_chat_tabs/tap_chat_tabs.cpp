@@ -4,7 +4,7 @@ TAPChatTabs::TAPChatTabs()
 {
     this->_section_name.setText("CHATROOMS");
     this->_layout.addWidget(&this->_section_name, 0, Qt::AlignCenter);
-    this->_layout.addWidget(&this->_tabbar_container, 0, Qt::AlignCenter);
+    this->_layout.addWidget(&this->_tabbar_container, 1);
 
     // Fill tabs
     this->_tabbar_container.addTab(&this->_global_chat_widget, "Global");
