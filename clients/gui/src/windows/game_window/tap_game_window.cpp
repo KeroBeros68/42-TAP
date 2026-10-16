@@ -67,3 +67,23 @@ void TAPGameWindow::update_npcs(std::map<std::string, std::string> data)
 {
     this->npc_talk_view.update_npcs(data);
 };
+
+void TAPGameWindow::add_global_message(std::map<std::string, std::string> data)
+{
+    this->chat_tabs.add_global_message(data);
+};
+
+void TAPGameWindow::add_room_message(std::map<std::string, std::string> data)
+{
+    this->chat_tabs.add_room_message(data);
+};
+
+void TAPGameWindow::add_group_message(std::map<std::string, std::string> data)
+{
+    this->chat_tabs.add_group_message(data);
+};
+
+void TAPGameWindow::clear_messages_history()
+{
+    this->chat_tabs.clear_messages_history();
+};

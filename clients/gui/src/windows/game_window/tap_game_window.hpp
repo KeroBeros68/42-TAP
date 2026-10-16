@@ -33,6 +33,10 @@ class TAPGameWindow : public TAPBaseWindow
         void update_ground_items(std::map<std::string, std::string> data);
         void update_inventory(std::map<std::string, std::string> data);
         void update_npcs(std::map<std::string, std::string> data);
+        void add_global_message(std::map<std::string, std::string> data);
+        void add_room_message(std::map<std::string, std::string> data);
+        void add_group_message(std::map<std::string, std::string> data);
+        void clear_messages_history();
 };
 
 #endif // !TAP_GAME_WINDOW_HPP

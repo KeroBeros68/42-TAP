@@ -7,9 +7,31 @@ TAPChatTabs::TAPChatTabs()
     this->_layout.addWidget(&this->_tabbar_container, 0, Qt::AlignCenter);
 
     // Fill tabs
-    this->_tabbar_container.addTab("Global");
-    this->_tabbar_container.addTab("Room");
-    this->_tabbar_container.addTab("Group");
+    this->_tabbar_container.addTab(&this->_global_chat_widget, "Global");
+    this->_tabbar_container.addTab(&this->_room_chat_widget, "Room");
+    this->_tabbar_container.addTab(&this->_group_chat_widget, "Group");
     
     this->setLayout(&this->_layout);
+}
+
+void TAPChatTabs::add_global_message(std::map<std::string, std::string> data)
+{
+    this->_global_chat_widget.add_message(data);
+}
+
+void TAPChatTabs::add_room_message(std::map<std::string, std::string> data)
+{
+    this->_room_chat_widget.add_message(data);
+}
+
+void TAPChatTabs::add_group_message(std::map<std::string, std::string> data)
+{
+    this->_group_chat_widget.add_message(data);
+}
+
+void TAPChatTabs::clear_messages_history()
+{
+    this->_global_chat_widget.clear_messages_history();
+    this->_room_chat_widget.clear_messages_history();
+    this->_group_chat_widget.clear_messages_history();
 }

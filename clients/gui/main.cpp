@@ -45,6 +45,18 @@ int main(int argc, char *argv[])
 		{"east", "Gambrinus"},
 		{"west", "KM0"}
 	});
+	game_window.add_global_message({
+		{"author", "bob"},
+		{"content", "hey there"}
+	});
+	game_window.add_global_message({
+		{"author", "alice"},
+		{"content", "hey, welcome !"}
+	});
+	game_window.add_room_message({
+		{"author", "alice"},
+		{"content", "hey, welcome !"}
+	});
 
     // Debug items : ground and inventory
     game_window.update_ground_items(std::map<std::string, std::string> {
