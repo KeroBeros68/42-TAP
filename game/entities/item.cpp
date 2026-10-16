@@ -1,4 +1,5 @@
 #include "item.hpp"
+#include "../../shared/defines.hpp"
 
 ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable) 
 	: _id(id), _name(name), _description(description), _obtainable(obtainable) {}
@@ -29,4 +30,23 @@ const ItemDef& ItemDb::item(const std::string& id) const {
 
 const std::unordered_map<std::string, ItemDef>& ItemDb::items() const {
 	return _items;
+}
+
+Item ItemDb::instantiate(const std::string& id) const {
+	return Item(item(id));
+}
+
+Item::Item(const ItemDef& def)
+	: _id(def.id() + INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def) {}
+
+const std::string& Item::id() const {
+	return _id;
+}
+
+const ItemDef& Item::definition() const {
+	return *_definition;
+}
+
+const std::string& Item::name() const {
+	return _definition->name();
 }

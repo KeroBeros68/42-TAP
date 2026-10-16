@@ -5,6 +5,7 @@
 # include <unordered_map>
 # include <vector>
 
+# include "inventory.hpp"
 # include "stats.hpp"
 
 # define NPC_ROLE_ENEMY "enemy"
@@ -29,7 +30,27 @@ class NpcDef {
 		const std::string& role() const;
 		const std::string& description() const;
 		const std::string& dialogue() const;
+		const std::vector<std::string>& loots() const;
 		const Stats& stats() const;
+};
+
+class Npc {
+	private:
+		static inline int _current_id = 0;
+		std::string _id;
+		const NpcDef* _definition;
+		Stats _stats;
+
+	public:
+		Npc(const NpcDef& def);
+
+		const std::string& id() const;
+		const NpcDef& definition() const;
+		const std::string& name() const;
+		const std::string& talk() const;
+		const Stats& stats() const;
+		Stats& stats();
+		std::vector<std::string> dropLoot(Inventory& floor, const ItemDb& items) const;
 };
 
 class NpcDb {
@@ -40,6 +61,7 @@ class NpcDb {
 		bool addNpc(const NpcDef& npc);
 		const NpcDef& npc(const std::string& id) const;
 		const std::unordered_map<std::string, NpcDef>& npcs() const;
+		Npc instantiate(const std::string& id) const;
 };
 
 #endif

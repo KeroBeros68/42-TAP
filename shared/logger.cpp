@@ -1,4 +1,5 @@
 #include "logger.hpp"
+#include "utf8.hpp"
 
 std::string Logger::timestamp() {
 	const auto now = std::chrono::system_clock::now();
@@ -32,75 +33,6 @@ std::string Logger::calculateOffset() {
 	} else {
 		return "+00:00";
 	}
-}
-
-std::string jsonEscape(const std::string& text) {
-	static const char* hex = "0123456789abcdef";
-	std::string out;
-	out.reserve(text.size());
-
-	auto unicode = [&out](unsigned code) {
-		out += "\\u";
-		out += hex[(code >> 12) & 0xF];
-		out += hex[(code >> 8) & 0xF];
-		out += hex[(code >> 4) & 0xF];
-		out += hex[code & 0xF];
-	};
-
-	size_t i = 0;
-	while (i < text.size()) {
-		const unsigned char c = static_cast<unsigned char>(text[i]);
-
-		if (c < 0x80) {
-			switch (c) {
-				case '"':	out += "\\\""; break;
-				case '\\':	out += "\\\\"; break;
-				case '\n':	out += "\\n"; break;
-				case '\r':	out += "\\r"; break;
-				case '\t':	out += "\\t"; break;
-				default:
-					if (c < 0x20 || c == 0x7F)
-						unicode(c);
-					else
-						out += static_cast<char>(c);
-			}
-			i++;
-			continue;
-		}
-
-		size_t length = 0;
-		unsigned code = 0;
-		if (c >= 0xC2 && c <= 0xDF) { length = 2; code = c & 0x1F; }
-		else if (c >= 0xE0 && c <= 0xEF) { length = 3; code = c & 0x0F; }
-		else if (c >= 0xF0 && c <= 0xF4) { length = 4; code = c & 0x07; }
-
-		bool valid = length != 0 && i + length <= text.size();
-		for (size_t k = 1; valid && k < length; k++) {
-			const unsigned char next = static_cast<unsigned char>(text[i + k]);
-			if ((next & 0xC0) != 0x80)
-				valid = false;
-			else
-				code = (code << 6) | (next & 0x3F);
-		}
-		if (valid) {
-			if (length == 3 && (code < 0x800 || (code >= 0xD800 && code <= 0xDFFF)))
-				valid = false;
-			else if (length == 4 && (code < 0x10000 || code > 0x10FFFF))
-				valid = false;
-		}
-
-		if (!valid) {
-			unicode(0xFFFD);
-			i++;
-			continue;
-		}
-		if ((code >= 0x80 && code <= 0x9F) || code == 0x2028 || code == 0x2029)
-			unicode(code);
-		else
-			out.append(text, i, length);
-		i += length;
-	}
-	return out;
 }
 
 LogValue::LogValue(const char* text) : _json(text ? "\"" + jsonEscape(text) + "\"" : "null") {}

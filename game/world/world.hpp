@@ -4,8 +4,8 @@
 # include <string>
 # include <vector>
 
-# include "item.hpp"
-# include "npc.hpp"
+# include "../entities/item.hpp"
+# include "../entities/npc.hpp"
 # include "room.hpp"
 
 class World {
@@ -16,12 +16,11 @@ class World {
 		RoomMap		rooms;
 		std::string	start_room;
 		std::string	respawn_room;
+		int			respawn_life;
 		NpcDb		npc_database;
 		ItemDb		item_database;
 
 		World();
-
-		std::string look(const std::string& room_id, const std::vector<std::string>& players) const;
 
 };
 
