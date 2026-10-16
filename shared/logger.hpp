@@ -21,8 +21,6 @@
 
 enum class LogLevel { Debug, Info, Warn, Error };
 
-std::string jsonEscape(const std::string& text);
-
 class LogValue {
 	private:
 		std::string	_json;

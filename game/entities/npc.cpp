@@ -1,5 +1,6 @@
 #include "npc.hpp"
-#include "../shared/random.hpp"
+#include "../../shared/defines.hpp"
+#include "../../shared/random.hpp"
 
 NpcDef::NpcDef(const std::string& id, const std::string& name, const std::string& role,
 	const std::string& description, const std::vector<std::string>& dialogues,
@@ -45,4 +46,49 @@ const NpcDef& NpcDb::npc(const std::string& id) const {
 
 const std::unordered_map<std::string, NpcDef>& NpcDb::npcs() const {
 	return _npcs;
+}
+
+Npc NpcDb::instantiate(const std::string& id) const {
+	return Npc(npc(id));
+}
+
+Npc::Npc(const NpcDef& def)
+	: _id(def.id() + INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def), _stats(def.stats()) {}
+
+const std::string& Npc::id() const {
+	return _id;
+}
+
+const NpcDef& Npc::definition() const {
+	return *_definition;
+}
+
+const std::string& Npc::name() const {
+	return _definition->name();
+}
+
+const std::string& Npc::talk() const {
+	return _definition->dialogue();
+}
+
+const Stats& Npc::stats() const {
+	return _stats;
+}
+
+Stats& Npc::stats() {
+	return _stats;
+}
+
+const std::vector<std::string>& NpcDef::loots() const {
+	return _loots;
+}
+
+std::vector<std::string> Npc::dropLoot(Inventory& floor, const ItemDb& items) const {
+	std::vector<std::string> dropped;
+	for (const std::string& loot : _definition->loots()) {
+		Item item = items.instantiate(loot);
+		dropped.push_back(item.id());
+		floor.add(item);
+	}
+	return dropped;
 }

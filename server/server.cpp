@@ -74,6 +74,7 @@ void Server::start(const size_t& port) {
 
 	_sigs.add(SIGINT);
 	_sigs.add(SIGTERM);
+	_sigs.add(SIGQUIT);
 	if (!_sigs.open())
 		throw std::runtime_error("Failed to open signalfd");
 }
@@ -159,7 +160,7 @@ void Server::updatePoll() {
 
 	if (fds[POLL_SIGNAL_IDX].revents & POLLIN) {
 		int sig = _sigs.read();
-		if (sig == SIGINT || sig == SIGTERM) {
+		if (sig == SIGINT || sig == SIGTERM || sig == SIGQUIT) {
 			LOG_INFO("signal received, shutting down", {"signal", sig});
 			_running = false;
 		}
