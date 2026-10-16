@@ -1,0 +1,184 @@
+# **************************************************************************** #
+#                       Valgrind suppression file (42-TAP GUI)                 #
+#                                                                              #
+# Hides leaks that come from system / third-party libraries (Qt, X11, glibc,   #
+# libstdc++, fontconfig, ALSA, ...) so that only leaks caused by our own code  #
+# are reported. Regenerate entries with:                                       #
+#   valgrind --leak-check=full --show-leak-kinds=all --gen-suppressions=all     #
+#   ./42TAP                                                                   #
+# and copy the interesting blocks here (name: first line, frames below).       #
+# **************************************************************************** #
+
+{
+   Qt library allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libQt5*
+}
+
+{
+   Qt library allocations (direct, no fun:*alloc prefix)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   obj:*libQt5*
+}
+
+{
+   X11 / XCB allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libX*
+}
+
+{
+   X11 / XCB allocations (direct)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   obj:*libX*
+}
+
+{
+   glibc / ld.so one-time allocations (dlopen, locale, malloc_once, ...)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libc*
+   fun:__libc_csu_init
+}
+
+{
+   glibc dlopen / static-init leaks
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   fun:_dl_*
+}
+
+{
+   libstdc++ / C++ runtime pool allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libstdc++*
+}
+
+{
+   fontconfig / freetype allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libfontconfig*
+}
+
+{
+   ALSA / PulseAudio allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libasound*
+}
+
+{
+   PulseAudio client library allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libpulse*
+}
+
+{
+   dbus allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libdbus*
+}
+
+{
+   systemd / libsystemd allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libsystemd*
+}
+
+{
+   glib / gobject / gio allocations (g_realloc, g_thread_new, g_task, g_bus, ...)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libglib-2.0*
+}
+
+{
+   glib / gobject / gio allocations (direct)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libgobject-2.0*
+}
+
+{
+   gio allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libgio-2.0*
+}
+
+{
+   gtk3 allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libgtk-3*
+}
+
+{
+   gvfs / gio modules allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*modules/libgvfs*
+}
+
+{
+   OpenGL / glvnd (libGL, libGLdispatch, libGLX) allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   obj:*libGL*
+}
+
+{
+   ld.so TLS / pthread stack allocations (allocate_dtv, _dlfo_mappings, ...)
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:_dl_allocate_tls*
+}
+
+{
+   ld.so dl-find-object allocations
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect,possible,reachable
+   fun:*alloc
+   ...
+   fun:_dlfo_*
+}
