@@ -71,6 +71,8 @@ int main(int argc, char *argv[])
         {"npc.laurent", "Laurent"},
     });
 
+
+	#include <stdlib.h>
     try {
 		app.exec();
 	}
