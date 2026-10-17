@@ -1,26 +1,44 @@
 #include "tap_game_window.hpp"
 #include "globals.hpp"
 #include <QWidget>
+#include <QScreen>
+#include <QGuiApplication>
+#include <algorithm>
 
 // constructor
 TAPGameWindow::TAPGameWindow()
 {
-    // Set window properties
-	this->resize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    // Set window properties, clamped to the screen's available geometry
+    //  (the menu bar and the dock are excluded from availableGeometry)
+    QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+    this->resize(std::min(WINDOW_WIDTH, available.width()),
+        std::min(WINDOW_HEIGHT, available.height()));
     this->setWindowTitle(GAME_WINDOW_TITLE);
     this->setLayout(&this->_window_layout);
 
     // Add widgets to the window layout
-    this->_window_layout.addWidget(&player_count_bar);
-    this->_window_layout.addWidget(&room_view);
-    this->_window_layout.addWidget(&exit_view);
+    //  Everything except the action buttons goes in the content column,
+    //  the action buttons column spans the full height on the right
+    this->_content_layout.addWidget(&player_count_bar);
+    this->_content_layout.addWidget(&room_view);
+    this->_content_layout.addWidget(&exit_view);
     // Ground items and inventory side by side
     this->_items_row_layout.addWidget(&ground_items_view);
     this->_items_row_layout.addWidget(&inventory_view);
-    this->_window_layout.addLayout(&this->_items_row_layout);
-    this->_window_layout.addWidget(&this->npc_talk_view);
-    this->_window_layout.addWidget(&this->chat_tabs);
-    this->_window_layout.addStretch();
+    this->_content_layout.addLayout(&this->_items_row_layout);
+    this->_content_layout.addWidget(&this->npc_talk_view);
+    this->_content_layout.addWidget(&this->chat_tabs);
+    this->_content_layout.addStretch();
+
+    this->_window_layout.addLayout(&this->_content_layout, 1);
+    this->_window_layout.addLayout(&this->_actions_side_layout);
+
+    this->_actions_side_layout.addWidget(&this->action_buttons);
+    this->_actions_side_layout.addWidget(&this->log_view, 1);
+
+    // std::cout is redirected through the log view,
+    //  so every client print (WIP actions, etc.) shows in the logs
+    this->log_view.install_as_cout();
 };
 
 // TAPGameWindow::~TAPGameWindow() {

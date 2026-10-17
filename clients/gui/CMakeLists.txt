@@ -40,6 +40,8 @@ add_executable(${PROJECT_NAME}
     src/windows/game_window/widgets/tap_ground_items_view/tap_ground_items_view.cpp
     src/windows/game_window/widgets/tap_inventory_view/tap_inventory_view.cpp
     src/windows/game_window/widgets/tap_ncp_talk/tap_npc_talk.cpp
+    src/windows/game_window/widgets/tap_action_buttons/tap_action_buttons.cpp
+    src/windows/game_window/widgets/tap_log_view/tap_log_view.cpp
     src/windows/game_window/widgets/tap_chat_tabs/tap_chat_tabs.cpp
     src/windows/game_window/widgets/tap_chat_tabs/tap_chat_widget/tap_chat_widget.cpp
 )
