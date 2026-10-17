@@ -1,6 +1,6 @@
 #include "user.hpp"
-#include "defines.hpp"
-#include "../shared/utf8.hpp"
+#include "../defines.hpp"
+#include "../../shared/player_name.hpp"
 
 User::User(long long id) : _id(id) {}
 
@@ -13,11 +13,7 @@ const std::string& User::name() const {
 }
 
 bool User::setName(const std::string& name) {
-	if (_authenticated || name.empty() || name.size() > MAX_NAME_LENGTH)
-		return false;
-	if (!validateUTF8(name))
-		return false;
-	if (name.find(CMD_SEPARATOR) != std::string::npos)
+	if (_authenticated || !isValidPlayerName(name))
 		return false;
 	_name = name;
 	return true;

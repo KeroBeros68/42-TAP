@@ -1,4 +1,4 @@
-#include "commands.hpp"
+#include "protocol/commands.hpp"
 
 int main() {
 	try {

@@ -1,5 +1,6 @@
 #include "server.hpp"
-#include "../shared/utf8.hpp"
+#include "../../shared/line.hpp"
+#include "../../shared/utf8.hpp"
 
 static std::string playerName(const User& user);
 
@@ -235,14 +236,9 @@ void Server::readFrom(Session& s) {
 		c.setClosing(true);
 		break;
 	}
-	size_t pos;
-	while ((pos = c.in().find(LINE_END)) != std::string::npos) {
-		std::string line = c.in().substr(0, pos);
-		c.eraseIn(pos + 1);
-		if (!line.empty() && line.back() == CARRIAGE_RETURN)
-			line.pop_back();
+	std::string line;
+	while (c.popLine(line))
 		handeLine(s, line);
-	}
 	if (c.in().size() > MAX_LINE_LENGTH) {
 		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
 		c.setClosing(true);
@@ -261,14 +257,13 @@ static std::string shorten(const std::string& text, size_t max) {
 
 void Server::handeLine(Session& s, const std::string& line)
 {
-	size_t sp = line.find(CMD_SEPARATOR);
-	std::string cmd = line.substr(0, sp);
+	std::string cmd, args;
+	splitCommand(line, cmd, args);
 
 	std::transform(cmd.begin(), cmd.end(), cmd.begin(), [](unsigned char c) {
         return std::toupper(c);
     });	
 
-	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
 	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
 

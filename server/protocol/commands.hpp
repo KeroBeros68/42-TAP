@@ -1,8 +1,8 @@
 #ifndef COMMANDS_HPP
 # define COMMANDS_HPP
 
-# include "server.hpp"
-# include "../game/game.hpp"
+# include "../network/server.hpp"
+# include "../../game/game.hpp"
 # include "serializer.hpp"
 
 

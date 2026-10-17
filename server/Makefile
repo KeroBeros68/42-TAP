@@ -47,12 +47,12 @@ SRCS =	server.cpp \
 	serializer.cpp
 
 # The game sources live in ../game
-vpath %.cpp ../game:../game/world:../game/entities:../shared:../game/combat
+vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared:../game/combat
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
 
-INCLUDES = $(wildcard *.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
+INCLUDES = $(wildcard *.hpp) $(wildcard network/*.hpp) $(wildcard protocol/*.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
 
 # Compilation
 CC = c++
