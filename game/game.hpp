@@ -19,6 +19,9 @@ struct LookData {
 	std::vector<std::string> players;
 };
 
+# define LOG_HERE(here) \
+	{"client", (here).player->id()}, {"player", (here).player->name()}, {"room", (here).room->id()}
+
 class Game {
 	private:
 		std::unordered_map<long long, Player> _players;
@@ -31,8 +34,15 @@ class Game {
 			std::string def_id;
 			std::string room_id;
 			int seconds;
+
+			template <typename Spawned>
+			static Respawn of(RespawnKind kind, const Spawned& spawned) {
+				return {kind, spawned.definition().id(), spawned.homeRoom(), spawned.respawnSeconds()};
+			}
 		};
 		std::multimap<std::chrono::steady_clock::time_point, Respawn> _respawns;
+
+		bool schedule(const Respawn& respawn);
 
 		template <typename P, typename R>
 		struct BasicPresence {
@@ -69,7 +79,6 @@ class Game {
 
 		const Stats* status(long long player_id) const;
 
-		// Brings back the npcs whose time has come (called at each turn of the main loop)
 		void tick(std::chrono::steady_clock::time_point now);
 
 		bool hasPlayer(long long id) const;

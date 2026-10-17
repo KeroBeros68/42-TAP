@@ -52,7 +52,7 @@ static void readNpc(NpcDb& database, json& data) {
 				loot
 			);
 
-			database.addNpc(def);
+			database.add(def);
 		}
 	} else {
 		LOG_WARN("no \"npcs\" object found in npc.json, no NPC loaded");
@@ -68,7 +68,7 @@ static void readItems(ItemDb& database, json& data) {
 				item.at(JSON_OBTAINABLE).get<bool>()
 			);
 
-			database.addItem(def);
+			database.add(def);
 		}
 	} else {
 		LOG_WARN("no \"items\" object found in items.json, no item loaded");
@@ -129,44 +129,37 @@ static void readRoom(RoomMap& rooms, json& data) {
 	}
 }
 
-void parseNpcs(const std::string& path, NpcDb& npcs) {
+template <typename Read>
+static void loadJson(const std::string& path, const char* error_prefix, Read read) {
 	std::ifstream file(path);
 	if (!file)
 		throw std::runtime_error("cannot open " + path);
 
 	try {
 		json data = json::parse(file);
-		readNpc(npcs, data);
+		read(data);
 	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string(ERR_NPC_FILE) + e.what());
+		throw std::runtime_error(std::string(error_prefix) + e.what());
 	}
+}
+
+void parseNpcs(const std::string& path, NpcDb& npcs) {
+	loadJson(path, ERR_NPC_FILE, [&](json& data) {
+		readNpc(npcs, data);
+	});
 }
 
 void parseItems(const std::string& path, ItemDb& items) {
-	std::ifstream file(path);
-	if (!file)
-		throw std::runtime_error("cannot open " + path);
-
-	try {
-		json data = json::parse(file);
+	loadJson(path, ERR_ITEM_FILE, [&](json& data) {
 		readItems(items, data);
-	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string(ERR_ITEM_FILE) + e.what());
-	}
+	});
 }
 
 void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room, int& respawn_life) {
-	std::ifstream file(path);
-	if (!file)
-		throw std::runtime_error("cannot open " + path);
-
-	try {
-		json data = json::parse(file);
+	loadJson(path, ERR_ROOM_FILE, [&](json& data) {
 		readRoom(rooms, data);
 		start_room = data.at(JSON_START_ROOM).get<std::string>();
 		respawn_room = data.at(JSON_RESPAWN).at(JSON_ROOM).get<std::string>();
 		respawn_life = data.at(JSON_RESPAWN).at(JSON_HP).get<int>();
-	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string(ERR_ROOM_FILE) + e.what());
-	}
+	});
 }

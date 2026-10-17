@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "parser.hpp"
+#include "spawn.hpp"
 #include "../../shared/logger.hpp"
 
 #ifndef PROJECT_ROOT
@@ -29,20 +30,15 @@ static void validateExits(const RoomMap& rooms) {
 	}
 }
 
-static void validateNpcSpawns(const RoomMap& rooms, const NpcDb& npc_database) {
-	for (const auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.npcSpawns()) {
-			if (npc_database.npcs().find(spawn.id) == npc_database.npcs().end())
-				throw std::runtime_error(ERR_ROOM_FILE + id + ": spawn of unknown NPC '" + spawn.id + "'");
-		}
-	}
-}
+static const auto npcSpawnsOf = [](const Room& room) -> const std::vector<Spawn>& { return room.npcSpawns(); };
+static const auto itemSpawnsOf = [](const Room& room) -> const std::vector<Spawn>& { return room.itemSpawns(); };
 
-static void validateItemSpawns(const RoomMap& rooms, const ItemDb& item_database) {
+template <typename SpawnsOf, typename Definitions>
+static void validateSpawns(const RoomMap& rooms, const std::string& kind, SpawnsOf spawnsOf, const Definitions& definitions) {
 	for (const auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.itemSpawns()) {
-			if (item_database.items().find(spawn.id) == item_database.items().end())
-				throw std::runtime_error(ERR_ROOM_FILE + id + ": unknown item '" + spawn.id + "'");
+		for (const Spawn& spawn : spawnsOf(room)) {
+			if (definitions.find(spawn.id) == definitions.end())
+				throw std::runtime_error(ERR_ROOM_FILE + id + ": spawn of unknown " + kind + " '" + spawn.id + "'");
 		}
 	}
 }
@@ -52,29 +48,13 @@ static void validateRoomId(const RoomMap& rooms, const std::string& id, const st
 		throw std::runtime_error(ERR_ROOM_FILE + role + " '" + id + "' is not a room");
 }
 
-static size_t createNpcs(RoomMap& rooms, const NpcDb& npc_database) {
+template <typename Db, typename SpawnsOf, typename Place>
+static size_t createInstances(RoomMap& rooms, const Db& database, SpawnsOf spawnsOf, Place place) {
 	size_t created = 0;
 	for (auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.npcSpawns()) {
+		for (const Spawn& spawn : spawnsOf(room)) {
 			for (int i = 0; i < spawn.count; i++) {
-				Npc npc = npc_database.instantiate(spawn.id);
-				npc.setOrigin(id, spawn.respawn_seconds);
-				room.addNpc(npc);
-				created++;
-			}
-		}
-	}
-	return created;
-}
-
-static size_t createItems(RoomMap& rooms, const ItemDb& item_database) {
-	size_t created = 0;
-	for (auto& [id, room] : rooms) {
-		for (const Spawn& spawn : room.itemSpawns()) {
-			for (int i = 0; i < spawn.count; i++) {
-				Item item = item_database.instantiate(spawn.id);
-				item.setOrigin(id, spawn.respawn_seconds);
-				room.inventory().add(item);
+				spawnInstance(database, spawn.id, id, spawn.respawn_seconds, room, place);
 				created++;
 			}
 		}
@@ -87,11 +67,13 @@ void World::loadWorld() {
 	parseItems(DATA_DIR + ITEM_FILE, item_database);
 	parseRooms(DATA_DIR + ROOM_FILE, rooms, start_room, respawn_room, respawn_life);
 	validateExits(rooms);
-	validateNpcSpawns(rooms, npc_database);
-	validateItemSpawns(rooms, item_database);
-	size_t spawned_npc = createNpcs(rooms, npc_database);
-	size_t spawned_item = createItems(rooms, item_database);
+	validateSpawns(rooms, "NPC", npcSpawnsOf, npc_database.all());
+	validateSpawns(rooms, "item", itemSpawnsOf, item_database.all());
+	size_t spawned_npc = createInstances(rooms, npc_database, npcSpawnsOf,
+		[](Room& room, const Npc& npc) { room.addNpc(npc); });
+	size_t spawned_item = createInstances(rooms, item_database, itemSpawnsOf,
+		[](Room& room, const Item& item) { room.inventory().add(item); });
 	validateRoomId(rooms, start_room, "start_room");
 	validateRoomId(rooms, respawn_room, "respawn room");
-	LOG_INFO("world loaded", {"npcs", npc_database.npcs().size()}, {"items", item_database.items().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
+	LOG_INFO("world loaded", {"npcs", npc_database.all().size()}, {"items", item_database.all().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
 }

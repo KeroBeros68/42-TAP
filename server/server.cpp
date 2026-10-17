@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "../shared/utf8.hpp"
 
 static std::string playerName(const User& user);
 
@@ -22,6 +23,14 @@ Server::~Server() {
 		}
 		LOG_DEBUG("client socket closed");
 	}
+}
+
+static bool setNonBlocking(int fd, const char* what) {
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
+		LOG_ERROR(std::string("failed to set ") + what + " to non-blocking mode", {"error", strerror(errno)});
+		return false;
+	}
+	return true;
 }
 
 void Server::start(const size_t& port) {
@@ -66,10 +75,8 @@ void Server::start(const size_t& port) {
 	LOG_INFO("server started", {"port", port});
 
 	LOG_DEBUG("setting listen socket to non-blocking mode");
-	if (fcntl(_listen_socket, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
-		LOG_ERROR("failed to set listen socket to non-blocking mode", {"error", strerror(errno)});
+	if (!setNonBlocking(_listen_socket, "listen socket"))
 		throw std::runtime_error("Failed to set listen socket to non-blocking mode");
-	}
 	LOG_DEBUG("listen socket set to non-blocking mode");
 
 	_sigs.add(SIGINT);
@@ -173,10 +180,8 @@ void Server::updatePoll() {
 		if (client_socket == SYSCALL_ERROR) {
 			LOG_ERROR("accept failed", {"error", strerror(errno)});
 		} else {
-			if (fcntl(client_socket, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
-				LOG_ERROR("failed to set client socket to non-blocking mode", {"error", strerror(errno)});
+			if (!setNonBlocking(client_socket, "client socket"))
 				close(client_socket);
-			}
 			else {
 				long long client_id;
 				if (_available_id.empty())
@@ -241,36 +246,35 @@ void Server::readFrom(Session& s) {
 	if (c.in().size() > MAX_LINE_LENGTH) {
 		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
 		c.setClosing(true);
-		reply(c, tapErrorLine(TapError::BAD_REQUEST));
+		replyError(c, TapError::BAD_REQUEST);
 	}
 }
 
-// The name of an authenticated user, "" before CONNECT
 static std::string playerName(const User& user) {
 	return user.isAuthenticated() ? user.name() : std::string();
 }
 
-// The beginning of a long text (a LOOK response is about 600 bytes), never cut inside a UTF-8 character
 static std::string shorten(const std::string& text, size_t max) {
-	if (text.size() <= max)
-		return text;
-	size_t cut = max;
-	while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
-		cut--;
-	return text.substr(0, cut) + "...";
+	const size_t cut = utf8SafeLength(text, max);
+	return cut == text.size() ? text : text.substr(0, cut) + "...";
 }
 
 void Server::handeLine(Session& s, const std::string& line)
 {
 	size_t sp = line.find(CMD_SEPARATOR);
 	std::string cmd = line.substr(0, sp);
+
+	std::transform(cmd.begin(), cmd.end(), cmd.begin(), [](unsigned char c) {
+        return std::toupper(c);
+    });	
+
 	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
 
 	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
 
 	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
 		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
-		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
+		replyError(s.conn, TapError::BAD_REQUEST);
 		return;
 	}
 	auto it = _actions.find(cmd);
@@ -286,7 +290,7 @@ void Server::handeLine(Session& s, const std::string& line)
 	else
 	{
 		LOG_WARN("unknown command", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
-		reply(s.conn, tapErrorLine(TapError::BAD_REQUEST));
+		replyError(s.conn, TapError::BAD_REQUEST);
 	}
 }
 
@@ -294,18 +298,23 @@ void Server::reply(Connection& c, const std::string& line) {
 	c.appendOut(line + LINE_END);
 }
 
+void Server::replyError(Connection& c, TapError error) {
+	reply(c, tapErrorLine(error));
+}
+
 void Server::flush(Connection& c) {
-    while (!c.out().empty()) {
-        ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
-        if (n > 0) {
+	while (!c.out().empty()) {
+		ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
+		if (n > 0) {
 			c.consumeOut(n);
 			continue;
 		}
-        if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
+		if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
 			break;
-        LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
-        c.setClosing(true); break;
-    }
+		LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
+		c.setClosing(true);
+		break;
+	}
 }
 
 bool Server::getStatus() const {

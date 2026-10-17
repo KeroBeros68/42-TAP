@@ -5,56 +5,42 @@
 
 # include "defines.hpp"
 
+// All the errors of the protocol: X(name, code). To add an error, add a line here.
+# define TAP_ERRORS(X) \
+	X(BAD_REQUEST,				400)	/* not in the RFC: unknown command / malformed message */ \
+	X(NAME_IN_USE,				201) \
+	X(NO_EXIT,					301) \
+	X(NOT_IN_GROUP,				401) \
+	X(ALREADY_IN_GROUP,			402) \
+	X(INVENTORY_FULL,			403)	/* not in the RFC: TAKE with a full inventory */ \
+	X(ITEM_NOT_FOUND,			404) \
+	X(ITEM_NOT_IN_INVENTORY,	404) \
+	X(NPC_NOT_FOUND,			404) \
+	X(NPC_NOT_HOSTILE,			405) \
+	X(NO_QUEST_AVAILABLE,		406) \
+	X(CONNECTION_FAILED,		900) \
+	X(SEND_FAILED,				901)
+
 enum class TapError {
-	BAD_REQUEST,			// 400 (not in the RFC: unknown command / malformed message)
-	NAME_IN_USE,			// 201
-	NO_EXIT,				// 301
-	NOT_IN_GROUP,			// 401
-	ALREADY_IN_GROUP,		// 402
-	INVENTORY_FULL,			// 403 (not in the RFC: TAKE with a full inventory)
-	ITEM_NOT_FOUND,			// 404
-	ITEM_NOT_IN_INVENTORY,	// 404
-	NPC_NOT_FOUND,			// 404
-	NPC_NOT_HOSTILE,		// 405
-	NO_QUEST_AVAILABLE,		// 406
-	CONNECTION_FAILED,		// 900
-	SEND_FAILED				// 901
+# define X(name, code) name,
+	TAP_ERRORS(X)
+# undef X
 };
 
 inline int tapErrorCode(TapError e) {
 	switch (e) {
-		case TapError::BAD_REQUEST:				return 400;
-		case TapError::NAME_IN_USE:				return 201;
-		case TapError::NO_EXIT:					return 301;
-		case TapError::NOT_IN_GROUP:			return 401;
-		case TapError::ALREADY_IN_GROUP:		return 402;
-		case TapError::INVENTORY_FULL:			return 403;
-		case TapError::ITEM_NOT_FOUND:			return 404;
-		case TapError::ITEM_NOT_IN_INVENTORY:	return 404;
-		case TapError::NPC_NOT_FOUND:			return 404;
-		case TapError::NPC_NOT_HOSTILE:			return 405;
-		case TapError::NO_QUEST_AVAILABLE:		return 406;
-		case TapError::CONNECTION_FAILED:		return 900;
-		case TapError::SEND_FAILED:				return 901;
+# define X(name, code) case TapError::name: return code;
+		TAP_ERRORS(X)
+# undef X
 	}
 	return 0;
 }
 
 inline const char* tapErrorName(TapError e) {
 	switch (e) {
-		case TapError::BAD_REQUEST:				return "BAD_REQUEST";
-		case TapError::NAME_IN_USE:				return "NAME_IN_USE";
-		case TapError::NO_EXIT:					return "NO_EXIT";
-		case TapError::NOT_IN_GROUP:			return "NOT_IN_GROUP";
-		case TapError::ALREADY_IN_GROUP:		return "ALREADY_IN_GROUP";
-		case TapError::INVENTORY_FULL:			return "INVENTORY_FULL";
-		case TapError::ITEM_NOT_FOUND:			return "ITEM_NOT_FOUND";
-		case TapError::ITEM_NOT_IN_INVENTORY:	return "ITEM_NOT_IN_INVENTORY";
-		case TapError::NPC_NOT_FOUND:			return "NPC_NOT_FOUND";
-		case TapError::NPC_NOT_HOSTILE:			return "NPC_NOT_HOSTILE";
-		case TapError::NO_QUEST_AVAILABLE:		return "NO_QUEST_AVAILABLE";
-		case TapError::CONNECTION_FAILED:		return "CONNECTION_FAILED";
-		case TapError::SEND_FAILED:				return "SEND_FAILED";
+# define X(name, code) case TapError::name: return #name;
+		TAP_ERRORS(X)
+# undef X
 	}
 	return "UNKNOWN";
 }
