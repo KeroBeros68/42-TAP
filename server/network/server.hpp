@@ -15,12 +15,12 @@
 # include <fcntl.h>
 # include <unistd.h>
 
-# include "defines.hpp"
-# include "../shared/logger.hpp"
-# include "../shared/errors.hpp"
-# include "signalFd.hpp"
-# include "../shared/success.hpp"
-# include "../shared/response.hpp"
+# include "../defines.hpp"
+# include "../../shared/logger.hpp"
+# include "../../shared/errors.hpp"
+# include "../../shared/signalFd.hpp"
+# include "../../shared/success.hpp"
+# include "../../shared/response.hpp"
 # include "connection.hpp"
 # include "user.hpp"
 

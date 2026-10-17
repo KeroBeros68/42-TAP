@@ -1,6 +1,6 @@
 #include "serializer.hpp"
 
-#include "../third_party/json.hpp"
+#include "../../third_party/json.hpp"
 
 using ordered_json = nlohmann::ordered_json;
 

@@ -33,6 +33,8 @@ int main() {
 	});
 
 	client.enableKeyboard();
+	if (!client.enableSignals())
+		std::cerr << "Warning: cannot watch the signals, Ctrl+C will not say QUIT to the server." << std::endl;
 	while (client.update()) {}
 	std::cout << "Disconnected from server." << std::endl;
 	return 0;

@@ -7,12 +7,15 @@
 
 # define INVALID_FD			-1
 # define SYSCALL_ERROR		-1
+# define SIGNAL_NONE		-1		// nothing to read from a SignalFd
 
 # define LINE_END			'\n'
 # define CARRIAGE_RETURN	'\r'
 # define CMD_SEPARATOR		' '
 # define MAX_LINE_LENGTH	1024
 # define MAX_NAME_LENGTH	32
+# define POLL_TIMEOUT_MS	1000
+# define RECV_BUFFER_SIZE	4096
 
 
 // Words and fields of the protocol (the clients read them)

@@ -28,15 +28,18 @@ NAME = clientCLI
 OBJ_DIR = Obj
 
 SRCS =	main.cpp \
-	../client.cpp
+	../client.cpp \
+	../../shared/signalFd.cpp
 
 # Sources outside this directory (../client.cpp) are looked up here
-vpath %.cpp ..
+vpath %.cpp ..:../../shared
 
 
 INCLUDES =	../client.hpp \
 	../defines.hpp \
-	../../shared/defines.hpp
+	../../shared/defines.hpp \
+	../../shared/line.hpp \
+	../../shared/signalFd.hpp
 
 # Compilation
 CC = c++

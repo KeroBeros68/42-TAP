@@ -13,7 +13,7 @@ void SignalFd::add(int sig) {
 
 bool SignalFd::open() {
 	if (_fd != INVALID_FD)
-		return _fd;
+		return true;
 	if (sigprocmask(SIG_BLOCK, &_mask, NULL) == SYSCALL_ERROR)
 		return false;
 	_fd = signalfd(INVALID_FD, &_mask, SFD_NONBLOCK | SFD_CLOEXEC);

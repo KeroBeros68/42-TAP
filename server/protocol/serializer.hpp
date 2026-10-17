@@ -3,7 +3,7 @@
 
 # include <string>
 
-# include "../game/game.hpp"
+# include "../../game/game.hpp"
 
 // The JSON payload of the responses (LOOK, STATUS, ATTACK): the only place where they are written.
 // The names of the fields are the ones of the RFC.

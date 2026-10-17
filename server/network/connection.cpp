@@ -1,4 +1,5 @@
 #include "connection.hpp"
+#include "../../shared/line.hpp"
 
 Connection::Connection(int fd, const std::string& ip) : _fd(fd), _ip(ip) {}
 
@@ -18,8 +19,8 @@ void Connection::appendIn(const char* data, size_t size) {
 	_in.append(data, size);
 }
 
-void Connection::eraseIn(size_t count) {
-	_in.erase(0, count);
+bool Connection::popLine(std::string& line) {
+	return extractLine(_in, line);
 }
 
 void Connection::clearIn() {

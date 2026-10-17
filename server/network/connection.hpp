@@ -3,13 +3,12 @@
 
 # include <string>
 
-// Everything related to the socket of a client. Private to the server.
 class Connection {
 	private:
 		int			_fd;
 		std::string	_ip;
-		std::string	_in;			// receive buffer
-		std::string	_out;		// send buffer
+		std::string	_in;
+		std::string	_out;
 		bool		_closing = false;
 
 	public:
@@ -20,7 +19,7 @@ class Connection {
 
 		const std::string& in() const;
 		void appendIn(const char* data, size_t size);
-		void eraseIn(size_t count);
+		bool popLine(std::string& line);
 		void clearIn();
 
 		const std::string& out() const;
