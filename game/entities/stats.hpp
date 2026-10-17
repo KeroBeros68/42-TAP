@@ -5,6 +5,8 @@
 
 # include "../../shared/defines.hpp"
 
+# define COMBAT_INITIATIVE_MIN_PERCENT	50
+
 enum class Status {
 	HEALTHY,
 	WOUNDED,
@@ -17,8 +19,8 @@ struct Stats {
 	int hp = 0;
 	int attack = 0;
 	int defense = 0;
-	int hit = 0;		// accuracy: against the flee of the target, gives the chance to hit
-	int flee = 0;		// evasion
+	int hit = 0;
+	int flee = 0;
 	bool in_combat = false;
 
 	Stats() = default;
@@ -27,6 +29,13 @@ struct Stats {
 
 	bool isDead() const {
 		return hp <= 0;
+	}
+
+	int initiative() const {
+		if (max_hp <= 0)
+			return flee;
+		const int health_percent = COMBAT_INITIATIVE_MIN_PERCENT + (100 - COMBAT_INITIATIVE_MIN_PERCENT) * hp / max_hp;
+		return flee * health_percent / 100;
 	}
 
 	Status status() const {

@@ -31,11 +31,16 @@ std::string serializeStatus(const Stats& stats) {
 	return dump(payload);
 }
 
-std::string serializeAttack(const CombatResult& combat) {
+std::string serializeAttack(const CombatReport& report) {
+	int damage = 0;			// dealt by the player during the round
+	for (const CombatEvent& event : report.outcome.events) {
+		if (event.by_player)
+			damage += event.damage;
+	}
 	ordered_json payload;
-	payload[FIELD_ATTACKER_HP] = combat.attacker_hp;
-	payload[FIELD_TARGET_HP] = combat.defender_hp;
-	payload[FIELD_DAMAGE] = combat.damage_to_defender;
-	payload[FIELD_STATUS] = statusName(combat.attacker_status);
+	payload[FIELD_ATTACKER_HP] = report.player_hp;
+	payload[FIELD_TARGET_HP] = report.enemy_hp;
+	payload[FIELD_DAMAGE] = damage;
+	payload[FIELD_STATUS] = statusName(report.player_status);
 	return dump(payload);
 }

@@ -19,6 +19,18 @@ struct LookData {
 	std::vector<std::string> players;
 };
 
+enum class CombatStatus { DONE, NOT_FOUND, NOT_HOSTILE, NOT_IN_COMBAT, ANOTHER_ENEMY };
+
+// The report of one round, for the answer of the command
+struct CombatReport {
+	CombatStatus status = CombatStatus::DONE;
+	RoundOutcome outcome{};
+	int round = 0;							// the round that was just played
+	int player_hp = 0;						// after the round, before the respawn if the player died
+	int enemy_hp = 0;
+	Status player_status = Status::HEALTHY;
+};
+
 # define LOG_HERE(here) \
 	{"client", (here).player->id()}, {"player", (here).player->name()}, {"room", (here).room->id()}
 
@@ -58,6 +70,14 @@ class Game {
 
 		bool teleport(long long player_id, const std::string& target);
 
+		// The fights in progress: one per player
+		std::unordered_map<long long, Combat> _combats;
+		CombatReport resolveRound(Presence& here, std::unordered_map<long long, Combat>::iterator fight, CombatAction action);
+		CombatReport continueFight(long long player_id, CombatAction action, const char* name);
+		void enemyDied(Presence& here, Npc* npc);
+		void playerDied(Presence& here, const std::string& enemy_id);
+		void playerFled(Presence& here);
+
 	public:
 		Game();
 
@@ -75,7 +95,11 @@ class Game {
 
 		std::optional<std::string> talk(long long player_id, const std::string& target) const;
 
-		CombatResult attack(long long player_id, const std::string& target);
+		// Starts a fight with the target, or plays a round of the fight in progress (the target is then empty or the same enemy)
+		CombatReport attack(long long player_id, const std::string& target);
+		CombatReport defend(long long player_id);
+		CombatReport flee(long long player_id);
+		bool inCombat(long long player_id) const;
 
 		const Stats* status(long long player_id) const;
 

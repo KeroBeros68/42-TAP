@@ -30,12 +30,16 @@ static Response cmdLook(Game& game, User& user) {
 }
 
 static Response cmdMove(Game& game, User& user, const std::string& direction) {
+	if (game.inCombat(user.id()))
+		return Response::failure(TapError::IN_COMBAT);
 	if (!game.move(user.id(), direction))
 		return Response::failure(TapError::NO_EXIT);
 	return Response::success(TapOk::ROOM, game.playerMap(user.id()));
 }
 
 static Response cmdTalk(Game& game, User& user, const std::string& target) {
+	if (game.inCombat(user.id()))
+		return Response::failure(TapError::IN_COMBAT);
 	const std::optional<std::string> dialogue = game.talk(user.id(), target);
 	if (!dialogue)
 		return Response::failure(TapError::NPC_NOT_FOUND);
@@ -43,6 +47,8 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
 }
 
 static Response cmdTake(Game& game, User& user, const std::string& target) {
+	if (game.inCombat(user.id()))
+		return Response::failure(TapError::IN_COMBAT);
 	const TransferResult taken = game.take(user.id(), target);
 	if (taken.status == TransferStatus::DestinationFull)
 		return Response::failure(TapError::INVENTORY_FULL);
@@ -59,14 +65,15 @@ static Response cmdDrop(Game& game, User& user, const std::string& target) {
 }
 
 static Response cmdAttack(Game& game, User& user, const std::string& target) {
-	const CombatResult combat = game.attack(user.id(), target);
-	if (combat.status == AttackStatus::NOT_FOUND)
-		return Response::failure(TapError::NPC_NOT_FOUND);
-	if (combat.status == AttackStatus::NOT_HOSTILE)
-		return Response::failure(TapError::NPC_NOT_HOSTILE);
-	if (combat.status == AttackStatus::DEAD)
-		return Response::failure(TapError::BAD_REQUEST);	
-	return Response::success(TapOk::DATA, serializeAttack(combat));
+	const CombatReport report = game.attack(user.id(), target);
+	switch (report.status) {
+		case CombatStatus::NOT_FOUND:		return Response::failure(TapError::NPC_NOT_FOUND);
+		case CombatStatus::NOT_HOSTILE:		return Response::failure(TapError::NPC_NOT_HOSTILE);
+		case CombatStatus::ANOTHER_ENEMY:	return Response::failure(TapError::IN_COMBAT);
+		case CombatStatus::NOT_IN_COMBAT:	return Response::failure(TapError::NOT_IN_COMBAT);
+		case CombatStatus::DONE:			break;
+	}
+	return Response::success(TapOk::DATA, serializeAttack(report));
 }
 
 static Response cmdStatus(Game& game, User& user) {

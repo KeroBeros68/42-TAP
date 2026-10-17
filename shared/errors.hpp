@@ -18,6 +18,8 @@
 	X(NPC_NOT_FOUND,			404) \
 	X(NPC_NOT_HOSTILE,			405) \
 	X(NO_QUEST_AVAILABLE,		406) \
+	X(IN_COMBAT,				409)	/* not in the RFC: MOVE, TAKE or TALK during a fight, or another target for ATTACK */ \
+	X(NOT_IN_COMBAT,			410)	/* not in the RFC: DEFEND or FLEE with no fight */ \
 	X(CONNECTION_FAILED,		900) \
 	X(SEND_FAILED,				901)
 
