@@ -6,7 +6,7 @@
 - `docs/protocol-rfc.html` — RFC 42TAP (commandes, événements, codes d'erreur)
 
 **Objet :** lister ce que le client graphique doit implémenter, fenêtre par fenêtre, puis
-l'état d'avancement à la date du 15 octobre 2026.
+l'état d'avancement à la date du 17 octobre 2026.
 
 **Légende :** ✅ fait et validé · 🟠 en cours d'implémentation · ❌ à faire
 
@@ -110,23 +110,33 @@ Le sujet impose une séparation nette entre le chat et le log. Trois portées di
 
 | État | Onglet / zone | Commande d'envoi | Événement d'arrivée |
 | --- | --- | --- | --- |
-| ❌ | **Global** | `CHAT GLOBAL <message>` | `EVT GLOBAL CHAT <joueur> <message>` |
-| ❌ | **Room** | `CHAT ROOM <message>` | `EVT ROOM CHAT <joueur> <message>` |
-| ❌ | **Group** | `CHAT GROUP <message>` | `EVT GROUP CHAT <joueur> <message>` |
+| 🟠 | **Global** | `CHAT GLOBAL <message>` | `EVT GLOBAL CHAT <joueur> <message>` |
+| 🟠 | **Room** | `CHAT ROOM <message>` | `EVT ROOM CHAT <joueur> <message>` |
+| 🟠 | **Group** | `CHAT GROUP <message>` | `EVT GROUP CHAT <joueur> <message>` |
+
+Widget `TAPChatTabs` en place : onglets + historique par portée (`add_global_message`,
+`add_room_message`, `add_group_message`, alimentés en dur par `main.cpp`) et
+`clear_messages_history()`. Reste à faire :
 
 - ❌ Zone de saisie + sélection de la portée (onglet actif ou menu déroulant).
-- ❌ Historique par portée, avec le nom de l'émetteur.
-- ❌ Le message envoyé doit apparaître dans le fil correspondant.
+- ❌ Branchement réseau : envoi `CHAT <scope> <message>` et réception des `EVT * CHAT`.
 
 #### 2.3.5 Vue de log
 
 Zone distincte du chat, qui reçoit :
 
+- 🟠 Widget `TAPLogView` en place : zone défilante (read-only), en bas de la colonne de
+  droite sous la barre d'actions. `std::cout` est redirigé via un `std::streambuf` custom
+  (`TAPLogStreamBuf`), donc **tous** les `cout` du client s'y affichent — dont les
+  `[WIP] <ACTION>` des boutons.
 - ❌ Les **réponses** du serveur (`OK ...`) à nos propres commandes.
 - ❌ Les **erreurs** (`ERR <code> <message>`).
 - ❌ Les **événements d'ambiance** : entrées/sorties de joueurs, résultats de combat,
   progression de quête, invitations de groupe.
 - ❌ Horodatage, pour rester cohérent avec le logging serveur.
+- ❌ ⚠️ La redirection `std::cout` capte aujourd'hui les logs **locaux** du client ; les
+  lignes serveur n'y arriveront que lorsque le dispatch réseau écrira dans ce même flux
+  (ou appelera directement `append_log()`).
 
 #### 2.3.6 Interaction NPC — dialogue et quêtes
 
@@ -173,18 +183,23 @@ Le sujet exige des boutons pour **toutes** les actions suivantes :
 
 | État | Action |
 | --- | --- |
-| ❌ | `LOOK` |
-| ❌ | `MOVE` |
-| ❌ | `TAKE` |
-| ❌ | `DROP` |
-| ❌ | `TALK` |
-| ❌ | `ATTACK` |
-| ❌ | `STATUS` |
-| ❌ | `QUEST` |
-| ❌ | `QUESTS` |
-| ❌ | `WHO` |
-| ❌ | `GROUP` |
-| ❌ | `QUIT` |
+| ✅ | `LOOK` |
+| ✅ | `MOVE` |
+| ✅ | `TAKE` |
+| ✅ | `DROP` |
+| ✅ | `TALK` |
+| ✅ | `ATTACK` |
+| ✅ | `STATUS` |
+| ✅ | `QUEST` |
+| ✅ | `QUESTS` |
+| ✅ | `WHO` |
+| ✅ | `GROUP` |
+| ✅ | `QUIT` |
+
+Widget `TAPActionButtons` en place : un bouton par action du sujet (§ V.4), colonne
+verticale alignée sur le bord droit de la fenêtre (sur toute la hauteur, à côté de la
+colonne de contenu). Chaque clic affiche `[WIP] <ACTION>` dans le terminal — aucun envoi
+réseau, les boutons attendent la couche de dispatch (§ 5.3, bloc 2).
 
 Les actions contextuelles (TAKE, DROP, TALK, ATTACK, QUEST) ont vocation à être portées par
 les éléments concernés (item, NPC) plutôt que par un bouton générique. Le bouton générique
@@ -233,6 +248,11 @@ reste utile quand aucune cible n'est sélectionnable.
 | ❌ | `EVT GROUP LEAVE <joueur>` | Liste des membres + log |
 | ❌ | `EVT GROUP CHAT <joueur> <msg>` | Onglet **Group** |
 | ❌ | `EVT STATS players=<n>` | Compteur joueurs serveur |
+
+### 3.2.1 Vue de chat — UI en place
+
+Le widget `TAPChatTabs` (onglets Global / Room / Group) existe — voir § 2.3.4 — mais aucun
+message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT * CHAT`.
 
 ### 3.3 Codes d'erreur à gérer
 
@@ -301,8 +321,13 @@ reste utile quand aucune cible n'est sélectionnable.
 | ✅ | Vue d'inventaire — UI | `.../widgets/tap_inventory_view/` | Même modèle que les items au sol |
 | 🟠 | Vue d'inventaire — action | `.../widgets/tap_inventory_view/` | `get_selected_item_id()` existe, aucun `DROP`/`INVENTORY` envoyé |
 | ✅ | Vue de dialogue NPC — UI | `.../widgets/tap_ncp_talk/` | Liste NPC + sélection radio + bouton valider |
+| ✅ | Vue de chat — UI | `.../widgets/tap_chat_tabs/` | Onglets Global / Room / Group + historique par portée |
 | 🟠 | Vue de dialogue NPC — action | `.../widgets/tap_ncp_talk/` | `get_selected_npc_id()` existe, aucun `TALK` envoyé |
 | ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` — styles uniquement |
+| ✅ | Barre d'actions — UI | `.../widgets/tap_action_buttons/` | 12 boutons (LOOK…QUIT), émet `[WIP] <ACTION>` au clic |
+| 🟠 | Barre d'actions — réseau | `.../widgets/tap_action_buttons/` | Aucun envoi de commande |
+| ✅ | Vue de logs — locale | `.../widgets/tap_log_view/` | Défilante, read-only ; capture `std::cout` via `TAPLogStreamBuf` ; label « (no logs yet) » |
+| ❌ | Vue de logs — serveur | `.../widgets/tap_log_view/` | Réponses / erreurs / événements serveur non routés vers la vue |
 | ✅ | Styles et constantes | `globals.hpp` | Couleurs, dimensions, textes par défaut |
 | ✅ | Build | `CMakeLists.txt` + `Makefile` | `all`, `run`, `valgrind`, `clean`, `fclean`, `re`, `help` |
 
@@ -313,10 +338,14 @@ reste utile quand aucune cible n'est sélectionnable.
   `std::cout`. Accesseurs `getUsername()` / `getRemoteAddress()` / `getRemotePort()` présents.
 - **`TAPErrorWindow`** — 540×360, titre `42 TAP Error`, un label, `setErrorMessage()` /
   `getErrorMessage()`. Instanciée nulle part.
-- **`TAPGameWindow`** — 720×1080, empile : barre de compteurs, vue de pièce, vue des
-  sorties, ligne items (items au sol et inventaire côte à côte), vue de dialogue NPC, puis
-  un stretch. Expose les `update_*` (compteurs, nom/description de pièce, sorties, items
-  au sol, inventaire, NPCs) — tous alimentés en dur par `main.cpp`, pas par le serveur.
+- **`TAPGameWindow`** — disposition en deux colonnes : à gauche le contenu (barre de
+  compteurs, vue de pièce, vue des sorties, ligne items — items au sol et inventaire côte
+  à côte —, vue de dialogue NPC, chat à onglets, stretch) ; à droite une colonne pleine
+  hauteur avec la barre d'actions `TAPActionButtons` et la vue de logs `TAPLogView`.
+  La taille est bornée par l'écran (`availableGeometry()` : menu macOS et dock exclus),
+  pour rester utilisable sur MacBook. Expose les `update_*` (compteurs, nom/description
+  de pièce, sorties, items au sol, inventaire, NPCs, messages chat) — tous alimentés en
+  dur par `main.cpp`, pas par le serveur.
 - **`main.cpp`** — `QApplication`, icône, gestion de SIGINT (`quit` via la queue d'événements
   Qt). Les fenêtres connexion et erreur sont **commentées** ; seule la fenêtre de jeu est
   affichée, avec des compteurs codés en dur (42 / 21).
@@ -331,10 +360,11 @@ reste utile quand aucune cible n'est sélectionnable.
 - ❌ Aucun parsing de réponse.
 - ❌ Aucun parsing JSON.
 - ❌ Aucun traitement d'événement asynchrone.
-- ❌ Vue de chat absente.
-- ❌ Vue de log absente.
+- ❌ Vue de log absente → **corrigé** : `TAPLogView` en place (voir § 2.3.5), reste à y
+  router les réponses/erreurs/événements serveur.
 - ❌ Inventaire **non branché** (UI présente, données absentes).
-- ❌ Barre d'actions absente.
+- 🟠 **Barre d'actions** — `TAPActionButtons` en place, clics affichent `[WIP] <ACTION>`,
+  aucun envoi réseau.
 - ❌ Panneau de combat absent.
 - ❌ Journal de quêtes absent.
 - ❌ Panneau de groupe absent.

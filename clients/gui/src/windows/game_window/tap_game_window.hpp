@@ -10,14 +10,18 @@ class TAPGameWindow : public TAPBaseWindow
 {
     private:
         // GUI
-        QVBoxLayout         _window_layout;
+        QHBoxLayout         _window_layout; // Content on the left, action buttons on the right
+        QVBoxLayout         _content_layout; // Everything except the action buttons
         QHBoxLayout         _items_row_layout; // Ground items and inventory side by side
+        QVBoxLayout         _actions_side_layout; // Action buttons column on the right
         TAPPlayerCountBar   player_count_bar;
         TAPRoomView         room_view;
         TAPExitView         exit_view;
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;
         TAPNPCTalkView      npc_talk_view;
+        TAPActionButtons    action_buttons;
+        TAPLogView          log_view;
         TAPChatTabs         chat_tabs;
 
     public:
