@@ -2,6 +2,10 @@
 
 namespace {
 
+bool isContinuationByte(unsigned char c) {
+	return (c & 0xC0) == 0x80;
+}
+
 struct Utf8Char {
 	bool		valid;
 	size_t		length;
@@ -19,7 +23,7 @@ Utf8Char decodeUtf8(const std::string& text, size_t i) {
 	bool valid = length != 0 && i + length <= text.size();
 	for (size_t k = 1; valid && k < length; k++) {
 		const unsigned char next = static_cast<unsigned char>(text[i + k]);
-		if ((next & 0xC0) != 0x80)
+		if (!isContinuationByte(next))
 			valid = false;
 		else
 			code = (code << 6) | (next & 0x3F);
@@ -40,6 +44,15 @@ bool isForbidden(unsigned code) {
 	return (code >= 0x80 && code <= 0x9F) || code == 0x2028 || code == 0x2029;
 }
 
+}
+
+size_t utf8SafeLength(const std::string& text, size_t max) {
+	if (text.size() <= max)
+		return text.size();
+	size_t cut = max;
+	while (cut > 0 && isContinuationByte(static_cast<unsigned char>(text[cut])))
+		cut--;
+	return cut;
 }
 
 bool validateUTF8(const std::string& text, bool allow_tab) {

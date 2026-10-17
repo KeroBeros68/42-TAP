@@ -57,6 +57,7 @@ class Server {
 		void readFrom(Session& s);
 		void handeLine(Session& s, const std::string& line);
 		void reply(Connection& c, const std::string& line);
+		void replyError(Connection& c, TapError error);
 		void flush(Connection& c);
 		bool getStatus() const;
 };

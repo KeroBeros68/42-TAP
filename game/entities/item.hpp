@@ -4,53 +4,24 @@
 # include <string>
 # include <unordered_map>
 
-class ItemDef {
+# include "definition.hpp"
+# include "respawnable.hpp"
+# include "instance.hpp"
+class ItemDef : public Definition {
 	private:
-		std::string _id;
-		std::string _name;
-		std::string _description;
 		bool _obtainable;
 
 	public:
 		ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable);
 
-		const std::string& id() const;
-		const std::string& name() const;
-		const std::string& description() const;
 		bool isObtainable() const;
 };
 
-class Item {
-	private:
-		static inline int _current_id = 0;
-		std::string _id;
-		const ItemDef* _definition;
-		std::string _home_room;
-		int _respawn_seconds = 0;
-
+class Item : public Instance<ItemDef>, public Respawnable {
 	public:
 		Item(const ItemDef& def);
-
-		const std::string& id() const;
-		const ItemDef& definition() const;
-		const std::string& name() const;
-
-		void setOrigin(const std::string& room, int respawn_seconds);
-		void clearOrigin();
-		const std::string& homeRoom() const;
-		int respawnSeconds() const;
 };
 
-class ItemDb {
-	private:
-		std::unordered_map<std::string, ItemDef> _items;
-
-	public:
-		bool addItem(const ItemDef& item);
-		const ItemDef& item(const std::string& id) const;
-		const std::unordered_map<std::string, ItemDef>& items() const;
-
-		Item instantiate(const std::string& id) const;
-};
+typedef Database<ItemDef, Item> ItemDb;
 
 #endif

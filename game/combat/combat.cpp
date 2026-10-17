@@ -20,37 +20,45 @@ static bool strikeHits(const Stats& attacker, const Stats& defender, double (*ro
 	return roll() < hitChance(attacker, defender);
 }
 
+struct Strike {
+	bool missed;
+	int damage;
+};
+
+static Strike strike(const Stats& attacker, Stats& defender, double (*roll)()) {
+	Strike result = {!strikeHits(attacker, defender, roll), 0};
+	if (!result.missed)
+		result.damage = computeDamage(attacker, defender);
+	defender.takeDamage(result.damage);
+	return result;
+}
+
 CombatResult fight(Stats& attacker, Stats& defender, double (*roll)()) {
-	CombatResult result = {AttackStatus::DONE, 0, 0, attacker.hp, defender.hp, false, false};
+	CombatResult result = {AttackStatus::DONE, 0, 0, 0, 0, false, false};
 
 	if (attacker.isDead() || defender.isDead()) {
 		result.status = AttackStatus::DEAD;
-		result.attacker_status = attacker.status();
-		return result;
+	} else {
+		attacker.in_combat = true;
+		defender.in_combat = true;
+
+		const Strike attack = strike(attacker, defender, roll);
+		result.defender_missed = attack.missed;
+		result.damage_to_defender = attack.damage;
+		result.defender_dead = defender.isDead();
+
+		if (result.defender_dead) {
+			attacker.in_combat = false;
+		} else {
+			const Strike counter = strike(defender, attacker, roll);
+			result.attacker_missed = counter.missed;
+			result.damage_to_attacker = counter.damage;
+			result.attacker_dead = attacker.isDead();
+		}
 	}
 
-	attacker.in_combat = true;
-	defender.in_combat = true;
-
-	result.defender_missed = !strikeHits(attacker, defender, roll);
-	if (!result.defender_missed)
-		result.damage_to_defender = computeDamage(attacker, defender);
-	defender.takeDamage(result.damage_to_defender);
-	result.defender_hp = defender.hp;
-	if (defender.isDead()) {
-		attacker.in_combat = false;
-		result.defender_dead = true;
-		result.attacker_status = attacker.status();
-		return result;
-	}
-	result.attacker_missed = !strikeHits(defender, attacker, roll);
-	if (!result.attacker_missed)
-		result.damage_to_attacker = computeDamage(defender, attacker);
-	attacker.takeDamage(result.damage_to_attacker);
 	result.attacker_hp = attacker.hp;
-	result.attacker_dead = attacker.isDead();
-	result.defender_dead = defender.isDead();
+	result.defender_hp = defender.hp;
 	result.attacker_status = attacker.status();
-
 	return result;
 }

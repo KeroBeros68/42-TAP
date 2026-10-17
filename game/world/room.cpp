@@ -1,7 +1,5 @@
 #include "room.hpp"
 
-#include <algorithm>
-
 #include "../utils/lookup.hpp"
 #include "../../shared/defines.hpp"
 
@@ -36,11 +34,7 @@ const std::vector<Spawn>& Room::npcSpawns() const {
 }
 
 std::vector<std::string> Room::npcs() const {
-	std::vector<std::string> ids;
-	for (const auto& [id, npc] : _alive_npcs)
-		ids.push_back(id);
-	std::sort(ids.begin(), ids.end());
-	return ids;
+	return lookup::sortedIds(_alive_npcs);
 }
 
 std::vector<std::string> Room::items() const {

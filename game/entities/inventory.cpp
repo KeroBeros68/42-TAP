@@ -1,8 +1,6 @@
 #include "inventory.hpp"
 #include "../utils/lookup.hpp"
 
-#include <algorithm>
-
 Inventory::Inventory(size_t capacity) : _capacity(capacity) {}
 
 const Item* Inventory::findItem(const std::string& query) const {
@@ -33,11 +31,7 @@ std::optional<Item> Inventory::remove(const std::string& id) {
 }
 
 std::vector<std::string> Inventory::ids() const {
-	std::vector<std::string> ids;
-	for (const auto& [id, item] : _items)
-		ids.push_back(id);
-	std::sort(ids.begin(), ids.end());
-	return ids;
+	return lookup::sortedIds(_items);
 }
 
 const std::unordered_map<std::string, Item>& Inventory::items() const {
