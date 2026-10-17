@@ -9,6 +9,6 @@
 // The names of the fields are the ones of the RFC.
 std::string serializeLook(const LookData& look);
 std::string serializeStatus(const Stats& stats);
-std::string serializeAttack(const CombatResult& combat);
+std::string serializeAttack(const CombatReport& report);
 
 #endif

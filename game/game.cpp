@@ -1,6 +1,7 @@
 #include "game.hpp"
 #include "../shared/logger.hpp"
 #include "world/spawn.hpp"
+#include "utils/lookup.hpp"
 
 #include <iostream>
 #include <utility>
@@ -26,8 +27,15 @@ void Game::removePlayer(long long id) {
 		return;
 
 	auto room = _world.rooms.find(player->second.currentMap());
-	if (room != _world.rooms.end())
+	if (room != _world.rooms.end()) {
 		room->second.removePlayer(id);
+		auto fight = _combats.find(id);
+		if (fight != _combats.end()) {
+			if (Npc* enemy = room->second.findNpc(fight->second.enemy_id))
+				enemy->stats().in_combat = false;
+		}
+	}
+	_combats.erase(id);
 	LOG_INFO("player left room", {"client", id}, {"player", player->second.name()}, {"room", player->second.currentMap()});
 	_players.erase(player);
 }
@@ -127,6 +135,7 @@ bool Game::teleport(long long player_id, const std::string& target) {
 	}
 
 	here.player->stats().in_combat = false;
+	_combats.erase(player_id);
 	here.room->removePlayer(player_id);
 	destination->second.addPlayer(player_id);
 	here.player->setCurrentMap(target);
@@ -186,45 +195,116 @@ TransferResult Game::drop(long long player_id, const std::string& target) {
 	return result;
 }
 
-CombatResult Game::attack(long long player_id, const std::string& target) {
+static const char* actionName(CombatAction action) {
+	switch (action) {
+		case CombatAction::ATTACK:	return "attack";
+		case CombatAction::DEFEND:	return "defend";
+		case CombatAction::FLEE:	return "flee";
+	}
+	return "";
+}
+
+bool Game::inCombat(long long player_id) const {
+	return _combats.find(player_id) != _combats.end();
+}
+
+CombatReport Game::attack(long long player_id, const std::string& target) {
 	Presence here = locate(player_id, "attack");
 	if (!here)
-		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
+		return {CombatStatus::NOT_FOUND};
 
-	Npc* npc = here.room->findNpc(target);
-	if (!npc) {
-		LOG_DEBUG("no such NPC in the room", LOG_HERE(here), {"target", target});
-		return {AttackStatus::NOT_FOUND, 0, 0, 0, 0, false, false};
+	auto fight = _combats.find(player_id);
+	if (fight == _combats.end()) {
+		Npc* npc = here.room->findNpc(target);
+		if (!npc) {
+			LOG_DEBUG("no such NPC in the room", LOG_HERE(here), {"target", target});
+			return {CombatStatus::NOT_FOUND};
+		}
+		if (npc->definition().role() != NPC_ROLE_ENEMY) {
+			LOG_DEBUG("player tried to attack a non-hostile NPC", LOG_HERE(here), {"npc", npc->id()});
+			return {CombatStatus::NOT_HOSTILE};
+		}
+		fight = _combats.emplace(player_id, startCombat(npc->id())).first;
+		LOG_INFO("combat started", LOG_HERE(here), {"npc", npc->id()});
+	} else if (!target.empty() && here.room->findNpc(target) != here.room->findNpc(fight->second.enemy_id)) {
+		return {CombatStatus::ANOTHER_ENEMY};		// no switching target in the middle of a fight
+	}
+	return resolveRound(here, fight, CombatAction::ATTACK);
+}
+
+CombatReport Game::defend(long long player_id) {
+	return continueFight(player_id, CombatAction::DEFEND, "defend");
+}
+
+CombatReport Game::flee(long long player_id) {
+	return continueFight(player_id, CombatAction::FLEE, "flee");
+}
+
+CombatReport Game::continueFight(long long player_id, CombatAction action, const char* name) {
+	Presence here = locate(player_id, name);
+	if (!here)
+		return {CombatStatus::NOT_FOUND};
+	auto fight = _combats.find(player_id);
+	if (fight == _combats.end())
+		return {CombatStatus::NOT_IN_COMBAT};
+	return resolveRound(here, fight, action);
+}
+
+CombatReport Game::resolveRound(Presence& here, std::unordered_map<long long, Combat>::iterator fight, CombatAction action) {
+	const long long player_id = here.player->id();
+	Npc* npc = here.room->findNpc(fight->second.enemy_id);
+	if (!npc) {								// killed by someone else in the meantime
+		here.player->stats().in_combat = false;
+		_combats.erase(fight);
+		return {CombatStatus::NOT_FOUND};
 	}
 
-	if (npc->definition().role() != NPC_ROLE_ENEMY) {
-		LOG_DEBUG("player tried to attack a non-hostile NPC", LOG_HERE(here), {"npc", npc->id()});
-		return {AttackStatus::NOT_HOSTILE, 0, 0, 0, 0, false, false};
-	}
+	CombatReport report;
+	report.round = fight->second.round;
+	report.outcome = playRound(fight->second, action, here.player->stats(), npc->stats());
+	report.player_hp = here.player->stats().hp;
+	report.enemy_hp = npc->stats().hp;
+	report.player_status = here.player->stats().status();
+	LOG_INFO("combat round", LOG_HERE(here), {"npc", npc->id()}, {"round", report.round}, {"action", actionName(action)},
+		{"player_hp", report.player_hp}, {"enemy_hp", report.enemy_hp});
 
-	LOG_INFO("player attacked an npc", LOG_HERE(here), {"npc", npc->id()});
+	// the end of the fight: the fight is erased by its key because teleport erases it too
+	if (report.outcome.enemy_dead)
+		enemyDied(here, npc);
+	else if (report.outcome.player_dead)
+		playerDied(here, npc->id());
+	else if (report.outcome.escaped)
+		playerFled(here);
+	if (report.outcome.enemy_dead || report.outcome.player_dead || report.outcome.escaped)
+		_combats.erase(player_id);
+	return report;
+}
 
-	CombatResult result = fight(here.player->stats(), npc->stats());
+void Game::enemyDied(Presence& here, Npc* npc) {
+	const std::string npc_id = npc->id();
+	const std::vector<std::string> dropped = npc->dropLoot(here.room->inventory(), _world.item_database);
+	std::string loot;
+	for (const std::string& item : dropped)
+		loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
+	LOG_INFO("npc died", LOG_HERE(here), {"npc", npc_id}, {"loot", loot});
+	schedule(Respawn::of(RespawnKind::Npc, *npc));
+	here.room->removeNpc(npc);
+}
 
-	if (result.defender_dead) {
-		const std::string npc_id = npc->id();
-		const std::vector<std::string> dropped = npc->dropLoot(here.room->inventory(), _world.item_database);
-		std::string loot;
-		for (const std::string& item : dropped)
-			loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
-		LOG_INFO("npc died", LOG_HERE(here), {"npc", npc_id}, {"loot", loot});
-		schedule(Respawn::of(RespawnKind::Npc, *npc));
-		here.room->removeNpc(npc);
-	}
+void Game::playerDied(Presence& here, const std::string& enemy_id) {
+	LOG_INFO("player died", LOG_HERE(here), {"npc", enemy_id});
+	teleport(here.player->id(), _world.respawn_room);
+	here.player->stats().revive(world().respawn_life);
+	LOG_INFO("player respawned", {"client", here.player->id()}, {"player", here.player->name()}, {"room", _world.respawn_room}, {"hp", here.player->stats().hp});
+}
 
-	if (result.attacker_dead) {
-		LOG_INFO("player died", LOG_HERE(here), {"npc", npc->id()});
-		teleport(player_id, _world.respawn_room);
-		here.player->stats().revive(world().respawn_life);
-		LOG_INFO("player respawned", {"client", player_id}, {"player", here.player->name()}, {"room", _world.respawn_room}, {"hp", here.player->stats().hp});
-	}
-
-	return result;
+// The player runs away through an exit chosen at random (he stays here if the room has none)
+void Game::playerFled(Presence& here) {
+	LOG_INFO("player fled", LOG_HERE(here));
+	const std::vector<std::string> directions = lookup::sortedIds(here.room->exits());
+	if (directions.empty())
+		return;
+	teleport(here.player->id(), here.room->exits().at(directions[randomIndex(directions.size())]));
 }
 
 const Stats* Game::status(long long player_id) const {

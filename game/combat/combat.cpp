@@ -25,40 +25,65 @@ struct Strike {
 	int damage;
 };
 
-static Strike strike(const Stats& attacker, Stats& defender, double (*roll)()) {
+static Strike strike(const Stats& attacker, Stats& defender, double (*roll)(), int divisor = 1) {
 	Strike result = {!strikeHits(attacker, defender, roll), 0};
 	if (!result.missed)
-		result.damage = computeDamage(attacker, defender);
+		result.damage = (computeDamage(attacker, defender) + divisor - 1) / divisor;
 	defender.takeDamage(result.damage);
 	return result;
 }
 
-CombatResult fight(Stats& attacker, Stats& defender, double (*roll)()) {
-	CombatResult result = {AttackStatus::DONE, 0, 0, 0, 0, false, false};
+Combat startCombat(const std::string& enemy_id) {
+	Combat combat;
+	combat.enemy_id = enemy_id;
+	return combat;
+}
 
-	if (attacker.isDead() || defender.isDead()) {
-		result.status = AttackStatus::DEAD;
-	} else {
-		attacker.in_combat = true;
-		defender.in_combat = true;
+double escapeChance(const Stats& player, const Stats& enemy) {
+	const double total = player.flee + enemy.hit;
+	if (total <= 0)
+		return 1.0;
+	return player.flee / total;
+}
 
-		const Strike attack = strike(attacker, defender, roll);
-		result.defender_missed = attack.missed;
-		result.damage_to_defender = attack.damage;
-		result.defender_dead = defender.isDead();
+static CombatEvent playerTurn(CombatAction action, Stats& player, Stats& enemy, double (*roll)(), bool& escaped) {
+	CombatEvent event = {true, action, false, 0};
+	if (action == CombatAction::ATTACK) {
+		const Strike attack = strike(player, enemy, roll);
+		event.missed = attack.missed;
+		event.damage = attack.damage;
+	} else if (action == CombatAction::FLEE) {
+		escaped = roll() < escapeChance(player, enemy);
+		event.missed = !escaped;
+	}
+	return event;
+}
 
-		if (result.defender_dead) {
-			attacker.in_combat = false;
-		} else {
-			const Strike counter = strike(defender, attacker, roll);
-			result.attacker_missed = counter.missed;
-			result.damage_to_attacker = counter.damage;
-			result.attacker_dead = attacker.isDead();
-		}
+static CombatEvent enemyTurn(bool player_defends, Stats& player, const Stats& enemy, double (*roll)()) {
+	const Strike attack = strike(enemy, player, roll, player_defends ? COMBAT_DEFEND_DIVISOR : 1);
+	return {false, CombatAction::ATTACK, attack.missed, attack.damage};
+}
+
+RoundOutcome playRound(Combat& combat, CombatAction action, Stats& player, Stats& enemy, double (*roll)()) {
+	RoundOutcome outcome;
+	const bool player_first = player.initiative() >= enemy.initiative();
+	player.in_combat = true;
+	enemy.in_combat = true;
+
+	for (int turn = 0; turn < 2 && !outcome.escaped && !player.isDead() && !enemy.isDead(); turn++) {
+		if ((turn == 0) == player_first)
+			outcome.events.push_back(playerTurn(action, player, enemy, roll, outcome.escaped));
+		else
+			outcome.events.push_back(enemyTurn(action == CombatAction::DEFEND, player, enemy, roll));
 	}
 
-	result.attacker_hp = attacker.hp;
-	result.defender_hp = defender.hp;
-	result.attacker_status = attacker.status();
-	return result;
+	outcome.player_dead = player.isDead();
+	outcome.enemy_dead = enemy.isDead();
+	if (outcome.escaped || outcome.player_dead || outcome.enemy_dead) {
+		player.in_combat = false;
+		enemy.in_combat = false;
+	} else {
+		combat.round++;
+	}
+	return outcome;
 }
