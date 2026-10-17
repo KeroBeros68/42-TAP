@@ -158,3 +158,9 @@ void Client::handleLine(const std::string& line) {
 	else
 		std::cerr << "No action defined for server message: " << line << std::endl;
 }
+
+void Client::setServer(const std::string& address, int port)
+{
+    _servername = address;
+    _port = port;
+}

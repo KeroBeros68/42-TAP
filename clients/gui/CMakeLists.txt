@@ -19,6 +19,9 @@ add_executable(${PROJECT_NAME}
     # Main
     main.cpp
 
+    # Network (shared with the CLI client)
+    ../client.cpp
+
     # Windows
     src/windows/base_window/tap_base_window.cpp
     src/windows/connection_window/tap_connection_window.cpp

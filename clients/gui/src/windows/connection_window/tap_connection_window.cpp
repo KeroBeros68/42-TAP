@@ -4,6 +4,7 @@
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 #include <QWidget>
 #include <string>
+#include "../../../../client.hpp"
 
 // findSystemUsername
 std::string TAPConnectionWindow::findSystemUsername()
@@ -53,12 +54,15 @@ std::string TAPConnectionWindow::getUsername()
 void TAPConnectionWindow::connectToServer()
 {
     std::cout << "Connecting to " << this->getUsername() << "@" << this->getRemoteAddress() << ":" << this->getRemotePort() << std::endl;
+    _client.setServer(getRemoteAddress(), std::atoi(getRemotePort().c_str()));
+    _client.connect();  // uses the values just set
 }
 
 // Init window with elements
-TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height)
+TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height, Client &client)
 {
     this->_username = findSystemUsername();
+    this->_client = client;
 
     // Apply title
 	this->setWindowTitle(window_title.c_str());
