@@ -19,13 +19,18 @@ int main(int argc, char *argv[])
         QMetaObject::invokeMethod(qApp, "quit", Qt::QueuedConnection);
     });
 
-	// // Connection window
-	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
-	// 	"42 TAP GUI",
-	// 	WINDOW_WIDTH,
-	// 	WINDOW_HEIGHT
-	// );
-	// connection_window.show();
+	// Network client (reused from the CLI client).
+	//  Not connected yet : no connect() call, no event loop integration.
+	Client client = Client();
+	
+	// Connection window
+	TAPConnectionWindow	connection_window = TAPConnectionWindow(
+		"42 TAP GUI",
+		WINDOW_WIDTH,
+		WINDOW_HEIGHT,
+		client
+	);
+	connection_window.show();
 
 	// // Error window
 	// TAPErrorWindow error_window = TAPErrorWindow();

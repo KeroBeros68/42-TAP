@@ -54,6 +54,8 @@ class Client
 		// Server lines run the matching actions, typed lines are sent to the server.
 		// Returns false if the connection was lost or the keyboard input ended (Ctrl+D).
 		bool update(int timeout_ms = POLL_TIMEOUT_MS);
+		// Set server manually
+		void setServer(const std::string& address, int port);
 };
 
 #endif

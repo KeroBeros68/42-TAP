@@ -4,6 +4,7 @@
 # include "../base_window/tap_base_window.hpp"
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 # include <iostream>
+#include "../../../../client.hpp"
 
 class TAPConnectionWindow : public TAPBaseWindow
 {
@@ -11,6 +12,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 		std::string	_username; // Server address
 		std::string	_remote_address = "127.0.0.1"; // Server address
 		std::string _remote_port	= "8080"; // Server port
+		Client		_client;
 
 		// Labels
     	TAPLabel _info_text;
@@ -23,9 +25,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 	public:
 		// init window
 		TAPConnectionWindow(
-			std::string window_title,
-			int width,
-			int height
+			std::string window_title, int width, int height, Client &client
 		);
 
 		// Username related function
