@@ -10,7 +10,8 @@ class TAPGameWindow : public TAPBaseWindow
 {
     private:
         // GUI
-        QHBoxLayout         _window_layout; // Content on the left, action buttons on the right
+        QVBoxLayout         _window_layout; // Player count bar on top, then the two columns below
+        QHBoxLayout         _columns_layout; // Content on the left, action buttons on the right
         QVBoxLayout         _content_layout; // Everything except the action buttons
         QHBoxLayout         _items_row_layout; // Ground items and inventory side by side
         QVBoxLayout         _actions_side_layout; // Action buttons column on the right
@@ -20,6 +21,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;
         TAPNPCTalkView      npc_talk_view;
+        TAPQuestsView       quests_view;
         TAPActionButtons    action_buttons;
         TAPLogView          log_view;
         TAPChatTabs         chat_tabs;
@@ -37,6 +39,7 @@ class TAPGameWindow : public TAPBaseWindow
         void update_ground_items(std::map<std::string, std::string> data);
         void update_inventory(std::map<std::string, std::string> data);
         void update_npcs(std::map<std::string, std::string> data);
+        void update_quests(std::vector<std::map<std::string, std::string>> data);
         void add_global_message(std::map<std::string, std::string> data);
         void add_room_message(std::map<std::string, std::string> data);
         void add_group_message(std::map<std::string, std::string> data);

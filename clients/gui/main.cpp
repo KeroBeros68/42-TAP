@@ -21,16 +21,16 @@ int main(int argc, char *argv[])
 
 	// Network client (reused from the CLI client).
 	//  Not connected yet : no connect() call, no event loop integration.
-	Client client = Client();
+	// Client client = Client();
 	
-	// Connection window
-	TAPConnectionWindow	connection_window = TAPConnectionWindow(
-		"42 TAP GUI",
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT,
-		client
-	);
-	connection_window.show();
+	// // Connection window
+	// TAPConnectionWindow	connection_window = TAPConnectionWindow(
+	// 	"42 TAP GUI",
+	// 	WINDOW_WIDTH,
+	// 	WINDOW_HEIGHT,
+	// 	client
+	// );
+	// connection_window.show();
 
 	// // Error window
 	// TAPErrorWindow error_window = TAPErrorWindow();
@@ -75,6 +75,18 @@ int main(int argc, char *argv[])
         {"npc.kevin_bertrand_cheronnet", "Kevin Bertrand Cheronnet"},
         {"npc.laurent", "Laurent"},
     });
+	game_window.update_quests(<%
+		{
+			{"quest_id", "fetch_shield"},
+			{"status", "active"},
+			{"progress", "1/3"}
+		},
+		{
+			{"quest_id", "slay_dragon"},
+			{"status", "active"},
+			{"progress", "0/1"}
+		}
+	%>);
 
 
 	#include <stdlib.h>
