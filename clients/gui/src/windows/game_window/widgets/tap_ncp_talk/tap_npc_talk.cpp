@@ -12,14 +12,23 @@ TAPNPCTalkView::TAPNPCTalkView()
     this->_layout.addLayout(&this->_layout_items);
 
     this->_validate_button.setText("TALK");
+    this->_attack_button.setText("ATTACK");
     this->_layout.addStretch();
     this->_layout.addWidget(&this->_validate_button);
+    this->_layout.addWidget(&this->_attack_button);
         this->connect(&this->_validate_button,
             &QPushButton::clicked,
             this,
             [this] {
                 if (this->get_selected_npc_id() == "") {return ;}
                 std::cout << "[WIP] TALK " << this->get_selected_npc_id() << std::endl;
+        });
+        this->connect(&this->_attack_button,
+            &QPushButton::clicked,
+            this,
+            [this] {
+                if (this->get_selected_npc_id() == "") {return ;}
+                std::cout << "[WIP] ATTACK " << this->get_selected_npc_id() << std::endl;
         });
 
     this->setLayout(&this->_layout);
@@ -57,10 +66,12 @@ void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
     if (data.size() == 0) {
         this->_no_items_label.show();
         this->_validate_button.hide();
+        this->_attack_button.hide();
     }
     else {
         this->_no_items_label.hide();
         this->_validate_button.show();
+        this->_attack_button.show();
     }
 
 }
