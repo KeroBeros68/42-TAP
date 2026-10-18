@@ -11,6 +11,7 @@ class TAPNPCTalkView : public TAPGameSectionWidget
         QVBoxLayout _layout_items;
         TAPRoomNameLabel _section_title;
         TAPButton _validate_button;
+        TAPButton _attack_button;
         TAPLabel    _no_items_label;
         // items list : canonical_id, human_readable_name
         std::map<std::string, std::string> _npcs;
