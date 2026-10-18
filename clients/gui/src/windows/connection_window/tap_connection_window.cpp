@@ -55,7 +55,16 @@ void TAPConnectionWindow::connectToServer()
 {
     std::cout << "Connecting to " << this->getUsername() << "@" << this->getRemoteAddress() << ":" << this->getRemotePort() << std::endl;
     _client.setServer(getRemoteAddress(), std::atoi(getRemotePort().c_str()));
-    _client.connect();  // uses the values just set
+
+    // Server connection
+    try {
+        _client.connect();
+    } catch (const std::exception &e) {
+        std::cout << "WIP Error while connecting" << std::endl;
+        return;
+    }
+    std::cout << _client.send(std::string("CONNECT ") + getUsername()) << std::endl;
+
 }
 
 // Init window with elements

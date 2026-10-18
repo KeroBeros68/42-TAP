@@ -17,9 +17,11 @@ TAPGameWindow::TAPGameWindow()
     this->setLayout(&this->_window_layout);
 
     // Add widgets to the window layout
-    //  Everything except the action buttons goes in the content column,
-    //  the action buttons column spans the full height on the right
-    this->_content_layout.addWidget(&player_count_bar);
+    //  The player count bar spans the full window width,
+    //  everything except the action buttons goes in the content column,
+    //  the action buttons column spans the remaining height on the right
+    this->_window_layout.addWidget(&player_count_bar);
+
     this->_content_layout.addWidget(&room_view);
     this->_content_layout.addWidget(&exit_view);
     // Ground items and inventory side by side
@@ -27,11 +29,13 @@ TAPGameWindow::TAPGameWindow()
     this->_items_row_layout.addWidget(&inventory_view);
     this->_content_layout.addLayout(&this->_items_row_layout);
     this->_content_layout.addWidget(&this->npc_talk_view);
+    this->_content_layout.addWidget(&this->quests_view);
     this->_content_layout.addWidget(&this->chat_tabs);
     this->_content_layout.addStretch();
 
-    this->_window_layout.addLayout(&this->_content_layout, 1);
-    this->_window_layout.addLayout(&this->_actions_side_layout);
+    this->_columns_layout.addLayout(&this->_content_layout, 1);
+    this->_columns_layout.addLayout(&this->_actions_side_layout);
+    this->_window_layout.addLayout(&this->_columns_layout, 1);
 
     this->_actions_side_layout.addWidget(&this->action_buttons);
     this->_actions_side_layout.addWidget(&this->log_view, 1);
@@ -84,6 +88,11 @@ void TAPGameWindow::update_inventory(std::map<std::string, std::string> data)
 void TAPGameWindow::update_npcs(std::map<std::string, std::string> data)
 {
     this->npc_talk_view.update_npcs(data);
+};
+
+void TAPGameWindow::update_quests(std::vector<std::map<std::string, std::string>> data)
+{
+    this->quests_view.update_quests(data);
 };
 
 void TAPGameWindow::add_global_message(std::map<std::string, std::string> data)

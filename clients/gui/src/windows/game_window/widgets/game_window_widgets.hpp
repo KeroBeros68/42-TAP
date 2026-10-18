@@ -6,6 +6,7 @@
 # include "tap_exit_view/tap_exit_view.hpp"
 # include "tap_ground_items_view/tap_ground_items_view.hpp"
 # include "tap_ncp_talk/tap_npc_talk.hpp"
+# include "tap_quests_view/tap_quests_view.hpp"
 # include "tap_inventory_view/tap_inventory_view.hpp"
 # include "tap_action_buttons/tap_action_buttons.hpp"
 # include "tap_log_view/tap_log_view.hpp"
