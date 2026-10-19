@@ -3,10 +3,10 @@
 > Audit de conformité du client CLI réalisé à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4, §V.3) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-17 — régénéré après les commits `118b360` (signaux) et `d70cf44` / `a002515` (refactor des constantes et des doublons). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-19 — **le code de `clients/` n'a pas changé** depuis le 2026-10-17 (aucun commit sur `clients/`), mais le serveur émet maintenant des événements `EVT` et gère le combat au tour par tour : le client a donc pu être éprouvé sur le critère central du §V.3 (voir ci-dessous). Précédente mise à jour : 2026-10-17 (`118b360`, `d70cf44`, `a002515`). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `clients/cli/` (`main.cpp`, `Makefile`) + `clients/client.cpp`, `clients/client.hpp`, `clients/defines.hpp` + les en-têtes `shared/` que le client utilise (`defines.hpp`, `line.hpp`, `signalFd.*`). Le client GUI (`clients/gui/`) est hors périmètre, mais réutilise la classe `Client` commune.
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -std=c++20` sans warning ; exécution réelle contre le serveur actuel compilé avec ASAN/UBSAN sur le port 18080 (le 8080 est utilisé par un autre `server` sur la machine) : session interactive, `QUIT`, `SIGINT`, fin de `stdin`. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -std=c++20` sans warning ; exécution réelle contre le serveur actuel compilé avec ASAN/UBSAN sur le port 18080 (le 8080 est utilisé par un autre `server` sur la machine) : session interactive, `QUIT`, `SIGINT`, fin de `stdin`, réception d'événements `EVT` pendant l'attente de saisie. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
@@ -20,7 +20,9 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 - ❌ **Choix toujours non documenté** — le README du projet fait maintenant 299 lignes, mais sa section « Client interface choice » est encore un `TODO` et « Instructions » un titre vide : il ne tranche pas entre RFC brute et commandes traduites, ce que le §V.3 exige. Il documente en revanche honnêtement que l'adresse est codée en dur.
 - ❌ **Serveur et port codés en dur** (`127.0.0.1:8080`) : « To use another address, change these values and rebuild » (README). Impossible de se connecter au serveur d'un autre groupe sans recompiler — or le §II exige l'interchangeabilité, ce que l'évaluateur testera.
 - ❌ **Fin de `stdin` toujours destructrice** (voir `client.cpp` ❌ 1) : le client ne peut pas être piloté par un script.
-- ⚠️ Le serveur répond à 9 commandes sur 15 et n'émet aucun `EVT` : le client n'a pas pu être éprouvé sur les événements asynchrones (le critère central du §V.3 « keeps receiving events while waiting for user input »).
+- ✅ **Nouveau — événements asynchrones vérifiés** (§V.3 « keeps receiving events while waiting for user input ») : client connecté et au repos, un second joueur arrive, bouge et repart → `[EVT] ROOM PRESENCE ENTER other`, `[EVT] STATS players=2`, `[EVT] ROOM PRESENCE LEAVE other` s'affichent immédiatement, puis une commande saisie ensuite (`LOOK`) obtient sa réponse normalement. Aucune perte, aucun blocage.
+- ❌ **Lisibilité des nouvelles réponses** : `ATTACK` renvoie une ligne de JSON de 300 à 900 octets (`turns[]` avec acteur, action, `missed`, dégâts), `STATUS` en combat ajoute `round`, `enemy`, `your_turn`, `turn_seconds_left` ; avec les `EVT … COMBAT ROUND/TURN` qui s'enchaînent, le client brut devient très difficile à suivre pendant un combat. Il n'y a aucune aide pour `DEFEND`/`FLEE`, ni pour le délai de tour (20 s, dont le serveur joue un `DEFEND` à la place).
+- ⚠️ Le serveur répond à 9 commandes RFC sur 15 (+ `DEFEND`/`FLEE`) : `CHAT`, `INVENTORY`, `WHO`, `GROUP`, `QUEST(S)` restent des stubs `OK Message received`, donc le client n'a pas été éprouvé sur le chat ni sur les groupes.
 
 ---
 
@@ -111,7 +113,9 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 - **Ids d'instance `#N`** (`taken=item.herbs#3`, `"npcs":["npc.guard#10"]`) : affichés tels quels ; l'utilisateur doit deviner qu'un nom (`TAKE herbs`) suffit. Le README documente maintenant l'écart côté protocole (§ Deviations #3), pas côté client.
 - **Commandes insensibles à la casse** (corrigé côté serveur, vérifié : `connect Zoe`, `look`, `Talk guard`) : le client n'a rien à faire ; le README (§ Deviations #4) est désormais périmé sur ce point.
 - **Logs serveur** : chaque commande est journalisée avec le joueur et ses arguments ; un utilisateur qui oublie `CONNECT` génère un `WARN "command before CONNECT"` par commande.
-- **Respawn de PNJ et d'items** : un `LOOK` répété voit apparaître de nouveaux ids (`npc.wolf#23`) sans qu'aucun événement ne le signale au client.
+- **Respawn de PNJ et d'items** : annoncé désormais par `EVT ROOM SPAWN npc npc.wolf#23` — le client l'affiche tel quel.
+- **Nouvelles extensions** : commandes `DEFEND`/`FLEE`, erreurs `409 IN_COMBAT`, `410 NOT_IN_COMBAT`, `411 NOT_YOUR_TURN` (affichées `[ERR] 409 IN_COMBAT` sur `stderr`), événements `EVT ROOM COMBAT START|JOIN|ROUND|TURN|END` ; un client strict (GUI d'un autre groupe) doit tolérer les types d'`EVT` inconnus. Le client CLI le fait : tout préfixe `EVT` est affiché, sans analyse.
+- **Combat bloquant** : `MOVE`/`TALK`/`TAKE` refusés en combat — le client n'explique pas pourquoi (`[ERR] 409 IN_COMBAT` seul).
 
 ## Corrigés depuis l'audit initial (2026-10-02)
 
@@ -119,6 +123,7 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 - **Framing dupliqué** client/serveur → `shared/line.hpp`.
 - **`POLL_TIMEOUT_MS` défini deux fois, `BUFFER_SIZE` en doublon** → `shared/defines.hpp`.
 - **Pas de test de bout en bout possible** (serveur muet) → vérifié : `CONNECT`/`LOOK`/`MOVE`/`TALK`/`TAKE`/`QUIT`.
+- **Événements asynchrones impossibles à éprouver** (serveur sans `EVT`) → vérifié le 2026-10-19 : présence et `STATS` reçus pendant l'attente de saisie.
 - **Binaire non ignoré par git** → `.gitignore`.
 - **`c++23`** → `c++20` (aligné sur le serveur).
 
@@ -128,6 +133,6 @@ Le §V.3 demande trois choses : afficher les messages en temps réel, rester ré
 2. **Paramètres `host`/`port`** (et `getaddrinfo`) pour passer l'interchangeabilité §II.
 3. **EOF sur `stdin`** : réutiliser `quitOnSignal()` (envoi de `QUIT` + lecture des réponses) avant de quitter ; différencier sortie voulue / coupure par le code retour.
 4. Assainir les caractères de contrôle affichés (RFC §9.2) avant que `CHAT` n'arrive.
-5. Interface plus agréable (approche (2) du sujet : `go north` → `MOVE north`, `say …` → `CHAT ROOM …`, `help`, mise en forme du JSON, prompt qui survit à un événement).
+5. Interface plus agréable (approche (2) du sujet : `go north` → `MOVE north`, `say …` → `CHAT ROOM …`, `help`, **mise en forme du JSON d'`ATTACK`/`STATUS`/`LOOK` et des `EVT COMBAT`**, prompt qui survit à un événement) — le combat tour par tour en a maintenant vraiment besoin.
 6. Déplacer les `std::cout` de la bibliothèque `Client` vers des callbacks (`onDisconnect`, `onUnknown`).
 7. Supprimer ou relier `_is_authenticated` à `OK connected` / `ERR 201`.
