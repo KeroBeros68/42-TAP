@@ -1,24 +1,43 @@
 #ifndef SUCCESS_HPP
 # define SUCCESS_HPP
 
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
+
 # include <string>
 
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "defines.hpp"
+
+//##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
 enum class TapOk {
-	HELLO,		// "OK hello proto=1"    greeting sent on connection (RFC 3.2)
-	PLAIN,		// "OK"                  CHAT, GROUP INVITE, GROUP LEAVE
-	DATA,		// "OK <payload>"        LOOK, INVENTORY, TALK, ATTACK, STATUS, QUEST, QUESTS
-	CONNECTED,	// "OK connected"        CONNECT
-	BYE,		// "OK bye"              QUIT
-	ROOM,		// "OK room=<id>"        MOVE
-	PLAYERS,	// "OK players=<count>"  WHO
-	GROUP,		// "OK group=<id>"       GROUP CREATE, GROUP JOIN
-	TAKEN,		// "OK taken=<item-id>"  TAKE
-	DROPPED		// "OK dropped=<item-id>" DROP
+	HELLO,
+	PLAIN,
+	DATA,
+	CONNECTED,
+	BYE,
+	ROOM,
+	PLAYERS,
+	GROUP,
+	TAKEN,
+	DROPPED
 };
 
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
+
+/** Returns the words that start the line of a success, like "room=". */
 inline const char* tapOkPrefix(TapOk r) {
 	switch (r) {
-		case TapOk::HELLO:		return "hello proto=1";
+		case TapOk::HELLO:		return "hello proto=" PROTOCOL_VERSION;
 		case TapOk::PLAIN:		return "";
 		case TapOk::DATA:		return "";
 		case TapOk::CONNECTED:	return "connected";
@@ -32,8 +51,15 @@ inline const char* tapOkPrefix(TapOk r) {
 	return "";
 }
 
+/**
+ * Builds the line sent for a success.
+ *
+ * @param r       kind of success
+ * @param payload text added after the words of the kind
+ * @return        the line, like "OK room=loc.square" (without the line end)
+ */
 inline std::string tapOkLine(TapOk r, const std::string& payload = "") {
-	std::string line = "OK";
+	std::string line = RESPONSE_OK;
 	std::string body = std::string(tapOkPrefix(r)) + payload;
 	if (!body.empty())
 		line += " " + body;

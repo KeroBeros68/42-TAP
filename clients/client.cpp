@@ -1,4 +1,5 @@
 #include "client.hpp"
+#include "../shared/line.hpp"
 
 Client::Client() : _fd(INVALID_FD), _servername(SERVER_IP), _port(SERVER_PORT) {}
 
@@ -70,18 +71,42 @@ void Client::enableKeyboard(bool enable) {
 	_keyboard = enable;
 }
 
+bool Client::enableSignals() {
+	_sigs.add(SIGINT);
+	_sigs.add(SIGTERM);
+	_sigs.add(SIGQUIT);
+	_signals = _sigs.open();
+	return _signals;
+}
+
+void Client::quitOnSignal() {
+	send(CMD_QUIT);
+	pollfd server = {_fd, POLLIN, 0};
+	while (isConnected() && poll(&server, 1, POLL_TIMEOUT_MS) > 0) {
+		if (!readServer())
+			break;
+	}
+}
+
 bool Client::update(int timeout_ms) {
 	if (!isConnected())
 		return false;
 
-	pollfd fds[2] = {};
+	pollfd fds[3] = {};
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
 	nfds_t count = 1;
+	int keyboard_idx = -1;
+	int signal_idx = -1;
 	if (_keyboard) {
-		fds[1].fd = STDIN_FILENO;
-		fds[1].events = POLLIN;
-		count = 2;
+		keyboard_idx = count++;
+		fds[keyboard_idx].fd = STDIN_FILENO;
+		fds[keyboard_idx].events = POLLIN;
+	}
+	if (_signals) {
+		signal_idx = count++;
+		fds[signal_idx].fd = _sigs.fd();
+		fds[signal_idx].events = POLLIN;
 	}
 
 	int ret = poll(fds, count, timeout_ms);
@@ -90,11 +115,16 @@ bool Client::update(int timeout_ms) {
 	if (ret == 0)
 		return true;
 
+	if (signal_idx != -1 && (fds[signal_idx].revents & POLLIN)) {
+		_sigs.read();
+		quitOnSignal();
+		return false;
+	}
 	if (fds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
 		if (!readServer())
 			return false;
 	}
-	if (_keyboard && (fds[1].revents & (POLLIN | POLLHUP))) {
+	if (keyboard_idx != -1 && (fds[keyboard_idx].revents & (POLLIN | POLLHUP))) {
 		if (!readKeyboard())
 			return false;
 	}
@@ -102,7 +132,7 @@ bool Client::update(int timeout_ms) {
 }
 
 bool Client::readServer() {
-	char buff[BUFFER_SIZE];
+	char buff[RECV_BUFFER_SIZE];
 	ssize_t n = ::recv(_fd, buff, sizeof(buff), 0);
 	if (n <= 0) {
 		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
@@ -112,19 +142,14 @@ bool Client::readServer() {
 	}
 	_in.append(buff, n);
 
-	size_t pos;
-	while ((pos = _in.find(LINE_END)) != std::string::npos) {
-		std::string line = _in.substr(0, pos);
-		_in.erase(0, pos + 1);
-		if (!line.empty() && line.back() == CARRIAGE_RETURN)
-			line.pop_back();
+	std::string line;
+	while (extractLine(_in, line))
 		handleLine(line);
-	}
 	return true;
 }
 
 bool Client::readKeyboard() {
-	char buff[BUFFER_SIZE];
+	char buff[RECV_BUFFER_SIZE];
 	ssize_t n = ::read(STDIN_FILENO, buff, sizeof(buff));
 	if (n <= 0) {
 		if (n < 0 && (errno == EAGAIN || errno == EINTR))
@@ -133,12 +158,8 @@ bool Client::readKeyboard() {
 	}
 	_kbd.append(buff, n);
 
-	size_t pos;
-	while ((pos = _kbd.find(LINE_END)) != std::string::npos) {
-		std::string line = _kbd.substr(0, pos);
-		_kbd.erase(0, pos + 1);
-		if (!line.empty() && line.back() == CARRIAGE_RETURN)
-			line.pop_back();
+	std::string line;
+	while (extractLine(_kbd, line)) {
 		if (line.empty())
 			continue;
 		if (!send(line))
@@ -148,9 +169,8 @@ bool Client::readKeyboard() {
 }
 
 void Client::handleLine(const std::string& line) {
-	size_t sp = line.find(CMD_SEPARATOR);
-	std::string type = line.substr(0, sp);
-	std::string args = (sp == std::string::npos) ? "" : line.substr(sp + 1);
+	std::string type, args;
+	splitCommand(line, type, args);
 
 	auto it = _actions.find(type);
 	if (it != _actions.end())
