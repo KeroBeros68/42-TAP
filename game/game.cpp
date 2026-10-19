@@ -222,7 +222,14 @@ bool Game::move(long long player_id, const std::string& direction) {
 
 //########################### ITEMS ############################
 
-TransferResult Game::take(long long player_id, const std::string& target) {
+std::optional<std::vector<std::string>> Game::showInventories(long long player_id) const {
+	ConstPresence here = locate(player_id, "inventory");
+	if (!here)
+		return std::nullopt;
+	return here.player->inventory().ids();
+}
+
+TransferResult Game::takeItem(long long player_id, const std::string& target) {
 	Presence here = locate(player_id, "take");
 	if (!here)
 		return {TransferStatus::NotFound, ""};
@@ -247,7 +254,7 @@ TransferResult Game::take(long long player_id, const std::string& target) {
 	return result;
 }
 
-TransferResult Game::drop(long long player_id, const std::string& target) {
+TransferResult Game::dropItem(long long player_id, const std::string& target) {
 	Presence here = locate(player_id, "drop");
 	if (!here)
 		return {TransferStatus::NotFound, ""};

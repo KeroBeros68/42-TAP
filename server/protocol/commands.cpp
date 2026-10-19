@@ -107,7 +107,7 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
 static Response cmdTake(Game& game, User& user, const std::string& target) {
 	if (game.inCombat(user.id()))
 		return Response::failure(TapError::IN_COMBAT);
-	const TransferResult taken = game.take(user.id(), target);
+	const TransferResult taken = game.takeItem(user.id(), target);
 	if (taken.status == TransferStatus::DestinationFull)
 		return Response::failure(TapError::INVENTORY_FULL);
 	if (taken.status == TransferStatus::NotFound)
@@ -124,7 +124,7 @@ static Response cmdTake(Game& game, User& user, const std::string& target) {
  * @return       OK dropped=<id>, or ITEM_NOT_IN_INVENTORY
  */
 static Response cmdDrop(Game& game, User& user, const std::string& target) {
-	const TransferResult dropped = game.drop(user.id(), target);
+	const TransferResult dropped = game.dropItem(user.id(), target);
 	if (dropped.status != TransferStatus::Moved)
 		return Response::failure(TapError::ITEM_NOT_IN_INVENTORY);
 	return Response::success(TapOk::DROPPED, dropped.id);
@@ -180,6 +180,20 @@ static Response cmdDefend(Game& game, User& user) {
  */
 static Response cmdFlee(Game& game, User& user) {
 	return combatResponse(game.flee(user.id()));
+}
+
+/**
+ * INVENTORY: lists the items of the player. It is allowed during a fight.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     OK and a JSON array of the ids of his items, or BAD_REQUEST
+ */
+static Response cmdInventory(Game& game, User& user) {
+	const std::optional<std::vector<std::string>> ids = game.showInventories(user.id());
+	if (!ids)
+		return Response::failure(TapError::BAD_REQUEST);
+	return Response::success(TapOk::DATA, serializeInventory(*ids));
 }
 
 /**
@@ -245,12 +259,15 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_FLEE, [&game](User& user, const std::string&) {
 		return cmdFlee(game, user);
 	});
+	server.defineAction(CMD_INVENTORY, [&game](User& user, const std::string&) {
+		return cmdInventory(game, user);
+	});
 	server.defineAction(CMD_STATUS, [&game](User& user, const std::string&) {
 		return cmdStatus(game, user);
 	});
 
 	const std::string stubs[] = {
-		CMD_CHAT, CMD_INVENTORY,
+		CMD_CHAT,
 		CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP
 	};
 	for (const std::string& cmd : stubs) {

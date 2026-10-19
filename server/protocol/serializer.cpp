@@ -55,6 +55,10 @@ std::string serializeStatus(const Stats& stats, const std::optional<CombatView>&
 	return dump(payload);
 }
 
+std::string serializeInventory(const std::vector<std::string>& ids) {
+	return dump(ordered_json(ids));
+}
+
 std::string serializeAttack(const CombatReport& report) {
 	ordered_json turns = ordered_json::array();
 	for (const ReportTurn& turn : report.turns) {
