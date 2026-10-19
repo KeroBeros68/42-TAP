@@ -1,52 +1,30 @@
-#include "item.hpp"
-#include "../../shared/defines.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
 
-ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable) 
-	: _id(id), _name(name), _description(description), _obtainable(obtainable) {}
+# include "item.hpp"
+# include "../../shared/defines.hpp"
 
-const std::string& ItemDef::id() const {
-	return _id;
-}
+//##############################################################################
+//#                                  ITEM DEF                                  #
+//##############################################################################
 
-const std::string& ItemDef::name() const {
-	return _name;
-}
+//######################## CONSTRUCTOR #########################
 
-const std::string& ItemDef::description() const {
-	return _description;
-}
+ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable)
+	: Definition(id, name, description), _obtainable(obtainable) {}
+
+//########################## QUERIES ###########################
 
 bool ItemDef::isObtainable() const {
 	return _obtainable;
 }
 
-bool ItemDb::addItem(const ItemDef& item) {
-	return _items.emplace(item.id(), item).second;
-}
+//##############################################################################
+//#                                    ITEM                                    #
+//##############################################################################
 
-const ItemDef& ItemDb::item(const std::string& id) const {
-	return _items.at(id);
-}
-
-const std::unordered_map<std::string, ItemDef>& ItemDb::items() const {
-	return _items;
-}
-
-Item ItemDb::instantiate(const std::string& id) const {
-	return Item(item(id));
-}
+//######################## CONSTRUCTOR #########################
 
 Item::Item(const ItemDef& def)
-	: _id(def.id() + INSTANCE_SEPARATOR + std::to_string(++_current_id)), _definition(&def) {}
-
-const std::string& Item::id() const {
-	return _id;
-}
-
-const ItemDef& Item::definition() const {
-	return *_definition;
-}
-
-const std::string& Item::name() const {
-	return _definition->name();
-}
+	: Instance(def) {}

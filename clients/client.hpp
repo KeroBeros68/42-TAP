@@ -17,6 +17,7 @@
 # include <unordered_map>
 
 # include "defines.hpp"
+# include "../shared/signalFd.hpp"
 
 class Client
 {
@@ -28,10 +29,13 @@ class Client
 		std::string _in;
 		std::string _kbd;
 		bool _keyboard = false;
+		SignalFd _sigs;
+		bool _signals = false;
 		std::unordered_map<std::string, std::function<void(const std::string&)>> _actions;
 		void handleLine(const std::string& line);
 		bool readServer();
 		bool readKeyboard();
+		void quitOnSignal();
 
 	public:
 		Client();
@@ -50,6 +54,9 @@ class Client
 		bool send(const std::string& message);
 		// Also read the keyboard in update(): each typed line is sent to the server (CLI only)
 		void enableKeyboard(bool enable = true);
+		// Also watch SIGINT, SIGTERM and SIGQUIT in update(): the client says QUIT to the server and update() returns false (CLI only).
+		// The signals are blocked for the whole process, so a SIGINT no longer kills it.
+		bool enableSignals();
 		// Wait up to timeout_ms for server data (and keyboard input if enabled).
 		// Server lines run the matching actions, typed lines are sent to the server.
 		// Returns false if the connection was lost or the keyboard input ended (Ctrl+D).

@@ -1,49 +1,61 @@
 #ifndef ITEM_HPP
 # define ITEM_HPP
 
-# include <string>
-# include <unordered_map>
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
 
-class ItemDef {
+# include <string>
+
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "definition.hpp"
+# include "instance.hpp"
+# include "respawnable.hpp"
+
+//##############################################################################
+//#                                  ITEM DEF                                  #
+//##############################################################################
+
+class ItemDef : public Definition {
 	private:
-		std::string _id;
-		std::string _name;
-		std::string _description;
+		//######################### VARIABLES ##########################
 		bool _obtainable;
 
 	public:
+		//######################## CONSTRUCTOR #########################
+		/**
+		 * Builds the definition of an item.
+		 *
+		 * @param id          id of the definition
+		 * @param name        name shown to the players
+		 * @param description description shown to the players
+		 * @param obtainable  true if a player can take the item
+		 */
 		ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable);
 
-		const std::string& id() const;
-		const std::string& name() const;
-		const std::string& description() const;
+		//########################## QUERIES ###########################
+		/** Tells whether a player can take the item (a fountain cannot be taken). */
 		bool isObtainable() const;
 };
 
-class Item {
-	private:
-		static inline int _current_id = 0;
-		std::string _id;
-		const ItemDef* _definition;
+//##############################################################################
+//#                                    ITEM                                    #
+//##############################################################################
 
+class Item : public Instance<ItemDef>, public Respawnable {
 	public:
+		//######################## CONSTRUCTOR #########################
+		/** Creates an item from its definition. */
 		Item(const ItemDef& def);
-
-		const std::string& id() const;
-		const ItemDef& definition() const;
-		const std::string& name() const;
 };
 
-class ItemDb {
-	private:
-		std::unordered_map<std::string, ItemDef> _items;
+//##############################################################################
+//#                                   TYPES                                    #
+//##############################################################################
 
-	public:
-		bool addItem(const ItemDef& item);
-		const ItemDef& item(const std::string& id) const;
-		const std::unordered_map<std::string, ItemDef>& items() const;
-
-		Item instantiate(const std::string& id) const;
-};
+typedef Database<ItemDef, Item> ItemDb;
 
 #endif

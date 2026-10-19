@@ -1,65 +1,78 @@
 #ifndef ERRORS_HPP
 # define ERRORS_HPP
 
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
+
 # include <string>
 
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "defines.hpp"
+
+//##############################################################################
+//#                                  DEFINES                                   #
+//##############################################################################
+
+// -- Errors -------------------------------------------------------------------
+# define TAP_ERRORS(X) /* every error of the protocol: X(name, code) */ \
+	X(BAD_REQUEST,				400) /* unknown command or malformed message (not in the RFC) */ \
+	X(NAME_IN_USE,				201) /* another player already has this name */ \
+	X(NO_EXIT,					301) /* no exit in this direction */ \
+	X(NOT_IN_GROUP,				401) /* the player is not in a group */ \
+	X(ALREADY_IN_GROUP,			402) /* the player is already in a group */ \
+	X(INVENTORY_FULL,			403) /* TAKE with a full inventory (not in the RFC) */ \
+	X(ITEM_NOT_FOUND,			404) /* the item is not in the room */ \
+	X(ITEM_NOT_IN_INVENTORY,	404) /* the item is not in the inventory */ \
+	X(NPC_NOT_FOUND,			404) /* the npc is not in the room */ \
+	X(NPC_NOT_HOSTILE,			405) /* ATTACK on an npc that is not an enemy */ \
+	X(NO_QUEST_AVAILABLE,		406) /* the npc has no quest to give */ \
+	X(IN_COMBAT,				409) /* MOVE, TAKE or TALK during a fight, or another target for ATTACK (not in the RFC) */ \
+	X(NOT_IN_COMBAT,			410) /* DEFEND or FLEE with no fight (not in the RFC) */ \
+	X(NOT_YOUR_TURN,			411) /* it is the turn of someone else (not in the RFC) */ \
+	X(CONNECTION_FAILED,		900) /* the connection could not be established */ \
+	X(SEND_FAILED,				901) /* a message could not be sent */
+
+//##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
 enum class TapError {
-	BAD_REQUEST,			// 400 (not in the RFC: unknown command / malformed message)
-	NAME_IN_USE,			// 201
-	NO_EXIT,				// 301
-	NOT_IN_GROUP,			// 401
-	ALREADY_IN_GROUP,		// 402
-	INVENTORY_FULL,			// 403 (not in the RFC: TAKE with a full inventory)
-	ITEM_NOT_FOUND,			// 404
-	ITEM_NOT_IN_INVENTORY,	// 404
-	NPC_NOT_FOUND,			// 404
-	NPC_NOT_HOSTILE,		// 405
-	NO_QUEST_AVAILABLE,		// 406
-	CONNECTION_FAILED,		// 900
-	SEND_FAILED				// 901
+# define X(name, code) name,	// one enumerator per error
+	TAP_ERRORS(X)
+# undef X
 };
 
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
+
+/** Returns the code of an error, like 404. */
 inline int tapErrorCode(TapError e) {
 	switch (e) {
-		case TapError::BAD_REQUEST:				return 400;
-		case TapError::NAME_IN_USE:				return 201;
-		case TapError::NO_EXIT:					return 301;
-		case TapError::NOT_IN_GROUP:			return 401;
-		case TapError::ALREADY_IN_GROUP:		return 402;
-		case TapError::INVENTORY_FULL:			return 403;
-		case TapError::ITEM_NOT_FOUND:			return 404;
-		case TapError::ITEM_NOT_IN_INVENTORY:	return 404;
-		case TapError::NPC_NOT_FOUND:			return 404;
-		case TapError::NPC_NOT_HOSTILE:			return 405;
-		case TapError::NO_QUEST_AVAILABLE:		return 406;
-		case TapError::CONNECTION_FAILED:		return 900;
-		case TapError::SEND_FAILED:				return 901;
+# define X(name, code) case TapError::name: return code;	// the code of an error
+		TAP_ERRORS(X)
+# undef X
 	}
 	return 0;
 }
 
+/** Returns the name of an error, like "NPC_NOT_FOUND". */
 inline const char* tapErrorName(TapError e) {
 	switch (e) {
-		case TapError::BAD_REQUEST:				return "BAD_REQUEST";
-		case TapError::NAME_IN_USE:				return "NAME_IN_USE";
-		case TapError::NO_EXIT:					return "NO_EXIT";
-		case TapError::NOT_IN_GROUP:			return "NOT_IN_GROUP";
-		case TapError::ALREADY_IN_GROUP:		return "ALREADY_IN_GROUP";
-		case TapError::INVENTORY_FULL:			return "INVENTORY_FULL";
-		case TapError::ITEM_NOT_FOUND:			return "ITEM_NOT_FOUND";
-		case TapError::ITEM_NOT_IN_INVENTORY:	return "ITEM_NOT_IN_INVENTORY";
-		case TapError::NPC_NOT_FOUND:			return "NPC_NOT_FOUND";
-		case TapError::NPC_NOT_HOSTILE:			return "NPC_NOT_HOSTILE";
-		case TapError::NO_QUEST_AVAILABLE:		return "NO_QUEST_AVAILABLE";
-		case TapError::CONNECTION_FAILED:		return "CONNECTION_FAILED";
-		case TapError::SEND_FAILED:				return "SEND_FAILED";
+# define X(name, code) case TapError::name: return #name;	// the name of an error
+		TAP_ERRORS(X)
+# undef X
 	}
 	return "UNKNOWN";
 }
 
-// Full protocol line, e.g. "ERR 201 NAME_IN_USE" (without the trailing '\n')
+/** Builds the line sent for an error, like "ERR 201 NAME_IN_USE" (without the line end). */
 inline std::string tapErrorLine(TapError e) {
-	return "ERR " + std::to_string(tapErrorCode(e)) + " " + tapErrorName(e);
+	return std::string(RESPONSE_ERR) + " " + std::to_string(tapErrorCode(e)) + " " + tapErrorName(e);
 }
 
 #endif

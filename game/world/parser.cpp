@@ -1,122 +1,162 @@
-#include "parser.hpp"
-#include "../../shared/logger.hpp"
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
 
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-#include <vector>
+# include <fstream>
+# include <iostream>
+# include <stdexcept>
+# include <vector>
 
-#include "../../third_party/json.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "parser.hpp"
+# include "../../shared/logger.hpp"
+# include "../../third_party/json.hpp"
+
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
 
 using json = nlohmann::json;
 
+/**
+ * Reads the "npcs" object of npc.json and adds the definitions to the database.
+ *
+ * @param database receives the definitions
+ * @param data     the content of the file
+ */
 static void readNpc(NpcDb& database, json& data) {
-	if (data.contains("npcs") && data["npcs"].is_object()) {
-		for (const auto& [npc_id, npc] : data["npcs"].items()) {
+	if (data.contains(JSON_NPCS) && data[JSON_NPCS].is_object()) {
+		for (const auto& [npc_id, npc] : data[JSON_NPCS].items()) {
 
 			std::vector<std::string> dial;
-			if (npc.contains("dialogue") && npc["dialogue"].is_array()) {
-				for (const auto& line : npc["dialogue"]) {
+			if (npc.contains(JSON_DIALOGUE) && npc[JSON_DIALOGUE].is_array()) {
+				for (const auto& line : npc[JSON_DIALOGUE]) {
 				   dial.push_back(line.get<std::string>());
 				}
 			}
 
-			const std::string role = npc.at("role").get<std::string>();
+			const std::string role = npc.at(JSON_ROLE).get<std::string>();
 
 			Stats stats;
 			if (role == NPC_ROLE_ENEMY) {
-				const json& s = npc.at("stats");
-				stats.max_hp = s.at("hp").get<int>();
+				const json& s = npc.at(JSON_STATS);
+				stats.max_hp = s.at(JSON_HP).get<int>();
 				stats.hp = stats.max_hp;
-				stats.attack = s.at("attack").get<int>();
-				stats.defense = s.at("defense").get<int>();
-				if (stats.hp <= 0 || stats.attack < 0 || stats.defense < 0)
-					throw std::runtime_error("invalid npc.json: " + npc_id + ": hp must be > 0, attack and defense >= 0");
+				stats.attack = s.at(JSON_ATTACK).get<int>();
+				stats.defense = s.at(JSON_DEFENSE).get<int>();
+				stats.hit = s.at(JSON_HIT).get<int>();
+				stats.flee = s.at(JSON_FLEE).get<int>();
+				if (stats.hp <= 0 || stats.attack < 0 || stats.defense < 0 || stats.hit < 0 || stats.flee < 0)
+					throw std::runtime_error(ERR_NPC_FILE + npc_id + ": hp must be > 0, attack, defense, hit and flee >= 0");
 			}
 
 			std::vector<std::string> loot;
-			if (npc.contains("loot") && npc["loot"].is_array() && !npc["loot"].empty()) {
-				for (const auto& item : npc["loot"]) {
+			if (npc.contains(JSON_LOOT) && npc[JSON_LOOT].is_array() && !npc[JSON_LOOT].empty()) {
+				for (const auto& item : npc[JSON_LOOT]) {
 					loot.push_back(item.get<std::string>());
 				}
 			}
 
 			NpcDef def(npc_id,
-				npc.at("name").get<std::string>(),
+				npc.at(JSON_NAME).get<std::string>(),
 				role,
-				npc.at("description").get<std::string>(),
+				npc.at(JSON_DESCRIPTION).get<std::string>(),
 				dial,
 				stats,
 				loot
 			);
 
-			database.addNpc(def);
+			database.add(def);
 		}
 	} else {
 		LOG_WARN("no \"npcs\" object found in npc.json, no NPC loaded");
 	}
 }
 
+/**
+ * Reads the "items" object of items.json and adds the definitions to the database.
+ *
+ * @param database receives the definitions
+ * @param data     the content of the file
+ */
 static void readItems(ItemDb& database, json& data) {
-	if (data.contains("items") && data["items"].is_object()) {
-		for (const auto& [item_id, item] : data["items"].items()) {
+	if (data.contains(JSON_ITEMS) && data[JSON_ITEMS].is_object()) {
+		for (const auto& [item_id, item] : data[JSON_ITEMS].items()) {
 			ItemDef def(item_id,
-				item.at("name").get<std::string>(),
-				item.at("description").get<std::string>(),
-				item.at("obtainable").get<bool>()
+				item.at(JSON_NAME).get<std::string>(),
+				item.at(JSON_DESCRIPTION).get<std::string>(),
+				item.at(JSON_OBTAINABLE).get<bool>()
 			);
 
-			database.addItem(def);
+			database.add(def);
 		}
 	} else {
 		LOG_WARN("no \"items\" object found in items.json, no item loaded");
 	}
 }
 
+/**
+ * Reads and checks the spawns of a room.
+ * Throws std::runtime_error if one is invalid (not an object, no id, bad count or delay).
+ *
+ * @param entries the spawns, as written in the file
+ * @param room_id id of the room, for the errors
+ * @param kind    JSON_NPC or JSON_ITEM: the key that holds the id
+ * @return        the spawns
+ */
 static std::vector<Spawn> readSpawns(const json& entries, const std::string& room_id, const std::string& kind) {
 	std::vector<Spawn> spawns;
 	for (const auto& entry : entries) {
 		if (!entry.is_object())
-			throw std::runtime_error("invalid room.json: " + room_id + ": each " + kind + " entry must be an object");
+			throw std::runtime_error(ERR_ROOM_FILE + room_id + ": each " + kind + " entry must be an object");
 
 		Spawn spawn;
 		spawn.id = entry.at(kind).get<std::string>();
-		spawn.count = entry.value("count", 1);
-		spawn.respawn_seconds = entry.value("respawn_seconds", 0);
+		spawn.count = entry.value(JSON_COUNT, 1);
+		spawn.respawn_seconds = entry.value(JSON_RESPAWN_SECONDS, 0);
 		if (spawn.id.empty())
-			throw std::runtime_error("invalid room.json: " + room_id + ": a " + kind + " entry has no id");
+			throw std::runtime_error(ERR_ROOM_FILE + room_id + ": a " + kind + " entry has no id");
 		if (spawn.count < 1 || spawn.count > MAX_SPAWN_COUNT)
-			throw std::runtime_error("invalid room.json: " + room_id + ": " + kind + " " + spawn.id + ": count must be between 1 and " + std::to_string(MAX_SPAWN_COUNT));
+			throw std::runtime_error(ERR_ROOM_FILE + room_id + ": " + kind + " " + spawn.id + ": count must be between 1 and " + std::to_string(MAX_SPAWN_COUNT));
 		if (spawn.respawn_seconds < 0)
-			throw std::runtime_error("invalid room.json: " + room_id + ": " + kind + " " + spawn.id + ": respawn_seconds can not be negative");
+			throw std::runtime_error(ERR_ROOM_FILE + room_id + ": " + kind + " " + spawn.id + ": respawn_seconds can not be negative");
 		spawns.push_back(spawn);
 	}
 	return spawns;
 }
 
+/**
+ * Reads the "rooms" object of room.json and adds the rooms.
+ *
+ * @param rooms receives the rooms
+ * @param data  the content of the file
+ */
 static void readRoom(RoomMap& rooms, json& data) {
-	if (data.contains("rooms") && data["rooms"].is_object()) {
-		for (const auto& [room_id, room] : data["rooms"].items()) {
+	if (data.contains(JSON_ROOMS) && data[JSON_ROOMS].is_object()) {
+		for (const auto& [room_id, room] : data[JSON_ROOMS].items()) {
 
 			std::vector<Spawn> item_spawns;
-			if (room.contains("items") && room["items"].is_array())
-				item_spawns = readSpawns(room["items"], room_id, "item");
+			if (room.contains(JSON_ITEMS) && room[JSON_ITEMS].is_array())
+				item_spawns = readSpawns(room[JSON_ITEMS], room_id, JSON_ITEM);
 
 			std::vector<Spawn> npc_spawns;
-			if (room.contains("spawns") && room["spawns"].is_array())
-				npc_spawns = readSpawns(room["spawns"], room_id, "npc");
+			if (room.contains(JSON_SPAWNS) && room[JSON_SPAWNS].is_array())
+				npc_spawns = readSpawns(room[JSON_SPAWNS], room_id, JSON_NPC);
 
-			const auto exits = room.at("exits").get<std::unordered_map<std::string, std::string>>();
+			const auto exits = room.at(JSON_EXITS).get<std::unordered_map<std::string, std::string>>();
 			for (const auto& [direction, target] : exits) {
 				if (oppositeDirection(direction).empty())
-					throw std::runtime_error("invalid room.json: " + room_id + ": unknown exit direction '" + direction + "'");
+					throw std::runtime_error(ERR_ROOM_FILE + room_id + ": unknown exit direction '" + direction + "'");
 				if (target.empty())
-					throw std::runtime_error("invalid room.json: " + room_id + ": exit " + direction + " has no destination");
+					throw std::runtime_error(ERR_ROOM_FILE + room_id + ": exit " + direction + " has no destination");
 			}
 
 			Room def(room_id,
-				room.at("name").get<std::string>(),
-				room.at("description").get<std::string>(),
+				room.at(JSON_NAME).get<std::string>(),
+				room.at(JSON_DESCRIPTION).get<std::string>(),
 				exits,
 				item_spawns,
 				npc_spawns
@@ -127,44 +167,49 @@ static void readRoom(RoomMap& rooms, json& data) {
 	}
 }
 
-void parseNpcs(const std::string& path, NpcDb& npcs) {
+/**
+ * Opens a data file and gives its JSON to a function.
+ * Throws std::runtime_error if the file cannot be opened, or if the JSON is invalid (with the prefix in front of the message).
+ *
+ * @param path         path of the file
+ * @param error_prefix beginning of the error messages, like ERR_NPC_FILE
+ * @param read         called as read(data) with the content of the file
+ */
+template <typename Read>
+static void loadJson(const std::string& path, const char* error_prefix, Read read) {
 	std::ifstream file(path);
 	if (!file)
 		throw std::runtime_error("cannot open " + path);
 
 	try {
 		json data = json::parse(file);
-		readNpc(npcs, data);
+		read(data);
 	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string("invalid npc.json: ") + e.what());
+		throw std::runtime_error(std::string(error_prefix) + e.what());
 	}
+}
+
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
+
+void parseNpcs(const std::string& path, NpcDb& npcs) {
+	loadJson(path, ERR_NPC_FILE, [&](json& data) {
+		readNpc(npcs, data);
+	});
 }
 
 void parseItems(const std::string& path, ItemDb& items) {
-	std::ifstream file(path);
-	if (!file)
-		throw std::runtime_error("cannot open " + path);
-
-	try {
-		json data = json::parse(file);
+	loadJson(path, ERR_ITEM_FILE, [&](json& data) {
 		readItems(items, data);
-	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string("invalid items.json: ") + e.what());
-	}
+	});
 }
 
 void parseRooms(const std::string& path, RoomMap& rooms, std::string& start_room, std::string& respawn_room, int& respawn_life) {
-	std::ifstream file(path);
-	if (!file)
-		throw std::runtime_error("cannot open " + path);
-
-	try {
-		json data = json::parse(file);
+	loadJson(path, ERR_ROOM_FILE, [&](json& data) {
 		readRoom(rooms, data);
-		start_room = data.at("start_room").get<std::string>();
-		respawn_room = data.at("respawn").at("room").get<std::string>();
-		respawn_life = data.at("respawn").at("hp").get<int>();
-	} catch (const json::exception& e) {
-		throw std::runtime_error(std::string("invalid room.json: ") + e.what());
-	}
+		start_room = data.at(JSON_START_ROOM).get<std::string>();
+		respawn_room = data.at(JSON_RESPAWN).at(JSON_ROOM).get<std::string>();
+		respawn_life = data.at(JSON_RESPAWN).at(JSON_HP).get<int>();
+	});
 }
