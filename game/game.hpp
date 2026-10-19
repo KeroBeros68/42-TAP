@@ -181,13 +181,21 @@ class Game : private CombatHost {
 
 		//########################### ITEMS ############################
 		/**
+		 * Lists the items that a player carries.
+		 *
+		 * @param player_id id of the player
+		 * @return          the instance ids of his items, in alphabetical order (nothing if he is unknown)
+		 */
+		std::optional<std::vector<std::string>> showInventories(long long player_id) const;
+
+		/**
 		 * Takes an item from the floor of the room of a player. The first time it is taken, the item is planned to come back.
 		 *
 		 * @param player_id id of the player
 		 * @param target    designates the item, as for Inventory::findItem
 		 * @return          Moved and the id of the item; NotFound if there is no such item or it cannot be taken; DestinationFull if the inventory is full
 		 */
-		TransferResult take(long long player_id, const std::string& target);
+		TransferResult takeItem(long long player_id, const std::string& target);
 
 		/**
 		 * Drops an item of a player on the floor of his room.
@@ -196,7 +204,7 @@ class Game : private CombatHost {
 		 * @param target    designates the item, as for Inventory::findItem
 		 * @return          Moved and the id of the item, NotFound if the player does not have it
 		 */
-		TransferResult drop(long long player_id, const std::string& target);
+		TransferResult dropItem(long long player_id, const std::string& target);
 
 		/**
 		 * Makes a player talk to an npc of his room.

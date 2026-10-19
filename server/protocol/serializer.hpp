@@ -7,6 +7,7 @@
 
 # include <optional>
 # include <string>
+# include <vector>
 
 //##############################################################################
 //#                                  INCLUDES                                  #
@@ -34,6 +35,14 @@ std::string serializeLook(const LookData& look);
  * @return       a JSON object with the hit points and the status, and the fight when there is one
  */
 std::string serializeStatus(const Stats& stats, const std::optional<CombatView>& combat);
+
+/**
+ * Writes the response of INVENTORY.
+ *
+ * @param ids the instance ids of the items of the player
+ * @return    a JSON array of the ids
+ */
+std::string serializeInventory(const std::vector<std::string>& ids);
 
 /**
  * Writes the response of ATTACK, DEFEND and FLEE.
