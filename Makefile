@@ -106,9 +106,6 @@ run: build
 	sleep 1
 	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
 
-valgrind:
-	make -C clients/gui valgrind
-
 # Build and run the CLI client alone, in the current terminal
 client:
 	make -C clients/cli

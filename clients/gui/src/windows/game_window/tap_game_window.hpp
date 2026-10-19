@@ -1,10 +1,11 @@
 #ifndef TAP_GAME_WINDOW_HPP
 # define TAP_GAME_WINDOW_HPP
 
-# include "../windows.hpp"
+# include "../base_window/tap_base_window.hpp"
 # include "../../custom_ui_elements/custom_ui_elements.hpp"
 # include "widgets/game_window_widgets.hpp"
 # include <QHBoxLayout>
+# include "../error_window/tap_error_window.hpp"
 
 class TAPGameWindow : public TAPBaseWindow
 {
@@ -26,9 +27,14 @@ class TAPGameWindow : public TAPBaseWindow
         TAPLogView          log_view;
         TAPChatTabs         chat_tabs;
 
+        // Windows
+        TAPErrorWindow      _error_window;
+
     public:
         // Constructor
-        TAPGameWindow();
+        TAPGameWindow(
+            // TAPErrorWindow error_window
+        );
 
         // Update labels
         void update_players_in_room_label(int value);

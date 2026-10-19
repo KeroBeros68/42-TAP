@@ -5,6 +5,8 @@
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 # include <iostream>
 #include "../../../../client.hpp"
+# include "../error_window/tap_error_window.hpp"
+# include "../game_window/tap_game_window.hpp"
 
 class TAPConnectionWindow : public TAPBaseWindow
 {
@@ -12,7 +14,9 @@ class TAPConnectionWindow : public TAPBaseWindow
 		std::string	_username; // Server address
 		std::string	_remote_address = "127.0.0.1"; // Server address
 		std::string _remote_port	= "8080"; // Server port
-		Client		_client;
+		Client			&_client;
+        TAPErrorWindow	&_error_window;
+        TAPGameWindow	&_game_window;
 
 		// Labels
     	TAPLabel _info_text;
@@ -25,7 +29,12 @@ class TAPConnectionWindow : public TAPBaseWindow
 	public:
 		// init window
 		TAPConnectionWindow(
-			std::string window_title, int width, int height, Client &client
+			std::string window_title,
+			int width,
+			int height,
+			Client &client,
+			TAPErrorWindow &err_window,
+			TAPGameWindow &game_window
 		);
 
 		// Username related function

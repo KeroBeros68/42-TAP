@@ -278,6 +278,17 @@ The subject asks us to document every deviation and to justify it.
 ### Combat
 ### Quests
 ### Protocol compliance and edge cases
+### 🩸 Leaks report <!-- [+] -->
+
+The GUI client ships a memory-check target:
+
+```sh
+make -C clients/gui valgrind
+```
+
+It runs the executable under Valgrind with `clients/gui/valgrind-suppressions.txt`, which hides the allocations of the system and third-party libraries (Qt, glib/GTK platform theme, OpenGL/glvnd, glibc's dynamic loader, ...) — these are intentionally alive at exit or leaked inside the libraries, and are not our responsibility. Only leaks caused by our own code are reported, and the target fails (`--error-exitcode=1`) if any remain.
+
+Current result on Linux/Qt 5.15: **0 errors — no definitely, indirectly or possibly lost bytes**. The only remaining memory is "still reachable" (globals and library caches, alive by design at exit), which Valgrind does not count as a leak.
 
 ## 👥 Group Contributions <!-- [S] -->
 

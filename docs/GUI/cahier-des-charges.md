@@ -161,9 +161,15 @@ Zone distincte du chat, qui reçoit :
 
 #### 2.3.8 Journal de quêtes
 
+- ✅ **Widget `TAPQuestsView`** — placé sous la vue NPC TALK dans la colonne de contenu.
+  Prend une **liste de dictionnaires** de quêtes (clés `quest_id`, `status`, `progress`),
+  affiche chaque quête sur une ligne `quest_id  [status]  progress`, placeholder
+  « (no active quests) » quand la liste est vide. Alimenté en dur par `main.cpp` (données de
+  test), pas par le serveur.
 - ❌ `QUESTS` → liste JSON des quêtes **actives** et **complétées**, avec progression
-  (`"progress": "1/3"`).
-- ❌ Affichage du statut par quête (`available`, `active`, `completed`).
+  (`"progress": "1/3"`). Le parsing de la réponse JSON et le branchement réseau restent à faire.
+- ❌ Affichage du statut par quête (`available`, `active`, `completed`) — le champ `status`
+  est déjà affiché, il reste à distinguer visuellement les statuts.
 - ❌ La RFC ne définit aucun événement de progression de quête : le journal devra se rafraîchir
   sur action du joueur (ou par polling discret).
 
@@ -321,6 +327,7 @@ message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT 
 | ✅ | Vue d'inventaire — UI | `.../widgets/tap_inventory_view/` | Même modèle que les items au sol |
 | 🟠 | Vue d'inventaire — action | `.../widgets/tap_inventory_view/` | `get_selected_item_id()` existe, aucun `DROP`/`INVENTORY` envoyé |
 | ✅ | Vue de dialogue NPC — UI | `.../widgets/tap_ncp_talk/` | Liste NPC + sélection radio + bouton valider |
+| ✅ | Journal de quêtes — UI | `.../widgets/tap_quests_view/` | Liste de quêtes (`quest_id` / `status` / `progress`), alimentée en dur par `main.cpp` |
 | ✅ | Vue de chat — UI | `.../widgets/tap_chat_tabs/` | Onglets Global / Room / Group + historique par portée |
 | 🟠 | Vue de dialogue NPC — action | `.../widgets/tap_ncp_talk/` | `get_selected_npc_id()` existe, aucun `TALK` envoyé |
 | ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` — styles uniquement |
@@ -338,14 +345,15 @@ message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT 
   `std::cout`. Accesseurs `getUsername()` / `getRemoteAddress()` / `getRemotePort()` présents.
 - **`TAPErrorWindow`** — 540×360, titre `42 TAP Error`, un label, `setErrorMessage()` /
   `getErrorMessage()`. Instanciée nulle part.
-- **`TAPGameWindow`** — disposition en deux colonnes : à gauche le contenu (barre de
-  compteurs, vue de pièce, vue des sorties, ligne items — items au sol et inventaire côte
-  à côte —, vue de dialogue NPC, chat à onglets, stretch) ; à droite une colonne pleine
-  hauteur avec la barre d'actions `TAPActionButtons` et la vue de logs `TAPLogView`.
+- **`TAPGameWindow`** — disposition en deux parties : la barre de compteurs
+  `TAPPlayerCountBar` occupe toute la largeur en haut ; en dessous, deux colonnes — à gauche
+  le contenu (vue de pièce, vue des sorties, ligne items — items au sol et inventaire côte
+  à côte —, vue de dialogue NPC, journal de quêtes, chat à onglets, stretch), à droite une
+  colonne avec la barre d'actions `TAPActionButtons` et la vue de logs `TAPLogView`.
   La taille est bornée par l'écran (`availableGeometry()` : menu macOS et dock exclus),
   pour rester utilisable sur MacBook. Expose les `update_*` (compteurs, nom/description
-  de pièce, sorties, items au sol, inventaire, NPCs, messages chat) — tous alimentés en
-  dur par `main.cpp`, pas par le serveur.
+  de pièce, sorties, items au sol, inventaire, NPCs, quêtes, messages chat) — tous alimentés
+  en dur par `main.cpp`, pas par le serveur.
 - **`main.cpp`** — `QApplication`, icône, gestion de SIGINT (`quit` via la queue d'événements
   Qt). Les fenêtres connexion et erreur sont **commentées** ; seule la fenêtre de jeu est
   affichée, avec des compteurs codés en dur (42 / 21).
@@ -366,7 +374,8 @@ message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT 
 - 🟠 **Barre d'actions** — `TAPActionButtons` en place, clics affichent `[WIP] <ACTION>`,
   aucun envoi réseau.
 - ❌ Panneau de combat absent.
-- ❌ Journal de quêtes absent.
+- ❌ Journal de quêtes — UI présente (`TAPQuestsView`), **données non branchées** (aucun
+  envoi de `QUESTS`, aucun parsing JSON).
 - ❌ Panneau de groupe absent.
 - ❌ Barre de vie absente.
 - ❌ Aucune navigation entre fenêtres (connexion → jeu, erreur → connexion).
@@ -387,8 +396,10 @@ Dans l'ordre d'implémentation :
 4. ❌ **Chat + log** — les deux vues séparées, avec les trois portées.
 5. ❌ **Inventaire et items** — TAKE / DROP / INVENTORY et rafraîchissement automatique.
 6. ❌ **NPC** — TALK et QUEST.
-7. ❌ **Combat** — STATUS, ATTACK, barres de vie.
-8. ❌ **Quêtes et groupe** — QUESTS, QUEST, GROUP *.
+7. ❌ **Quêtes** — parsing de la réponse `QUESTS` (liste JSON) et branchement de
+   `TAPQuestsView` via `TAPGameWindow::update_quests`.
+8. ❌ **Combat** — STATUS, ATTACK, barres de vie.
+9. ❌ **Quêtes et groupe** — QUEST, GROUP *.
 
 Les blocs 1 à 4 constituent le socle : la barre d'actions ne peut être branchée qu'une fois le
 dispatch en place, et aucune action contextuelle n'est possible avant.

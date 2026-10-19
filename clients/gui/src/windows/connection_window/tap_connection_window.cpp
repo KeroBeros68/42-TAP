@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <string>
 #include "../../../../client.hpp"
+#include "../error_window/tap_error_window.hpp"
 
 // findSystemUsername
 std::string TAPConnectionWindow::findSystemUsername()
@@ -53,25 +54,30 @@ std::string TAPConnectionWindow::getUsername()
 // connectToServer
 void TAPConnectionWindow::connectToServer()
 {
-    std::cout << "Connecting to " << this->getUsername() << "@" << this->getRemoteAddress() << ":" << this->getRemotePort() << std::endl;
+    std::cout << "Connecting to " << this->getUsername() << "@" << this->getRemoteAddress() << ":" << this->getRemotePort() << "..." << std::endl;
     _client.setServer(getRemoteAddress(), std::atoi(getRemotePort().c_str()));
 
     // Server connection
     try {
         _client.connect();
-    } catch (const std::exception &e) {
-        std::cout << "WIP Error while connecting" << std::endl;
+        _client.send(std::string("CONNECT ") + this->getUsername().c_str());
+        _game_window.show();
+        this->hide();
+    }
+    catch (const std::exception &e) {
+        this->_error_window.setErrorMessage(e.what());
+        this->_error_window.show();
         return;
     }
-    std::cout << _client.send(std::string("CONNECT ") + getUsername()) << std::endl;
 
 }
 
 // Init window with elements
-TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height, Client &client)
+TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height,
+    Client &client, TAPErrorWindow &err_window, TAPGameWindow &game_window)
+    : _client(client), _error_window(err_window), _game_window(game_window)
 {
     this->_username = findSystemUsername();
-    this->_client = client;
 
     // Apply title
 	this->setWindowTitle(window_title.c_str());
