@@ -1,12 +1,118 @@
-#include "game.hpp"
-#include "../shared/logger.hpp"
-#include "world/spawn.hpp"
-#include "utils/lookup.hpp"
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
 
-#include <iostream>
-#include <utility>
+# include <iostream>
+# include <utility>
 
-Game::Game() {}
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "game.hpp"
+# include "../shared/logger.hpp"
+# include "utils/lookup.hpp"
+# include "world/spawn.hpp"
+
+//##############################################################################
+//#                                    GAME                                    #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
+
+Game::Game() : _combat(*this) {}
+
+//########################## PRESENCE ##########################
+
+ConstPresence Game::locate(long long player_id, const char* action) const {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("unknown player", {"client", player_id}, {"action", action});
+		return {};
+	}
+	auto room = _world.rooms.find(player->second.currentMap());
+	if (room == _world.rooms.end()) {
+		LOG_ERROR("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()}, {"action", action});
+		return {};
+	}
+	return {&player->second, &room->second};
+}
+
+Presence Game::locate(long long player_id, const char* action) {
+	const ConstPresence here = std::as_const(*this).locate(player_id, action);
+	return {const_cast<Player*>(here.player), const_cast<Room*>(here.room)};
+}
+
+Player* Game::findPlayer(long long player_id) {
+	const auto player = _players.find(player_id);
+	return player == _players.end() ? nullptr : &player->second;
+}
+
+Room* Game::findRoom(const std::string& room_id) {
+	const auto room = _world.rooms.find(room_id);
+	return room == _world.rooms.end() ? nullptr : &room->second;
+}
+
+bool Game::teleport(long long player_id, const std::string& target) {
+	Presence here = locate(player_id, "teleport");
+	if (!here)
+		return false;
+
+	auto destination = _world.rooms.find(target);
+	if (destination == _world.rooms.end()) {
+		LOG_ERROR("teleport to an unknown room", {"client", player_id}, {"room", target});
+		return false;
+	}
+
+	here.player->stats().in_combat = false;
+	here.room->removePlayer(player_id);
+	emitPresence(*here.room, EVT_PRESENCE_LEAVE, here.player->name());
+	emitPresence(destination->second, EVT_PRESENCE_ENTER, here.player->name());
+	destination->second.addPlayer(player_id);
+	here.player->setCurrentMap(target);
+	return true;
+}
+
+//########################### EVENTS ###########################
+
+EventBus& Game::events() {
+	return _events;
+}
+
+void Game::emitPresence(const Room& room, const char* type, const std::string& name) {
+	_events.toRoom(room, eventLine(EVT_ROOM, std::string(type) + CMD_SEPARATOR + name));
+}
+
+void Game::emitPlayerCount() {
+	_events.send(playerIds(), eventLine(EVT_STATS, EVT_PLAYERS_FIELD + std::to_string(_players.size())));
+}
+
+void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) {
+	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + id));
+}
+
+//########################## RESPAWN ###########################
+
+void Game::enemyDied(Room& room, Npc* npc, const std::string& killer) {
+	const std::string npc_id = npc->id();
+	const std::vector<std::string> dropped = npc->dropLoot(room.inventory(), _world.item_database);
+	std::string loot;
+	for (const std::string& item : dropped)
+		loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
+	LOG_INFO("npc died", {"room", room.id()}, {"player", killer}, {"npc", npc_id}, {"loot", loot});
+	_respawns.schedule(Respawn::of(RespawnKind::Npc, *npc));
+	room.removeNpc(npc);
+}
+
+const std::string& Game::respawnRoom() const {
+	return _world.respawn_room;
+}
+
+int Game::respawnLife() const {
+	return _world.respawn_life;
+}
+
+//########################## PLAYERS ###########################
 
 void Game::addPlayer(long long id, const std::string& name) {
 	Player player(id, name, _world.start_room);
@@ -32,13 +138,8 @@ void Game::removePlayer(long long id) {
 	if (room != _world.rooms.end()) {
 		room->second.removePlayer(id);
 		emitPresence(room->second, EVT_PRESENCE_LEAVE, player->second.name());
-		auto fight = _combats.find(id);
-		if (fight != _combats.end()) {
-			if (Npc* enemy = room->second.findNpc(fight->second.enemy_id))
-				enemy->stats().in_combat = false;
-		}
 	}
-	_combats.erase(id);
+	_combat.abandon(id);
 	LOG_INFO("player left room", {"client", id}, {"player", player->second.name()}, {"room", player->second.currentMap()});
 	_players.erase(player);
 	emitPlayerCount();
@@ -68,6 +169,17 @@ std::vector<long long> Game::playerIds() const {
 	return ids;
 }
 
+const Stats* Game::status(long long player_id) const {
+	auto player = _players.find(player_id);
+	if (player == _players.end()) {
+		LOG_WARN("status of an unknown player", {"client", player_id});
+		return nullptr;
+	}
+	return &player->second.stats();
+}
+
+//########################### WORLD ############################
+
 const World& Game::world() const {
 	return _world;
 }
@@ -90,25 +202,6 @@ std::optional<LookData> Game::look(long long player_id) const {
 	return data;
 }
 
-Game::ConstPresence Game::locate(long long player_id, const char* action) const {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("unknown player", {"client", player_id}, {"action", action});
-		return {};
-	}
-	auto room = _world.rooms.find(player->second.currentMap());
-	if (room == _world.rooms.end()) {
-		LOG_ERROR("player is on an unknown room", {"client", player_id}, {"room", player->second.currentMap()}, {"action", action});
-		return {};
-	}
-	return {&player->second, &room->second};
-}
-
-Game::Presence Game::locate(long long player_id, const char* action) {
-	const ConstPresence here = std::as_const(*this).locate(player_id, action);
-	return {const_cast<Player*>(here.player), const_cast<Room*>(here.room)};
-}
-
 bool Game::move(long long player_id, const std::string& direction) {
 	Presence here = locate(player_id, "move");
 	if (!here)
@@ -127,41 +220,7 @@ bool Game::move(long long player_id, const std::string& direction) {
 	return true;
 }
 
-bool Game::teleport(long long player_id, const std::string& target) {
-	Presence here = locate(player_id, "teleport");
-	if (!here)
-		return false;
-
-	auto destination = _world.rooms.find(target);
-	if (destination == _world.rooms.end()) {
-		LOG_ERROR("teleport to an unknown room", {"client", player_id}, {"room", target});
-		return false;
-	}
-
-	here.player->stats().in_combat = false;
-	_combats.erase(player_id);
-	here.room->removePlayer(player_id);
-	emitPresence(*here.room, EVT_PRESENCE_LEAVE, here.player->name());
-	emitPresence(destination->second, EVT_PRESENCE_ENTER, here.player->name());
-	destination->second.addPlayer(player_id);
-	here.player->setCurrentMap(target);
-	return true;
-}
-
-std::optional<std::string> Game::talk(long long player_id, const std::string& target) const {
-	ConstPresence here = locate(player_id, "talk");
-	if (!here)
-		return std::nullopt;
-
-	const Npc* npc = here.room->findNpc(target);
-	if (!npc) {
-		LOG_DEBUG("no such NPC in the room", LOG_HERE(here), {"target", target});
-		return std::nullopt;
-	}
-
-	LOG_INFO("player talked to an npc", LOG_HERE(here), {"npc", npc->id()});
-	return npc->talk();
-}
+//########################### ITEMS ############################
 
 TransferResult Game::take(long long player_id, const std::string& target) {
 	Presence here = locate(player_id, "take");
@@ -181,7 +240,7 @@ TransferResult Game::take(long long player_id, const std::string& target) {
 		LOG_INFO("inventory full", LOG_HERE(here), {"target", target});
 	else if (result.status == TransferStatus::Moved) {
 		LOG_INFO("player took an item", LOG_HERE(here), {"item", result.id});
-		if (schedule(respawn))
+		if (_respawns.schedule(respawn))
 			if (Item* taken = here.player->inventory().findItem(result.id))
 				taken->clearOrigin();
 	}
@@ -201,174 +260,52 @@ TransferResult Game::drop(long long player_id, const std::string& target) {
 	return result;
 }
 
-static const char* actionName(CombatAction action) {
-	switch (action) {
-		case CombatAction::ATTACK:	return "attack";
-		case CombatAction::DEFEND:	return "defend";
-		case CombatAction::FLEE:	return "flee";
+std::optional<std::string> Game::talk(long long player_id, const std::string& target) const {
+	ConstPresence here = locate(player_id, "talk");
+	if (!here)
+		return std::nullopt;
+
+	const Npc* npc = here.room->findNpc(target);
+	if (!npc) {
+		LOG_DEBUG("no such NPC in the room", LOG_HERE(here), {"target", target});
+		return std::nullopt;
 	}
-	return "";
+
+	LOG_INFO("player talked to an npc", LOG_HERE(here), {"npc", npc->id()});
+	return npc->talk();
 }
 
-bool Game::inCombat(long long player_id) const {
-	return _combats.find(player_id) != _combats.end();
-}
+//########################### COMBAT ###########################
 
 CombatReport Game::attack(long long player_id, const std::string& target) {
-	Presence here = locate(player_id, "attack");
-	if (!here)
-		return {CombatStatus::NOT_FOUND};
-
-	auto fight = _combats.find(player_id);
-	if (fight == _combats.end()) {
-		Npc* npc = here.room->findNpc(target);
-		if (!npc) {
-			LOG_DEBUG("no such NPC in the room", LOG_HERE(here), {"target", target});
-			return {CombatStatus::NOT_FOUND};
-		}
-		if (npc->definition().role() != NPC_ROLE_ENEMY) {
-			LOG_DEBUG("player tried to attack a non-hostile NPC", LOG_HERE(here), {"npc", npc->id()});
-			return {CombatStatus::NOT_HOSTILE};
-		}
-		fight = _combats.emplace(player_id, startCombat(npc->id())).first;
-		LOG_INFO("combat started", LOG_HERE(here), {"npc", npc->id()});
-	} else if (!target.empty() && here.room->findNpc(target) != here.room->findNpc(fight->second.enemy_id)) {
-		return {CombatStatus::ANOTHER_ENEMY};		// no switching target in the middle of a fight
-	}
-	return resolveRound(here, fight, CombatAction::ATTACK);
+	return _combat.attack(player_id, target);
 }
 
 CombatReport Game::defend(long long player_id) {
-	return continueFight(player_id, CombatAction::DEFEND, "defend");
+	return _combat.defend(player_id);
 }
 
 CombatReport Game::flee(long long player_id) {
-	return continueFight(player_id, CombatAction::FLEE, "flee");
+	return _combat.flee(player_id);
 }
 
-CombatReport Game::continueFight(long long player_id, CombatAction action, const char* name) {
-	Presence here = locate(player_id, name);
-	if (!here)
-		return {CombatStatus::NOT_FOUND};
-	auto fight = _combats.find(player_id);
-	if (fight == _combats.end())
-		return {CombatStatus::NOT_IN_COMBAT};
-	return resolveRound(here, fight, action);
+bool Game::inCombat(long long player_id) const {
+	return _combat.inCombat(player_id);
 }
 
-CombatReport Game::resolveRound(Presence& here, std::unordered_map<long long, Combat>::iterator fight, CombatAction action) {
-	const long long player_id = here.player->id();
-	Npc* npc = here.room->findNpc(fight->second.enemy_id);
-	if (!npc) {
-		here.player->stats().in_combat = false;
-		_combats.erase(fight);
-		return {CombatStatus::NOT_FOUND};
-	}
-
-	CombatReport report;
-	report.round = fight->second.round;
-	report.outcome = playRound(fight->second, action, here.player->stats(), npc->stats());
-	report.player_hp = here.player->stats().hp;
-	report.enemy_hp = npc->stats().hp;
-	report.player_status = here.player->stats().status();
-	LOG_INFO("combat round", LOG_HERE(here), {"npc", npc->id()}, {"round", report.round}, {"action", actionName(action)},
-		{"player_hp", report.player_hp}, {"enemy_hp", report.enemy_hp});
-	if (report.outcome.enemy_dead)
-		enemyDied(here, npc);
-	else if (report.outcome.player_dead)
-		playerDied(here, npc->id());
-	else if (report.outcome.escaped)
-		playerFled(here);
-	if (report.outcome.enemy_dead || report.outcome.player_dead || report.outcome.escaped)
-		_combats.erase(player_id);
-	return report;
+std::optional<CombatView> Game::combatView(long long player_id) const {
+	return _combat.view(player_id);
 }
 
-void Game::enemyDied(Presence& here, Npc* npc) {
-	const std::string npc_id = npc->id();
-	const std::vector<std::string> dropped = npc->dropLoot(here.room->inventory(), _world.item_database);
-	std::string loot;
-	for (const std::string& item : dropped)
-		loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
-	LOG_INFO("npc died", LOG_HERE(here), {"npc", npc_id}, {"loot", loot});
-	schedule(Respawn::of(RespawnKind::Npc, *npc));
-	here.room->removeNpc(npc);
-}
-
-void Game::playerDied(Presence& here, const std::string& enemy_id) {
-	LOG_INFO("player died", LOG_HERE(here), {"npc", enemy_id});
-	teleport(here.player->id(), _world.respawn_room);
-	here.player->stats().revive(world().respawn_life);
-	LOG_INFO("player respawned", {"client", here.player->id()}, {"player", here.player->name()}, {"room", _world.respawn_room}, {"hp", here.player->stats().hp});
-}
-
-void Game::playerFled(Presence& here) {
-	LOG_INFO("player fled", LOG_HERE(here));
-	const std::vector<std::string> directions = lookup::sortedIds(here.room->exits());
-	if (directions.empty())
-		return;
-	teleport(here.player->id(), here.room->exits().at(directions[randomIndex(directions.size())]));
-}
-
-const Stats* Game::status(long long player_id) const {
-	auto player = _players.find(player_id);
-	if (player == _players.end()) {
-		LOG_WARN("status of an unknown player", {"client", player_id});
-		return nullptr;
-	}
-	return &player->second.stats();
-}
-
-bool Game::schedule(const Respawn& respawn) {
-	if (respawn.seconds <= 0)
-		return false;
-	_respawns.emplace(std::chrono::steady_clock::now() + std::chrono::seconds(respawn.seconds), respawn);
-	return true;
-}
-
-template <typename Db, typename Place>
-static void respawnIn(const Db& database, const std::string& respawn_label, const std::string& room_id, const std::string& def_id,
-	int seconds, Room& room, Place place) {
-	const auto instance = spawnInstance(database, def_id, room_id, seconds, room, place);
-	LOG_INFO(respawn_label + " respawned", {"room", room_id}, {respawn_label, instance.id()});
-}
+//############################ TIME ############################
 
 void Game::tick(std::chrono::steady_clock::time_point now) {
-	while (!_respawns.empty() && _respawns.begin()->first <= now) {
-		const Respawn respawn = _respawns.begin()->second;
-		_respawns.erase(_respawns.begin());
-
-		auto room = _world.rooms.find(respawn.room_id);
-		if (room == _world.rooms.end()) {
-			LOG_ERROR("respawn in an unknown room", {"room", respawn.room_id}, {"definition", respawn.def_id});
-			continue;
-		}
-		if (respawn.kind == RespawnKind::Npc)
-			respawnIn(_world.npc_database, "npc", respawn.room_id, respawn.def_id, respawn.seconds, room->second,
-				[](Room& r, const Npc& npc) { r.addNpc(npc); });
-		else
-			respawnIn(_world.item_database, "item", respawn.room_id, respawn.def_id, respawn.seconds, room->second,
-				[](Room& r, const Item& item) { r.inventory().add(item); });
-	}
-}
-
-void Game::emit(const std::vector<long long>& players_ids, const std::string& line) {
-	if (!players_ids.empty())
-		_eventStore.push_back(Event{players_ids, line});
-}
-
-void Game::emitPresence(const Room& room, const char* type, const std::string& name) {
-	emit(room.currentPlayer(), eventLine(EVT_ROOM, std::string(type) + CMD_SEPARATOR + name));
-}
-
-void Game::emitPlayerCount() {
-	emit(playerIds(), eventLine(EVT_STATS, EVT_PLAYERS_FIELD + std::to_string(_players.size())));
+	_combat.update(now);
+	_respawns.update(now, _world, [this](const Room& room, const char* kind, const std::string& id) {
+		emitSpawn(room, kind, id);
+	});
 }
 
 std::vector<Event> Game::takeEvents() {
-	std::vector<Event> eventsToReturn;
-
-	std::swap(eventsToReturn, _eventStore);
-
-	return eventsToReturn;
+	return _events.take();
 }

@@ -1,15 +1,32 @@
-#include "parser.hpp"
-#include "../../shared/logger.hpp"
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
 
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-#include <vector>
+# include <fstream>
+# include <iostream>
+# include <stdexcept>
+# include <vector>
 
-#include "../../third_party/json.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "parser.hpp"
+# include "../../shared/logger.hpp"
+# include "../../third_party/json.hpp"
+
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
 
 using json = nlohmann::json;
 
+/**
+ * Reads the "npcs" object of npc.json and adds the definitions to the database.
+ *
+ * @param database receives the definitions
+ * @param data     the content of the file
+ */
 static void readNpc(NpcDb& database, json& data) {
 	if (data.contains(JSON_NPCS) && data[JSON_NPCS].is_object()) {
 		for (const auto& [npc_id, npc] : data[JSON_NPCS].items()) {
@@ -59,6 +76,12 @@ static void readNpc(NpcDb& database, json& data) {
 	}
 }
 
+/**
+ * Reads the "items" object of items.json and adds the definitions to the database.
+ *
+ * @param database receives the definitions
+ * @param data     the content of the file
+ */
 static void readItems(ItemDb& database, json& data) {
 	if (data.contains(JSON_ITEMS) && data[JSON_ITEMS].is_object()) {
 		for (const auto& [item_id, item] : data[JSON_ITEMS].items()) {
@@ -75,6 +98,15 @@ static void readItems(ItemDb& database, json& data) {
 	}
 }
 
+/**
+ * Reads and checks the spawns of a room.
+ * Throws std::runtime_error if one is invalid (not an object, no id, bad count or delay).
+ *
+ * @param entries the spawns, as written in the file
+ * @param room_id id of the room, for the errors
+ * @param kind    JSON_NPC or JSON_ITEM: the key that holds the id
+ * @return        the spawns
+ */
 static std::vector<Spawn> readSpawns(const json& entries, const std::string& room_id, const std::string& kind) {
 	std::vector<Spawn> spawns;
 	for (const auto& entry : entries) {
@@ -96,6 +128,12 @@ static std::vector<Spawn> readSpawns(const json& entries, const std::string& roo
 	return spawns;
 }
 
+/**
+ * Reads the "rooms" object of room.json and adds the rooms.
+ *
+ * @param rooms receives the rooms
+ * @param data  the content of the file
+ */
 static void readRoom(RoomMap& rooms, json& data) {
 	if (data.contains(JSON_ROOMS) && data[JSON_ROOMS].is_object()) {
 		for (const auto& [room_id, room] : data[JSON_ROOMS].items()) {
@@ -129,6 +167,14 @@ static void readRoom(RoomMap& rooms, json& data) {
 	}
 }
 
+/**
+ * Opens a data file and gives its JSON to a function.
+ * Throws std::runtime_error if the file cannot be opened, or if the JSON is invalid (with the prefix in front of the message).
+ *
+ * @param path         path of the file
+ * @param error_prefix beginning of the error messages, like ERR_NPC_FILE
+ * @param read         called as read(data) with the content of the file
+ */
 template <typename Read>
 static void loadJson(const std::string& path, const char* error_prefix, Read read) {
 	std::ifstream file(path);
@@ -142,6 +188,10 @@ static void loadJson(const std::string& path, const char* error_prefix, Read rea
 		throw std::runtime_error(std::string(error_prefix) + e.what());
 	}
 }
+
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
 
 void parseNpcs(const std::string& path, NpcDb& npcs) {
 	loadJson(path, ERR_NPC_FILE, [&](json& data) {

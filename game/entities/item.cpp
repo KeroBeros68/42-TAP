@@ -1,13 +1,30 @@
-#include "item.hpp"
-#include "../../shared/defines.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
 
-ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable) 
+# include "item.hpp"
+# include "../../shared/defines.hpp"
+
+//##############################################################################
+//#                                  ITEM DEF                                  #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
+
+ItemDef::ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable)
 	: Definition(id, name, description), _obtainable(obtainable) {}
 
+//########################## QUERIES ###########################
 
 bool ItemDef::isObtainable() const {
 	return _obtainable;
 }
+
+//##############################################################################
+//#                                    ITEM                                    #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
 
 Item::Item(const ItemDef& def)
 	: Instance(def) {}

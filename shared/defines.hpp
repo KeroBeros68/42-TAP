@@ -1,71 +1,97 @@
 #ifndef SHARED_DEFINES_HPP
 # define SHARED_DEFINES_HPP
 
-// Values shared by the server and the clients (protocol + common system values)
+//##############################################################################
+//#                                  DEFINES                                   #
+//##############################################################################
 
-# define SERVER_PORT		8080
+// -- Server -------------------------------------------------------------------
+# define SERVER_PORT		8080	// TCP port the server listens on and the clients connect to
 
-# define INVALID_FD			-1
-# define SYSCALL_ERROR		-1
-# define SIGNAL_NONE		-1		// nothing to read from a SignalFd
+// -- System values ------------------------------------------------------------
+# define INVALID_FD			-1	// value of a file descriptor that is not open
+# define SYSCALL_ERROR		-1	// value returned by a system call that failed
+# define SIGNAL_NONE		-1	// nothing to read from a SignalFd
 
-# define LINE_END			'\n'
-# define CARRIAGE_RETURN	'\r'
-# define CMD_SEPARATOR		' '
-# define MAX_LINE_LENGTH	1024
-# define MAX_NAME_LENGTH	32
-# define POLL_TIMEOUT_MS	1000
-# define RECV_BUFFER_SIZE	4096
+// -- Line format and limits ---------------------------------------------------
+# define LINE_END			'\n'	// ends every message of the protocol
+# define CARRIAGE_RETURN	'\r'	// accepted before the line end, and ignored
+# define CMD_SEPARATOR		' '		// separates a command from its arguments
+# define MAX_LINE_LENGTH	1024	// longest line a client may send, in bytes
+# define MAX_NAME_LENGTH	32		// longest player name, in bytes
+# define POLL_TIMEOUT_MS	1000	// how long a poll waits before the loop runs again
+# define RECV_BUFFER_SIZE	4096	// size of the buffer of each recv
 
+// -- Protocol words -----------------------------------------------------------
+# define PROTOCOL_VERSION	"1"		// version of the protocol, sent in the greeting
+# define RESPONSE_OK		"OK"	// first word of a success response
+# define RESPONSE_ERR		"ERR"	// first word of an error response
+# define RESPONSE_EVT		"EVT"	// first word of an event
 
-// Words and fields of the protocol (the clients read them)
-# define PROTOCOL_VERSION	"1"
-# define RESPONSE_OK		"OK"
-# define RESPONSE_ERR		"ERR"
-# define RESPONSE_EVT		"EVT"
+// -- Statuses -----------------------------------------------------------------
+# define STATUS_HEALTHY		"healthy"	// status of a player who is not hurt
+# define STATUS_WOUNDED		"wounded"	// status of a player who lost hit points
+# define STATUS_COMBAT		"combat"	// status of a player who is in a fight
+# define STATUS_DEAD		"dead"		// status of a player who has no hit points left
 
-# define STATUS_HEALTHY		"healthy"
-# define STATUS_WOUNDED		"wounded"
-# define STATUS_COMBAT		"combat"
-# define STATUS_DEAD		"dead"
+// -- Response fields ----------------------------------------------------------
+# define FIELD_ROOM			"room"						// the room described by LOOK
+# define FIELD_ID			"id"						// id of the room
+# define FIELD_NAME			"name"						// name of the room
+# define FIELD_DESCRIPTION	"description"				// description of the room
+# define FIELD_EXITS		"exits"						// exits of the room, by direction
+# define FIELD_PLAYERS		"players"					// names of the players in the room
+# define FIELD_ITEMS		"items"						// ids of the items on the floor
+# define FIELD_NPCS			"npcs"						// ids of the npcs in the room
+# define FIELD_HP			"hp"						// current hit points of the player
+# define FIELD_MAX_HP		"max_hp"					// maximum hit points of the player
+# define FIELD_STATUS		"status"					// status of the player (see STATUS_*)
+# define FIELD_ATTACKER_HP	"attacker_hp"				// hit points of the player after the turns
+# define FIELD_TARGET_HP	"target_hp"					// hit points of the enemy after the turns
+# define FIELD_DAMAGE		"damage"					// damage dealt
+# define FIELD_ROUND		"round"						// number of the round
+# define FIELD_TURNS		"turns"						// turns played since the command
+# define FIELD_ACTOR		"actor"						// who played the turn
+# define FIELD_ACTION		"action"					// what the actor did (see ACTION_*)
+# define FIELD_MISSED		"missed"					// the strike missed, or the escape failed
+# define FIELD_ESCAPED		"escaped"					// the player ran away from the fight
+# define FIELD_ENEMY		"enemy"						// id of the enemy of the fight
+# define FIELD_TARGET		"target"					// who suffered the turn
+# define FIELD_TURN			"turn"						// who has to play
+# define FIELD_YOUR_TURN	"your_turn"					// it is the turn of the player
+# define FIELD_TURN_SECONDS_LEFT	"turn_seconds_left"	// seconds left before the turn is played for him
 
-# define FIELD_ROOM			"room"
-# define FIELD_ID			"id"
-# define FIELD_NAME			"name"
-# define FIELD_DESCRIPTION	"description"
-# define FIELD_EXITS		"exits"
-# define FIELD_PLAYERS		"players"
-# define FIELD_ITEMS		"items"
-# define FIELD_NPCS			"npcs"
-# define FIELD_HP			"hp"
-# define FIELD_MAX_HP		"max_hp"
-# define FIELD_STATUS		"status"
-# define FIELD_ATTACKER_HP	"attacker_hp"
-# define FIELD_TARGET_HP	"target_hp"
-# define FIELD_DAMAGE		"damage"
+// -- Combat actions -----------------------------------------------------------
+# define ACTION_ATTACK		"attack"	// the actor strikes
+# define ACTION_DEFEND		"defend"	// the actor takes less damage until his next turn
+# define ACTION_FLEE		"flee"		// the actor tries to run away
 
-// Between the id of a definition and the counter of an instance: "npc.spider#13", "item.herbs#4"
-# define INSTANCE_SEPARATOR	"#"
+// -- Instance ids -------------------------------------------------------------
+# define INSTANCE_SEPARATOR	"#"	// between the id of a definition and the counter of an instance (npc.spider#13)
 
-# define DIR_NORTH			"north"
-# define DIR_EAST			"east"
-# define DIR_SOUTH			"south"
-# define DIR_WEST			"west"
+// -- Directions ---------------------------------------------------------------
+# define DIR_NORTH			"north"	// exit to the north
+# define DIR_EAST			"east"	// exit to the east
+# define DIR_SOUTH			"south"	// exit to the south
+# define DIR_WEST			"west"	// exit to the west
 
-# define CMD_CONNECT		"CONNECT"
-# define CMD_LOOK 			"LOOK"
-# define CMD_MOVE 			"MOVE"
-# define CMD_CHAT 			"CHAT"
-# define CMD_TAKE 			"TAKE"
-# define CMD_DROP 			"DROP"
-# define CMD_INVENTORY 		"INVENTORY"
-# define CMD_TALK 			"TALK"
-# define CMD_ATTACK 		"ATTACK"
-# define CMD_STATUS 		"STATUS"
-# define CMD_QUEST 			"QUEST"
-# define CMD_QUESTS 		"QUESTS"
-# define CMD_WHO 			"WHO"
-# define CMD_GROUP 			"GROUP"
-# define CMD_QUIT 			"QUIT"
+// -- Commands -----------------------------------------------------------------
+# define CMD_CONNECT		"CONNECT"	// choose a name and enter the game
+# define CMD_LOOK 			"LOOK"		// describe the room
+# define CMD_MOVE 			"MOVE"		// go through an exit
+# define CMD_CHAT 			"CHAT"		// talk to the other players
+# define CMD_TAKE 			"TAKE"		// take an item from the floor
+# define CMD_DROP 			"DROP"		// drop an item on the floor
+# define CMD_INVENTORY 		"INVENTORY"	// list the items of the player
+# define CMD_TALK 			"TALK"		// talk to an npc
+# define CMD_ATTACK 		"ATTACK"	// start a fight, or play an attack
+# define CMD_STATUS 		"STATUS"	// hit points and state of the fight
+# define CMD_QUEST 			"QUEST"		// ask a quest to an npc
+# define CMD_QUESTS 		"QUESTS"	// list the quests of the player
+# define CMD_WHO 			"WHO"		// list the players
+# define CMD_GROUP 			"GROUP"		// manage a group of players
+# define CMD_QUIT 			"QUIT"		// leave the game
+# define CMD_DEFEND			"DEFEND"	// play a defense in a fight
+# define CMD_FLEE			"FLEE"		// try to run away from a fight
 
 #endif
