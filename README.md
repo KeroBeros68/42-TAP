@@ -84,7 +84,7 @@ make -C server        # build ./server/server, then start it
 ./server/server       # start it again later
 ```
 
-The server listens on TCP port **8080** (`SERVER_PORT` in `shared/defines.hpp`) and loads the world from `game/ressources/*.json`. It stops cleanly on `SIGINT`/`SIGTERM` (Ctrl+C). The JSON log is written while it runs (see [Server Logging](#-server-logging)).
+The server listens on TCP port **8080** by default (`SERVER_PORT` in `shared/defines.hpp`; see *Configuration* below to change it) and loads the world from `game/ressources/*.json`. It stops cleanly on `SIGINT`/`SIGTERM` (Ctrl+C). The JSON log is written while it runs (see [Server Logging](#-server-logging)).
 
 If you move the project folder after a build, run `make -C server re`: the absolute path of the project is compiled into the server to find the world files.
 
@@ -94,7 +94,19 @@ If you move the project folder after a build, run `make -C server re`: the absol
 make client           # build ./clients/cli/clientCLI and start it in the current terminal
 ```
 
-The client connects to `127.0.0.1:8080` (`SERVER_IP` in `clients/defines.hpp` and `SERVER_PORT` in `shared/defines.hpp`). To use another address, change these values and rebuild. Start the server first.
+The client connects to `127.0.0.1:8080` by default (`SERVER_IP` in `clients/defines.hpp`, `SERVER_PORT` in `shared/defines.hpp`). To use another address or port, see *Configuration* below. Start the server first.
+
+### ⚙️ Configuration
+
+The server and the CLI client read a few settings from the environment, with the values of `shared/defines.hpp` as defaults:
+
+| Variable | Used by | Meaning | Default |
+|---|---|---|---|
+| `SERVER_PORT` | server, clients | TCP port, from 1 to 65535 | `8080` |
+| `SERVER_IP` | clients | address of the server | `127.0.0.1` |
+| `LOG_LEVEL` | server | lowest level of the logs: `debug`, `info`, `warn` or `error` | `debug` |
+
+Copy `.env.example` to `.env` at the root of the project to set them (the file is ignored by git). A variable that is already set in the shell wins over the file (`SERVER_PORT=9099 ./server/server`), and an invalid value (not a number, out of range, unknown level) is ignored and the default is used.
 
 ### 🪟 GUI client
 
@@ -141,8 +153,12 @@ game/              game logic, independent from the network
   events/          EventBus: the events waiting to be sent
   ressources/      world data: room.json, npc.json, items.json, quests.json
   utils/lookup.hpp designation of an NPC / item by id or name
-shared/            code used by the server and the clients: protocol words (defines, errors,
-                   success, event), line framing, signalFd, logger, UTF-8
+shared/            code used by the server and the clients
+  defines.hpp      constants of the protocol and of the system
+  protocol/        errors, success, response, event, line framing, player name rule
+  logging/         logger
+  text/            UTF-8 checks and JSON escaping
+  system/          signalFd, random numbers
 clients/           client.cpp: network engine shared by the clients
   cli/             command-line client
   gui/             Qt client
@@ -183,7 +199,7 @@ The server is **single-threaded and event-driven**, built on `poll(2)`. There is
 Because the replies are written during step 1 and the events during step 3, a player always receives the answer to his command **before** the events it caused.
 
 - All sockets are **non-blocking**. Reading drains the socket into a per-client input buffer; complete lines (ending with `\n`, an optional `\r` is tolerated) are extracted from it and dispatched. Replies go to a per-client output buffer, flushed with `send(MSG_NOSIGNAL)`, so a client that disconnects in the middle of a send cannot kill the server or block the others.
-- Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
+- Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/system/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
 - A line longer than 1024 bytes without newline gets an error and the client is disconnected, which bounds the memory used per client.
 - On disconnection (`QUIT`, closed socket, error), the player is removed from the game by the `onDisconnect` callback **before** the session is destroyed, as the subject requires, so that no leave event can reach a player who is already gone.
 

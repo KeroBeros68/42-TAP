@@ -2,7 +2,9 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../shared/event.hpp"
+# include "../shared/protocol/event.hpp"
+# include "../shared/logging/logger.hpp"
+# include "../shared/system/loadenv.hpp"
 # include "protocol/commands.hpp"
 
 //##############################################################################
@@ -16,6 +18,9 @@
  * @return 0, or 1 after a fatal error
  */
 int main() {
+	loadDefaultEnv();
+	Logger::instance().setMinLevel(logLevelFromName(getEnv(ENV_LOG_LEVEL), LogLevel::Debug));
+
 	try {
 		Server server;
 		Game game;
@@ -25,7 +30,7 @@ int main() {
 			game.removePlayer(user.id());
 		});
 
-		server.start(SERVER_PORT);
+		server.start(static_cast<size_t>(getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT)));
 
 		while (server.getStatus()) {
 			server.updatePoll();

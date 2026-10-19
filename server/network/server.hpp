@@ -23,11 +23,11 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../../shared/errors.hpp"
-# include "../../shared/logger.hpp"
-# include "../../shared/response.hpp"
-# include "../../shared/signalFd.hpp"
-# include "../../shared/success.hpp"
+# include "../../shared/protocol/errors.hpp"
+# include "../../shared/logging/logger.hpp"
+# include "../../shared/protocol/response.hpp"
+# include "../../shared/system/signalFd.hpp"
+# include "../../shared/protocol/success.hpp"
 # include "../defines.hpp"
 # include "connection.hpp"
 # include "user.hpp"

@@ -1,7 +1,8 @@
 #include "client.hpp"
-#include "../shared/line.hpp"
+#include "../shared/protocol/line.hpp"
+#include "../shared/system/loadenv.hpp"
 
-Client::Client() : _fd(INVALID_FD), _servername(SERVER_IP), _port(SERVER_PORT) {}
+Client::Client() : _fd(INVALID_FD), _servername(getEnv(ENV_IP, SERVER_IP)), _port(static_cast<int>(getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT))) {}
 
 Client::~Client() {
 	disconnect();

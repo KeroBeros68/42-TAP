@@ -15,7 +15,7 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../shared/event.hpp"
+# include "../shared/protocol/event.hpp"
 # include "combat/combat_host.hpp"
 # include "combat/combat_manager.hpp"
 # include "entities/player.hpp"
