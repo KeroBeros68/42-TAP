@@ -6,8 +6,8 @@
 # define WINDOW_WIDTH 720
 
 // Default error window settings
-# define ERROR_WINDOW_HEIGHT 360
-# define ERROR_WINDOW_WIDTH 540
+# define ERROR_WINDOW_HEIGHT 180
+# define ERROR_WINDOW_WIDTH 270
 # define ERROR_WINDOW_TITLE "42 TAP Error"
 # define ERROR_WINDOW_DEFAULT_MESSAGE "Undefined error."
 

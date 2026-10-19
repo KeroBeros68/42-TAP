@@ -13,23 +13,43 @@ TAPNPCTalkView::TAPNPCTalkView()
 
     this->_validate_button.setText("TALK");
     this->_attack_button.setText("ATTACK");
+    this->_defend_button.setText("DEFEND");
+    this->_flee_button.setText("FLEE");
     this->_layout.addStretch();
     this->_layout.addWidget(&this->_validate_button);
-    this->_layout.addWidget(&this->_attack_button);
-        this->connect(&this->_validate_button,
-            &QPushButton::clicked,
-            this,
-            [this] {
-                if (this->get_selected_npc_id() == "") {return ;}
-                std::cout << "[WIP] TALK " << this->get_selected_npc_id() << std::endl;
-        });
-        this->connect(&this->_attack_button,
-            &QPushButton::clicked,
-            this,
-            [this] {
-                if (this->get_selected_npc_id() == "") {return ;}
-                std::cout << "[WIP] ATTACK " << this->get_selected_npc_id() << std::endl;
-        });
+    // Combat actions side by side, under ATTACK
+    this->_combat_buttons_layout.addWidget(&this->_attack_button);
+    this->_combat_buttons_layout.addWidget(&this->_defend_button);
+    this->_combat_buttons_layout.addWidget(&this->_flee_button);
+    this->_layout.addLayout(&this->_combat_buttons_layout);
+    this->connect(&this->_validate_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_npc_id() == "") {return ;}
+            std::cout << "[WIP] TALK " << this->get_selected_npc_id() << std::endl;
+    });
+    this->connect(&this->_attack_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_npc_id() == "") {return ;}
+            std::cout << "[WIP] ATTACK " << this->get_selected_npc_id() << std::endl;
+    });
+    this->connect(&this->_defend_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_npc_id() == "") {return ;}
+            std::cout << "[WIP] DEFEND " << this->get_selected_npc_id() << std::endl;
+    });
+    this->connect(&this->_flee_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_npc_id() == "") {return ;}
+            std::cout << "[WIP] FLEE " << this->get_selected_npc_id() << std::endl;
+    });
 
     this->setLayout(&this->_layout);
 
