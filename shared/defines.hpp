@@ -22,6 +22,7 @@
 # define PROTOCOL_VERSION	"1"
 # define RESPONSE_OK		"OK"
 # define RESPONSE_ERR		"ERR"
+# define RESPONSE_EVT		"EVT"
 
 # define STATUS_HEALTHY		"healthy"
 # define STATUS_WOUNDED		"wounded"

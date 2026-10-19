@@ -113,7 +113,7 @@ void Server::sendTo(const std::string& message, long long client_id) {
 	}
 }
 
-void Server::sendToArray(const std::string& message, std::vector<long long> clientIDs) {
+void Server::sendToArray(const std::string& message, const std::vector<long long>& clientIDs) {
 	for (long long client_id : clientIDs) {
 		sendTo(message, client_id);
 	}

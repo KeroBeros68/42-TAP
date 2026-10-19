@@ -1,4 +1,5 @@
 #include "protocol/commands.hpp"
+# include "../shared/event.hpp"
 
 int main() {
 	try {
@@ -15,6 +16,8 @@ int main() {
 		while (server.getStatus()) {
 			server.updatePoll();
 			game.tick(std::chrono::steady_clock::now());
+			for (const Event& event : game.takeEvents())
+				server.sendToArray(event.line, event.players_ids);
 		}
 		LOG_INFO("server stopped");
 	} catch (const std::exception& e) {

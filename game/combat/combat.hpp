@@ -7,7 +7,7 @@
 # include "../../shared/random.hpp"
 # include "../entities/stats.hpp"
 
-# define COMBAT_DEFENSE_SCALE	100.0
+# define COMBAT_DEFENSE_SCALE	50.0
 # define DEFENSE_FACTOR(defense) (COMBAT_DEFENSE_SCALE / (COMBAT_DEFENSE_SCALE + (defense)))
 
 # define COMBAT_MIN_DAMAGE		1

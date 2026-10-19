@@ -12,6 +12,8 @@
 # include "combat/combat.hpp"
 # include "world/world.hpp"
 
+# include "../shared/event.hpp"
+
 # define LOOT_SEPARATOR	","
 
 struct LookData {
@@ -21,12 +23,11 @@ struct LookData {
 
 enum class CombatStatus { DONE, NOT_FOUND, NOT_HOSTILE, NOT_IN_COMBAT, ANOTHER_ENEMY };
 
-// The report of one round, for the answer of the command
 struct CombatReport {
 	CombatStatus status = CombatStatus::DONE;
 	RoundOutcome outcome{};
-	int round = 0;							// the round that was just played
-	int player_hp = 0;						// after the round, before the respawn if the player died
+	int round = 0;
+	int player_hp = 0;
 	int enemy_hp = 0;
 	Status player_status = Status::HEALTHY;
 };
@@ -38,6 +39,10 @@ class Game {
 	private:
 		std::unordered_map<long long, Player> _players;
 
+		std::vector<Event> _eventStore;
+		void emit(const std::vector<long long>& players_ids, const std::string& line);
+		void emitPresence(const Room& room, const char* type, const std::string& name);
+		void emitPlayerCount();
 		World _world;
 
 		enum class RespawnKind { Npc, Item };
@@ -70,7 +75,6 @@ class Game {
 
 		bool teleport(long long player_id, const std::string& target);
 
-		// The fights in progress: one per player
 		std::unordered_map<long long, Combat> _combats;
 		CombatReport resolveRound(Presence& here, std::unordered_map<long long, Combat>::iterator fight, CombatAction action);
 		CombatReport continueFight(long long player_id, CombatAction action, const char* name);
@@ -95,7 +99,6 @@ class Game {
 
 		std::optional<std::string> talk(long long player_id, const std::string& target) const;
 
-		// Starts a fight with the target, or plays a round of the fight in progress (the target is then empty or the same enemy)
 		CombatReport attack(long long player_id, const std::string& target);
 		CombatReport defend(long long player_id);
 		CombatReport flee(long long player_id);
@@ -109,6 +112,8 @@ class Game {
 		bool isNameTaken(const std::string& name) const;
 		size_t playerCount() const;
 		std::vector<long long> playerIds() const;
+
+		std::vector<Event> takeEvents();
 };
 
 #endif
