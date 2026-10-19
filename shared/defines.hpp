@@ -16,6 +16,12 @@
 # define MIN_PORT			1				// lowest TCP port that can be used
 # define MAX_PORT			65535			// highest TCP port
 
+// -- Chat ---------------------------------------------------------------------
+# define CHAT_SCOPE_GLOBAL	"GLOBAL"	// scope: every player of the server
+# define CHAT_SCOPE_ROOM	"ROOM"		// scope: the players of the room of the sender
+# define CHAT_SCOPE_GROUP	"GROUP"		// scope: the players of the group of the sender
+# define MAX_CHAT_LENGTH	256			// longest chat message, in bytes
+
 // -- System values ------------------------------------------------------------
 # define INVALID_FD			-1	// value of a file descriptor that is not open
 # define SYSCALL_ERROR		-1	// value returned by a system call that failed

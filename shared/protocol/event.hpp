@@ -44,6 +44,10 @@
 # define EVT_SPAWN_NPC		"npc"	// an npc came back
 # define EVT_SPAWN_ITEM		"item"	// an item came back
 
+// -- Chat events --------------------------------------------------------------
+# define EVT_GLOBAL			"GLOBAL"	// category of the events for every player
+# define EVT_CHAT			"CHAT"		// type of the events about a chat message
+
 //##############################################################################
 //#                                  STRUCTS                                   #
 //##############################################################################
