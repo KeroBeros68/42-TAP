@@ -32,6 +32,14 @@
 # define LOOT_SEPARATOR	","	// between the ids of a loot in the logs
 
 //##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
+enum class ChatScope { GLOBAL, ROOM, GROUP };
+
+enum class ChatStatus { SENT, NOT_IN_GROUP, UNKNOWN_PLAYER };
+
+//##############################################################################
 //#                                  STRUCTS                                   #
 //##############################################################################
 
@@ -246,6 +254,17 @@ class Game : private CombatHost {
 
 		/** Describes the fight of a player for STATUS (nothing if he is not in a fight). */
 		std::optional<CombatView> combatView(long long player_id) const;
+
+		//############################ CHAT ############################
+		/**
+		 * Sends a chat message to the players of a scope; the sender receives it too.
+		 *
+		 * @param player_id id of the sender
+		 * @param scope     who receives it: everybody, the players of his room, or the players of his group
+		 * @param text      the message, already checked with isValidChatMessage
+		 * @return          SENT, NOT_IN_GROUP for the group scope (there are no groups yet), or UNKNOWN_PLAYER
+		 */
+		ChatStatus chat(long long player_id, ChatScope scope, const std::string& text);
 
 		//############################ TIME ############################
 		/**

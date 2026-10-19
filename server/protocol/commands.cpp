@@ -2,6 +2,8 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
+# include "../../shared/protocol/chat.hpp"
+# include "../../shared/protocol/line.hpp"
 # include "commands.hpp"
 
 //##############################################################################
@@ -221,6 +223,41 @@ static Response cmdWho(const Game& game) {
 }
 
 /**
+ * CHAT: sends a message to everybody, to the players of the room, or to the players of the group.
+ * It is allowed during a fight.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @param args the scope (GLOBAL, ROOM or GROUP, in any case), a space, then the message
+ * @return     OK, or BAD_REQUEST (unknown scope, empty or invalid message) / NOT_IN_GROUP
+ */
+static Response cmdChat(Game& game, User& user, const std::string& args) {
+	std::string word, text;
+	splitCommand(args, word, text);
+	for (char& c : word)
+		c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+	ChatScope scope;
+	if (word == CHAT_SCOPE_GLOBAL)
+		scope = ChatScope::GLOBAL;
+	else if (word == CHAT_SCOPE_ROOM)
+		scope = ChatScope::ROOM;
+	else if (word == CHAT_SCOPE_GROUP)
+		scope = ChatScope::GROUP;
+	else
+		return Response::failure(TapError::BAD_REQUEST);
+	if (!isValidChatMessage(text))
+		return Response::failure(TapError::BAD_REQUEST);
+
+	switch (game.chat(user.id(), scope, text)) {
+		case ChatStatus::SENT:				return Response::success();
+		case ChatStatus::NOT_IN_GROUP:		return Response::failure(TapError::NOT_IN_GROUP);
+		case ChatStatus::UNKNOWN_PLAYER:	break;
+	}
+	return Response::failure(TapError::BAD_REQUEST);
+}
+
+/**
  * Answers for a command that is not implemented yet.
  *
  * @param cmd  the command
@@ -275,12 +312,14 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_INVENTORY, [&game](User& user, const std::string&) {
 		return cmdInventory(game, user);
 	});
+	server.defineAction(CMD_CHAT, [&game](User& user, const std::string& args) {
+		return cmdChat(game, user, args);
+	});
 	server.defineAction(CMD_STATUS, [&game](User& user, const std::string&) {
 		return cmdStatus(game, user);
 	});
 
 	const std::string stubs[] = {
-		CMD_CHAT,
 		CMD_QUEST, CMD_QUESTS, CMD_GROUP
 	};
 	for (const std::string& cmd : stubs) {

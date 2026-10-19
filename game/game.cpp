@@ -304,6 +304,26 @@ std::optional<CombatView> Game::combatView(long long player_id) const {
 	return _combat.view(player_id);
 }
 
+//############################ CHAT ############################
+
+ChatStatus Game::chat(long long player_id, ChatScope scope, const std::string& text) {
+	Presence here = locate(player_id, "chat");
+	if (!here)
+		return ChatStatus::UNKNOWN_PLAYER;
+
+	const std::string data = std::string(EVT_CHAT) + CMD_SEPARATOR + here.player->name() + CMD_SEPARATOR + text;
+	if (scope == ChatScope::GLOBAL)
+		_events.send(playerIds(), eventLine(EVT_GLOBAL, data));
+	else if (scope == ChatScope::ROOM)
+		_events.toRoom(*here.room, eventLine(EVT_ROOM, data));
+	else
+		return ChatStatus::NOT_IN_GROUP;
+
+	LOG_INFO("chat message", LOG_HERE(here), {"scope", scope == ChatScope::GLOBAL ? CHAT_SCOPE_GLOBAL : CHAT_SCOPE_ROOM}, {"length", text.size()});
+	LOG_DEBUG("chat text", LOG_HERE(here), {"text", text});
+	return ChatStatus::SENT;
+}
+
 //############################ TIME ############################
 
 void Game::tick(std::chrono::steady_clock::time_point now) {
