@@ -1,7 +1,16 @@
-#include "utf8.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "utf8.hpp"
+
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
 
 namespace {
 
+/** Tells whether a byte is the continuation of a UTF-8 character. */
 bool isContinuationByte(unsigned char c) {
 	return (c & 0xC0) == 0x80;
 }
@@ -12,6 +21,13 @@ struct Utf8Char {
 	unsigned	code;
 };
 
+/**
+ * Decodes the UTF-8 character that starts at a position.
+ *
+ * @param text the text
+ * @param i    position of the first byte
+ * @return     the character (its length in bytes and its code point); an invalid sequence is valid=false and has a length of 1
+ */
 Utf8Char decodeUtf8(const std::string& text, size_t i) {
 	const unsigned char first = static_cast<unsigned char>(text[i]);
 	size_t length = 0;
@@ -40,20 +56,16 @@ Utf8Char decodeUtf8(const std::string& text, size_t i) {
 	return Utf8Char{true, length, code};
 }
 
+/** Tells whether a code point is refused in a text: the C1 controls and the line and paragraph separators. */
 bool isForbidden(unsigned code) {
 	return (code >= 0x80 && code <= 0x9F) || code == 0x2028 || code == 0x2029;
 }
 
 }
 
-size_t utf8SafeLength(const std::string& text, size_t max) {
-	if (text.size() <= max)
-		return text.size();
-	size_t cut = max;
-	while (cut > 0 && isContinuationByte(static_cast<unsigned char>(text[cut])))
-		cut--;
-	return cut;
-}
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
 
 bool validateUTF8(const std::string& text, bool allow_tab) {
 	size_t i = 0;
@@ -73,6 +85,15 @@ bool validateUTF8(const std::string& text, bool allow_tab) {
 		i += character.length;
 	}
 	return true;
+}
+
+size_t utf8SafeLength(const std::string& text, size_t max) {
+	if (text.size() <= max)
+		return text.size();
+	size_t cut = max;
+	while (cut > 0 && isContinuationByte(static_cast<unsigned char>(text[cut])))
+		cut--;
+	return cut;
 }
 
 std::string jsonEscape(const std::string& text) {

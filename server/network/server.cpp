@@ -1,11 +1,65 @@
-#include "server.hpp"
-#include "../../shared/line.hpp"
-#include "../../shared/utf8.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
 
-static std::string playerName(const User& user);
+# include "server.hpp"
+# include "../../shared/line.hpp"
+# include "../../shared/utf8.hpp"
 
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
+
+/**
+ * Puts a socket in non-blocking mode; the error is logged.
+ *
+ * @param fd   the socket
+ * @param what name of the socket, for the log
+ * @return     false if it failed
+ */
+static bool setNonBlocking(int fd, const char* what) {
+	if (fcntl(fd, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
+		LOG_ERROR(std::string("failed to set ") + what + " to non-blocking mode", {"error", strerror(errno)});
+		return false;
+	}
+	return true;
+}
+
+/**
+ * Finds the name of a user for the logs.
+ *
+ * @param user the user
+ * @return     his name, or an empty text before CONNECT
+ */
+static std::string playerName(const User& user) {
+	return user.isAuthenticated() ? user.name() : std::string();
+}
+
+/**
+ * Cuts a long text for the logs, without cutting a UTF-8 character.
+ *
+ * @param text the text
+ * @param max  the longest length, in bytes
+ * @return     the text, or its beginning followed by "..."
+ */
+static std::string shorten(const std::string& text, size_t max) {
+	const size_t cut = utf8SafeLength(text, max);
+	return cut == text.size() ? text : text.substr(0, cut) + "...";
+}
+
+//##############################################################################
+//#                                  SESSION                                   #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
 
 Server::Session::Session(int fd, const std::string& ip, long long id) : conn(fd, ip), user(id) {}
+
+//##############################################################################
+//#                                   SERVER                                   #
+//##############################################################################
+
+//######################## CONSTRUCTORS ########################
 
 Server::Server() {}
 
@@ -26,13 +80,100 @@ Server::~Server() {
 	}
 }
 
-static bool setNonBlocking(int fd, const char* what) {
-	if (fcntl(fd, F_SETFL, O_NONBLOCK) == SYSCALL_ERROR) {
-		LOG_ERROR(std::string("failed to set ") + what + " to non-blocking mode", {"error", strerror(errno)});
-		return false;
+//############################# IO #############################
+
+void Server::readFrom(Session& s) {
+	Connection& c = s.conn;
+	char buff[RECV_BUFFER_SIZE];
+
+	while (true) {
+		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
+		if (n > 0) {
+			c.appendIn(buff, n);
+			continue;
+		}
+		if (n == 0) {
+			LOG_DEBUG("client closed the connection", {"client", s.user.id()});
+			c.setClosing(true);
+			break;
+		}
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			break;
+		if (errno == EINTR)
+			continue;
+
+		LOG_WARN("recv failed", {"client", s.user.id()}, {"error", strerror(errno)});
+		c.setClosing(true);
+		break;
 	}
-	return true;
+	std::string line;
+	while (c.popLine(line))
+		handleLine(s, line);
+	if (c.in().size() > MAX_LINE_LENGTH) {
+		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
+		c.setClosing(true);
+		replyError(c, TapError::BAD_REQUEST);
+	}
 }
+
+void Server::handleLine(Session& s, const std::string& line)
+{
+	std::string cmd, args;
+	splitCommand(line, cmd, args);
+
+	std::transform(cmd.begin(), cmd.end(), cmd.begin(), [](unsigned char c) {
+        return std::toupper(c);
+    });
+
+
+	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
+
+	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
+		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
+		replyError(s.conn, TapError::BAD_REQUEST);
+		return;
+	}
+	auto it = _actions.find(cmd);
+	if (it != _actions.end())
+	{
+		Response r = it->second(s.user, args);
+		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
+			{"response", r.isOk ? shorten(r.line(), LOG_RESPONSE_MAX) : r.line()});
+		reply(s.conn, r.line());
+		if (r.close)
+			s.conn.setClosing(true);
+	}
+	else
+	{
+		LOG_WARN("unknown command", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
+		replyError(s.conn, TapError::BAD_REQUEST);
+	}
+}
+
+void Server::reply(Connection& c, const std::string& line) {
+	c.appendOut(line + LINE_END);
+}
+
+void Server::replyError(Connection& c, TapError error) {
+	reply(c, tapErrorLine(error));
+}
+
+void Server::flush(Connection& c) {
+	while (!c.out().empty()) {
+		ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
+		if (n > 0) {
+			c.consumeOut(n);
+			continue;
+		}
+		if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
+			break;
+		LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
+		c.setClosing(true);
+		break;
+	}
+}
+
+//######################### LIFECYCLE ##########################
 
 void Server::start(const size_t& port) {
 	LOG_INFO("starting server", {"port", port});
@@ -85,45 +226,6 @@ void Server::start(const size_t& port) {
 	_sigs.add(SIGQUIT);
 	if (!_sigs.open())
 		throw std::runtime_error("Failed to open signalfd");
-}
-
-void Server::defineAction(const std::string& type, const std::function<Response(User&, const std::string&)>& action) {
-	LOG_DEBUG("action defined", {"cmd", type});
-	_actions[type] = action;
-}
-
-void Server::setOnDisconnect(const std::function<void(User&)>& callback) {
-	_onDisconnect = callback;
-}
-
-void Server::disconnect(long long client_id) {
-	auto it = _sessions.find(client_id);
-	if (it != _sessions.end())
-		it->second.conn.setClosing(true);
-}
-
-void Server::sendTo(const std::string& message, long long client_id) {
-	auto it = _sessions.find(client_id);
-	if (it != _sessions.end()) {
-		LOG_DEBUG("sending message", {"client", client_id});
-		reply(it->second.conn, message);
-		flush(it->second.conn);
-	} else {
-		LOG_WARN("client not found", {"client", client_id});
-	}
-}
-
-void Server::sendToArray(const std::string& message, const std::vector<long long>& clientIDs) {
-	for (long long client_id : clientIDs) {
-		sendTo(message, client_id);
-	}
-}
-
-void Server::sendToAll(const std::string& message) {
-	for (auto& session : _sessions) {
-		reply(session.second.conn, message);
-		flush(session.second.conn);
-	}
 }
 
 void Server::updatePoll() {
@@ -212,106 +314,49 @@ void Server::updatePoll() {
 	}
 }
 
-void Server::readFrom(Session& s) {
-	Connection& c = s.conn;
-	char buff[RECV_BUFFER_SIZE];
-
-	while (true) {
-		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
-		if (n > 0) {
-			c.appendIn(buff, n);
-			continue;
-		}
-		if (n == 0) {
-			LOG_DEBUG("client closed the connection", {"client", s.user.id()});
-			c.setClosing(true);
-			break;
-		}
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			break;
-		if (errno == EINTR)
-			continue;
-
-		LOG_WARN("recv failed", {"client", s.user.id()}, {"error", strerror(errno)});
-		c.setClosing(true);
-		break;
-	}
-	std::string line;
-	while (c.popLine(line))
-		handeLine(s, line);
-	if (c.in().size() > MAX_LINE_LENGTH) {
-		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
-		c.setClosing(true);
-		replyError(c, TapError::BAD_REQUEST);
-	}
-}
-
-static std::string playerName(const User& user) {
-	return user.isAuthenticated() ? user.name() : std::string();
-}
-
-static std::string shorten(const std::string& text, size_t max) {
-	const size_t cut = utf8SafeLength(text, max);
-	return cut == text.size() ? text : text.substr(0, cut) + "...";
-}
-
-void Server::handeLine(Session& s, const std::string& line)
-{
-	std::string cmd, args;
-	splitCommand(line, cmd, args);
-
-	std::transform(cmd.begin(), cmd.end(), cmd.begin(), [](unsigned char c) {
-        return std::toupper(c);
-    });	
-
-
-	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
-
-	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
-		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
-		replyError(s.conn, TapError::BAD_REQUEST);
-		return;
-	}
-	auto it = _actions.find(cmd);
-	if (it != _actions.end())
-	{
-		Response r = it->second(s.user, args);
-		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
-			{"response", r.isOk ? shorten(r.line(), LOG_RESPONSE_MAX) : r.line()});
-		reply(s.conn, r.line());
-		if (r.close)
-			s.conn.setClosing(true);
-	}
-	else
-	{
-		LOG_WARN("unknown command", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
-		replyError(s.conn, TapError::BAD_REQUEST);
-	}
-}
-
-void Server::reply(Connection& c, const std::string& line) {
-	c.appendOut(line + LINE_END);
-}
-
-void Server::replyError(Connection& c, TapError error) {
-	reply(c, tapErrorLine(error));
-}
-
-void Server::flush(Connection& c) {
-	while (!c.out().empty()) {
-		ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
-		if (n > 0) {
-			c.consumeOut(n);
-			continue;
-		}
-		if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
-			break;
-		LOG_WARN("send failed", {"ip", c.ip()}, {"error", strerror(errno)});
-		c.setClosing(true);
-		break;
-	}
-}
-
 bool Server::getStatus() const {
 	return _running;
+}
+
+//########################## COMMANDS ##########################
+
+void Server::defineAction(const std::string& type, const std::function<Response(User&, const std::string&)>& action) {
+	LOG_DEBUG("action defined", {"cmd", type});
+	_actions[type] = action;
+}
+
+void Server::setOnDisconnect(const std::function<void(User&)>& callback) {
+	_onDisconnect = callback;
+}
+
+//######################### MESSAGING ##########################
+
+void Server::sendTo(const std::string& message, long long client_id) {
+	auto it = _sessions.find(client_id);
+	if (it != _sessions.end()) {
+		LOG_DEBUG("sending message", {"client", client_id});
+		reply(it->second.conn, message);
+		flush(it->second.conn);
+	} else {
+		LOG_WARN("client not found", {"client", client_id});
+	}
+}
+
+void Server::sendToArray(const std::string& message, const std::vector<long long>& clientIDs) {
+	for (long long client_id : clientIDs) {
+		sendTo(message, client_id);
+	}
+}
+
+void Server::sendToAll(const std::string& message) {
+	for (auto& session : _sessions) {
+		reply(session.second.conn, message);
+		flush(session.second.conn);
+	}
+}
+
+void Server::disconnect(long long client_id) {
+	auto it = _sessions.find(client_id);
+	if (it != _sessions.end())
+		it->second.conn.setClosing(true);
 }

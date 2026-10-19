@@ -1,7 +1,19 @@
-#include "connection.hpp"
-#include "../../shared/line.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "connection.hpp"
+# include "../../shared/line.hpp"
+
+//##############################################################################
+//#                                 CONNECTION                                 #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
 
 Connection::Connection(int fd, const std::string& ip) : _fd(fd), _ip(ip) {}
+
+//########################## IDENTITY ##########################
 
 int Connection::fd() const {
 	return _fd;
@@ -10,6 +22,8 @@ int Connection::fd() const {
 const std::string& Connection::ip() const {
 	return _ip;
 }
+
+//########################### INPUT ############################
 
 const std::string& Connection::in() const {
 	return _in;
@@ -27,6 +41,8 @@ void Connection::clearIn() {
 	_in.clear();
 }
 
+//########################### OUTPUT ###########################
+
 const std::string& Connection::out() const {
 	return _out;
 }
@@ -38,6 +54,8 @@ void Connection::appendOut(const std::string& data) {
 void Connection::consumeOut(size_t count) {
 	_out.erase(0, count);
 }
+
+//########################### STATE ############################
 
 void Connection::setClosing(bool closing) {
 	_closing = closing;

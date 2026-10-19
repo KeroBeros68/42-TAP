@@ -1,20 +1,37 @@
 #ifndef RESPONSE_HPP
 # define RESPONSE_HPP
 
+//##############################################################################
+//#                                STD INCLUDES                                #
+//##############################################################################
+
 # include <string>
+
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
 
 # include "errors.hpp"
 # include "success.hpp"
 
-// What an action returns: either a success (TapOk + optional payload) or an error (TapError).
-// The server turns it into a protocol line and sends it to the client.
+//##############################################################################
+//#                                  STRUCTS                                   #
+//##############################################################################
+
 struct Response {
 	bool		isOk = true;
 	TapOk		okType = TapOk::PLAIN;
 	TapError	error = TapError::BAD_REQUEST;
 	std::string	payload;
-	bool		close = false;	// ask the server to close the connection after sending
+	bool		close = false;
 
+	/**
+	 * Builds the response of a success.
+	 *
+	 * @param type    kind of success
+	 * @param payload text added after the kind
+	 * @return        a success response
+	 */
 	static Response success(TapOk type = TapOk::PLAIN, const std::string& payload = "") {
 		Response r;
 		r.isOk = true;
@@ -23,6 +40,7 @@ struct Response {
 		return r;
 	}
 
+	/** Builds the response of an error. */
 	static Response failure(TapError e) {
 		Response r;
 		r.isOk = false;
@@ -30,7 +48,7 @@ struct Response {
 		return r;
 	}
 
-	// Full protocol line, without the trailing '\n'
+	/** Builds the protocol line of the response (without the line end). */
 	std::string line() const {
 		return isOk ? tapOkLine(okType, payload) : tapErrorLine(error);
 	}

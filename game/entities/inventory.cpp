@@ -1,7 +1,19 @@
-#include "inventory.hpp"
-#include "../utils/lookup.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "inventory.hpp"
+# include "../utils/lookup.hpp"
+
+//##############################################################################
+//#                                 INVENTORY                                  #
+//##############################################################################
+
+//######################## CONSTRUCTOR #########################
 
 Inventory::Inventory(size_t capacity) : _capacity(capacity) {}
+
+//########################## QUERIES ###########################
 
 const Item* Inventory::findItem(const std::string& query) const {
 	return lookup::findIn(_items, query);
@@ -14,6 +26,20 @@ Item* Inventory::findItem(const std::string& query) {
 bool Inventory::isFull() const {
 	return _capacity != 0 && _items.size() >= _capacity;
 }
+
+std::vector<std::string> Inventory::ids() const {
+	return lookup::sortedIds(_items);
+}
+
+const std::unordered_map<std::string, Item>& Inventory::items() const {
+	return _items;
+}
+
+size_t Inventory::size() const {
+	return _items.size();
+}
+
+//########################## CHANGES ###########################
 
 bool Inventory::add(const Item& item) {
 	if (isFull())
@@ -30,17 +56,9 @@ std::optional<Item> Inventory::remove(const std::string& id) {
 	return item;
 }
 
-std::vector<std::string> Inventory::ids() const {
-	return lookup::sortedIds(_items);
-}
-
-const std::unordered_map<std::string, Item>& Inventory::items() const {
-	return _items;
-}
-
-size_t Inventory::size() const {
-	return _items.size();
-}
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
 
 TransferResult transfer(Inventory& from, Inventory& to, const std::string& query) {
 	const Item* found = from.findItem(query);

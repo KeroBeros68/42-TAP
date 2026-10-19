@@ -1,5 +1,64 @@
-#include "logger.hpp"
-#include "utf8.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "logger.hpp"
+# include "utf8.hpp"
+
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
+
+/** Returns the name of a level, as written in the logs. */
+static const char* levelName(LogLevel level) {
+	switch (level) {
+		case LogLevel::Debug:	return "DEBUG";
+		case LogLevel::Info:	return "INFO";
+		case LogLevel::Warn:	return "WARN";
+		case LogLevel::Error:	return "ERROR";
+	}
+	return "";
+}
+
+//##############################################################################
+//#                                 LOG VALUE                                  #
+//##############################################################################
+
+//######################## CONSTRUCTORS ########################
+
+LogValue::LogValue(const char* text) : _json(text ? "\"" + jsonEscape(text) + "\"" : "null") {}
+
+LogValue::LogValue(const std::string& text) : _json("\"" + jsonEscape(text) + "\"") {}
+
+LogValue::LogValue(bool value) : _json(value ? "true" : "false") {}
+
+//########################## GETTERS ###########################
+
+const std::string& LogValue::json() const {
+	return _json;
+}
+
+//##############################################################################
+//#                                   LOGGER                                   #
+//##############################################################################
+
+//######################## CONSTRUCTORS ########################
+
+Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {
+	_formattedUtcOffset = calculateOffset();
+}
+
+//########################## HELPERS ###########################
+
+bool Logger::useColor(const std::ostream& os) {
+	if (std::getenv(LOG_NO_COLOR_ENV))
+		return false;
+	if (&os == &std::cout)
+		return isatty(STDOUT_FILENO);
+	if (&os == &std::cerr)
+		return isatty(STDERR_FILENO);
+	return false;
+}
 
 std::string Logger::timestamp() {
 	const auto now = std::chrono::system_clock::now();
@@ -35,23 +94,19 @@ std::string Logger::calculateOffset() {
 	}
 }
 
-LogValue::LogValue(const char* text) : _json(text ? "\"" + jsonEscape(text) + "\"" : "null") {}
-
-LogValue::LogValue(const std::string& text) : _json("\"" + jsonEscape(text) + "\"") {}
-
-LogValue::LogValue(bool value) : _json(value ? "true" : "false") {}
-
-const std::string& LogValue::json() const {
-	return _json;
-}
-
-Logger::Logger() : _out(nullptr), _min_level(LogLevel::Debug) {
-	_formattedUtcOffset = calculateOffset();
-}
+//######################### SINGLETON ##########################
 
 Logger& Logger::instance() {
 	static Logger logger;
 	return logger;
+}
+
+//########################## LOGGING ###########################
+
+bool Logger::openFile(const std::string& path) {
+	std::lock_guard<std::mutex> lock(_mutex);
+	_file.open(path, std::ios::out | std::ios::app);
+	return _file.is_open();
 }
 
 void Logger::setOutput(std::ostream& os) {
@@ -65,26 +120,6 @@ void Logger::setMinLevel(LogLevel level) {
 
 bool Logger::enabled(LogLevel level) const {
 	return level >= _min_level;
-}
-
-bool Logger::useColor(const std::ostream& os) {
-	if (std::getenv(LOG_NO_COLOR_ENV))
-		return false;
-	if (&os == &std::cout)
-		return isatty(STDOUT_FILENO);
-	if (&os == &std::cerr)
-		return isatty(STDERR_FILENO);
-	return false;
-}
-
-static const char* levelName(LogLevel level) {
-	switch (level) {
-		case LogLevel::Debug:	return "DEBUG";
-		case LogLevel::Info:	return "INFO";
-		case LogLevel::Warn:	return "WARN";
-		case LogLevel::Error:	return "ERROR";
-	}
-	return "";
 }
 
 void Logger::log(LogLevel level, const char* file, int line, const std::string& message, const LogFields& fields) {
@@ -114,10 +149,4 @@ void Logger::log(LogLevel level, const char* file, int line, const std::string& 
 
 	if (_file.is_open())
 		_file << json << std::endl;
-}
-
-bool Logger::openFile(const std::string& path) {
-	std::lock_guard<std::mutex> lock(_mutex);
-	_file.open(path, std::ios::out | std::ios::app);
-	return _file.is_open();
 }

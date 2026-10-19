@@ -1,5 +1,22 @@
-#include "commands.hpp"
+//##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
 
+# include "commands.hpp"
+
+//##############################################################################
+//#                                  HELPERS                                   #
+//##############################################################################
+
+/**
+ * CONNECT: chooses the name of the player and adds him to the game.
+ * The name must be valid and not already taken.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @param name the name wanted
+ * @return     OK connected, or BAD_REQUEST / NAME_IN_USE
+ */
 static Response cmdConnect(Game& game, User& user, const std::string& name) {
 	if (!user.setName(name)) {
 		LOG_WARN("invalid player name", {"client", user.id()}, {"name", name});
@@ -15,6 +32,13 @@ static Response cmdConnect(Game& game, User& user, const std::string& name) {
 	return Response::success(TapOk::CONNECTED);
 }
 
+/**
+ * QUIT: removes the player from the game and closes the connection.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     OK bye
+ */
 static Response cmdQuit(Game& game, User& user) {
 	game.removePlayer(user.id());
 	Response bye = Response::success(TapOk::BYE);
@@ -22,6 +46,13 @@ static Response cmdQuit(Game& game, User& user) {
 	return bye;
 }
 
+/**
+ * LOOK: describes the room of the player.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     OK and the description, or BAD_REQUEST
+ */
 static Response cmdLook(Game& game, User& user) {
 	const std::optional<LookData> look = game.look(user.id());
 	if (!look)
@@ -29,6 +60,15 @@ static Response cmdLook(Game& game, User& user) {
 	return Response::success(TapOk::DATA, serializeLook(*look));
 }
 
+/**
+ * MOVE: moves the player through an exit.
+ * It is refused during a fight.
+ *
+ * @param game      the game
+ * @param user      the user of the connection
+ * @param direction north, east, south or west
+ * @return          OK room=<id>, or IN_COMBAT / NO_EXIT
+ */
 static Response cmdMove(Game& game, User& user, const std::string& direction) {
 	if (game.inCombat(user.id()))
 		return Response::failure(TapError::IN_COMBAT);
@@ -37,6 +77,15 @@ static Response cmdMove(Game& game, User& user, const std::string& direction) {
 	return Response::success(TapOk::ROOM, game.playerMap(user.id()));
 }
 
+/**
+ * TALK: makes the player talk to an npc of his room.
+ * It is refused during a fight.
+ *
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target designates the npc
+ * @return       OK and a line the npc says, or IN_COMBAT / NPC_NOT_FOUND
+ */
 static Response cmdTalk(Game& game, User& user, const std::string& target) {
 	if (game.inCombat(user.id()))
 		return Response::failure(TapError::IN_COMBAT);
@@ -46,6 +95,15 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
 	return Response::success(TapOk::DATA, *dialogue);
 }
 
+/**
+ * TAKE: takes an item from the floor.
+ * It is refused during a fight.
+ *
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target designates the item
+ * @return       OK taken=<id>, or IN_COMBAT / INVENTORY_FULL / ITEM_NOT_FOUND
+ */
 static Response cmdTake(Game& game, User& user, const std::string& target) {
 	if (game.inCombat(user.id()))
 		return Response::failure(TapError::IN_COMBAT);
@@ -57,6 +115,14 @@ static Response cmdTake(Game& game, User& user, const std::string& target) {
 	return Response::success(TapOk::TAKEN, taken.id);
 }
 
+/**
+ * DROP: drops an item of the player on the floor.
+ *
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target designates the item
+ * @return       OK dropped=<id>, or ITEM_NOT_IN_INVENTORY
+ */
 static Response cmdDrop(Game& game, User& user, const std::string& target) {
 	const TransferResult dropped = game.drop(user.id(), target);
 	if (dropped.status != TransferStatus::Moved)
@@ -64,30 +130,88 @@ static Response cmdDrop(Game& game, User& user, const std::string& target) {
 	return Response::success(TapOk::DROPPED, dropped.id);
 }
 
-static Response cmdAttack(Game& game, User& user, const std::string& target) {
-	const CombatReport report = game.attack(user.id(), target);
+/**
+ * Turns the report of ATTACK, DEFEND or FLEE into a response.
+ *
+ * @param report what happened
+ * @return       OK and the turns, or the error that says why nothing happened
+ */
+static Response combatResponse(const CombatReport& report) {
 	switch (report.status) {
 		case CombatStatus::NOT_FOUND:		return Response::failure(TapError::NPC_NOT_FOUND);
 		case CombatStatus::NOT_HOSTILE:		return Response::failure(TapError::NPC_NOT_HOSTILE);
 		case CombatStatus::ANOTHER_ENEMY:	return Response::failure(TapError::IN_COMBAT);
 		case CombatStatus::NOT_IN_COMBAT:	return Response::failure(TapError::NOT_IN_COMBAT);
+		case CombatStatus::NOT_YOUR_TURN:	return Response::failure(TapError::NOT_YOUR_TURN);
 		case CombatStatus::DONE:			break;
 	}
 	return Response::success(TapOk::DATA, serializeAttack(report));
 }
 
+/**
+ * ATTACK: attacks an enemy.
+ *
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target the enemy, empty during a fight
+ * @return       the response of combatResponse
+ */
+static Response cmdAttack(Game& game, User& user, const std::string& target) {
+	return combatResponse(game.attack(user.id(), target));
+}
+
+/**
+ * DEFEND: plays a defense in the fight in progress.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     the response of combatResponse
+ */
+static Response cmdDefend(Game& game, User& user) {
+	return combatResponse(game.defend(user.id()));
+}
+
+/**
+ * FLEE: tries to run away from the fight in progress.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     the response of combatResponse
+ */
+static Response cmdFlee(Game& game, User& user) {
+	return combatResponse(game.flee(user.id()));
+}
+
+/**
+ * STATUS: tells the hit points and the state of the fight of the player.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     OK and the status, or BAD_REQUEST
+ */
 static Response cmdStatus(Game& game, User& user) {
 	const Stats* stats = game.status(user.id());
 	if (!stats)
 		return Response::failure(TapError::BAD_REQUEST);
-	return Response::success(TapOk::DATA, serializeStatus(*stats));
+	return Response::success(TapOk::DATA, serializeStatus(*stats, game.combatView(user.id())));
 }
 
-// Placeholder for the commands that are not implemented yet
+/**
+ * Answers for a command that is not implemented yet.
+ *
+ * @param cmd  the command
+ * @param user the user of the connection
+ * @param args its arguments
+ * @return     OK and a placeholder message
+ */
 static Response cmdStub(const std::string& cmd, User& user, const std::string& args) {
 	LOG_DEBUG("command not implemented", {"client", user.id()}, {"cmd", cmd}, {"args", args});
 	return Response::success(TapOk::DATA, "Message received");
 }
+
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
 
 void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_CONNECT, [&game](User& user, const std::string& name) {
@@ -115,10 +239,16 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_ATTACK, [&game](User& user, const std::string& target) {
 		return cmdAttack(game, user, target);
 	});
+	server.defineAction(CMD_DEFEND, [&game](User& user, const std::string&) {
+		return cmdDefend(game, user);
+	});
+	server.defineAction(CMD_FLEE, [&game](User& user, const std::string&) {
+		return cmdFlee(game, user);
+	});
 	server.defineAction(CMD_STATUS, [&game](User& user, const std::string&) {
 		return cmdStatus(game, user);
 	});
-	// Replace an entry by a real handler (like cmdConnect) once the command is implemented
+
 	const std::string stubs[] = {
 		CMD_CHAT, CMD_INVENTORY,
 		CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP
