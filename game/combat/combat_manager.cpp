@@ -9,7 +9,7 @@
 //##############################################################################
 
 # include "combat_manager.hpp"
-# include "../../shared/logger.hpp"
+# include "../../shared/logging/logger.hpp"
 # include "../utils/lookup.hpp"
 
 //##############################################################################

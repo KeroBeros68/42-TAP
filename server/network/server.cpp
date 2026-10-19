@@ -3,8 +3,8 @@
 //##############################################################################
 
 # include "server.hpp"
-# include "../../shared/line.hpp"
-# include "../../shared/utf8.hpp"
+# include "../../shared/protocol/line.hpp"
+# include "../../shared/text/utf8.hpp"
 
 //##############################################################################
 //#                                  HELPERS                                   #

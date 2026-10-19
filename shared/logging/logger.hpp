@@ -194,4 +194,17 @@ class Logger {
 		void	log(LogLevel level, const char* file, int line, const std::string& message, const LogFields& fields = LogFields());
 };
 
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
+
+/**
+ * Finds a level of log from its name.
+ *
+ * @param name     "debug", "info", "warn" or "error", in any case
+ * @param fallback what is returned for any other text
+ * @return         the level
+ */
+LogLevel logLevelFromName(const std::string& name, LogLevel fallback);
+
 #endif

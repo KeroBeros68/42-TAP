@@ -8,6 +8,14 @@
 // -- Server -------------------------------------------------------------------
 # define SERVER_PORT		8080	// TCP port the server listens on and the clients connect to
 
+// -- Configuration ------------------------------------------------------------
+# define ENV_FILE			".env"			// file of the settings, in the folder of the project
+# define ENV_PORT			"SERVER_PORT"	// variable that overrides SERVER_PORT
+# define ENV_IP				"SERVER_IP"		// variable that overrides the address of the server, for the clients
+# define ENV_LOG_LEVEL		"LOG_LEVEL"		// variable for the lowest level of the logs: debug, info, warn or error
+# define MIN_PORT			1				// lowest TCP port that can be used
+# define MAX_PORT			65535			// highest TCP port
+
 // -- System values ------------------------------------------------------------
 # define INVALID_FD			-1	// value of a file descriptor that is not open
 # define SYSCALL_ERROR		-1	// value returned by a system call that failed
