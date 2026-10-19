@@ -211,6 +211,16 @@ static Response cmdStatus(Game& game, User& user) {
 }
 
 /**
+ * WHO: tells how many players are in the game. It is allowed during a fight.
+ *
+ * @param game the game
+ * @return     OK players=<count>
+ */
+static Response cmdWho(const Game& game) {
+	return Response::success(TapOk::PLAYERS, std::to_string(game.playerCount()));
+}
+
+/**
  * Answers for a command that is not implemented yet.
  *
  * @param cmd  the command
@@ -230,6 +240,9 @@ static Response cmdStub(const std::string& cmd, User& user, const std::string& a
 void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_CONNECT, [&game](User& user, const std::string& name) {
 		return cmdConnect(game, user, name);
+	});
+	server.defineAction(CMD_WHO, [&game](User&, const std::string&) {
+		return cmdWho(game);
 	});
 	server.defineAction(CMD_LOOK, [&game](User& user, const std::string&) {
 		return cmdLook(game, user);
@@ -268,7 +281,7 @@ void registerCommands(Server& server, Game& game) {
 
 	const std::string stubs[] = {
 		CMD_CHAT,
-		CMD_QUEST, CMD_QUESTS, CMD_WHO, CMD_GROUP
+		CMD_QUEST, CMD_QUESTS, CMD_GROUP
 	};
 	for (const std::string& cmd : stubs) {
 		server.defineAction(cmd, [cmd](User& user, const std::string& args) {
