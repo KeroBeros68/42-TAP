@@ -3,7 +3,7 @@
 # include <algorithm>
 
 int computeDamage(const Stats& attacker, const Stats& defender) {
-	int damage = attacker.attack * DEFENSE_FACTOR(defender.defense);
+	double damage = attacker.attack * DEFENSE_FACTOR(defender.defense);
 	if (damage < 0)
 		damage = 0;
 	return std::max(COMBAT_MIN_DAMAGE, static_cast<int>(damage));

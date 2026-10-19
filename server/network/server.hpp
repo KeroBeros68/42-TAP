@@ -49,7 +49,7 @@ class Server {
 		void start(const size_t& port);
 		void defineAction(const std::string& type, const std::function<Response(User&, const std::string&)>& action);
 		void sendTo(const std::string& message, long long client_id);
-		void sendToArray(const std::string& message, std::vector<long long> clientIDs);
+		void sendToArray(const std::string& message, const std::vector<long long>& clientIDs);
 		void sendToAll(const std::string& message);
 		void setOnDisconnect(const std::function<void(User&)>& callback);
 		void disconnect(long long client_id);

@@ -17,8 +17,10 @@ void Game::addPlayer(long long id, const std::string& name) {
 		LOG_WARN("unknown map for player", {"client", id}, {"room", player.currentMap()});
 		return;
 	}
+	emitPresence(room->second, EVT_PRESENCE_ENTER, player.name());
 	room->second.addPlayer(id);
 	LOG_INFO("player entered room", {"client", id}, {"player", player.name()}, {"room", player.currentMap()});
+	emitPlayerCount();
 }
 
 void Game::removePlayer(long long id) {
@@ -29,6 +31,7 @@ void Game::removePlayer(long long id) {
 	auto room = _world.rooms.find(player->second.currentMap());
 	if (room != _world.rooms.end()) {
 		room->second.removePlayer(id);
+		emitPresence(room->second, EVT_PRESENCE_LEAVE, player->second.name());
 		auto fight = _combats.find(id);
 		if (fight != _combats.end()) {
 			if (Npc* enemy = room->second.findNpc(fight->second.enemy_id))
@@ -38,6 +41,7 @@ void Game::removePlayer(long long id) {
 	_combats.erase(id);
 	LOG_INFO("player left room", {"client", id}, {"player", player->second.name()}, {"room", player->second.currentMap()});
 	_players.erase(player);
+	emitPlayerCount();
 }
 
 bool Game::hasPlayer(long long id) const {
@@ -137,6 +141,8 @@ bool Game::teleport(long long player_id, const std::string& target) {
 	here.player->stats().in_combat = false;
 	_combats.erase(player_id);
 	here.room->removePlayer(player_id);
+	emitPresence(*here.room, EVT_PRESENCE_LEAVE, here.player->name());
+	emitPresence(destination->second, EVT_PRESENCE_ENTER, here.player->name());
 	destination->second.addPlayer(player_id);
 	here.player->setCurrentMap(target);
 	return true;
@@ -253,7 +259,7 @@ CombatReport Game::continueFight(long long player_id, CombatAction action, const
 CombatReport Game::resolveRound(Presence& here, std::unordered_map<long long, Combat>::iterator fight, CombatAction action) {
 	const long long player_id = here.player->id();
 	Npc* npc = here.room->findNpc(fight->second.enemy_id);
-	if (!npc) {								// killed by someone else in the meantime
+	if (!npc) {
 		here.player->stats().in_combat = false;
 		_combats.erase(fight);
 		return {CombatStatus::NOT_FOUND};
@@ -267,8 +273,6 @@ CombatReport Game::resolveRound(Presence& here, std::unordered_map<long long, Co
 	report.player_status = here.player->stats().status();
 	LOG_INFO("combat round", LOG_HERE(here), {"npc", npc->id()}, {"round", report.round}, {"action", actionName(action)},
 		{"player_hp", report.player_hp}, {"enemy_hp", report.enemy_hp});
-
-	// the end of the fight: the fight is erased by its key because teleport erases it too
 	if (report.outcome.enemy_dead)
 		enemyDied(here, npc);
 	else if (report.outcome.player_dead)
@@ -298,7 +302,6 @@ void Game::playerDied(Presence& here, const std::string& enemy_id) {
 	LOG_INFO("player respawned", {"client", here.player->id()}, {"player", here.player->name()}, {"room", _world.respawn_room}, {"hp", here.player->stats().hp});
 }
 
-// The player runs away through an exit chosen at random (he stays here if the room has none)
 void Game::playerFled(Presence& here) {
 	LOG_INFO("player fled", LOG_HERE(here));
 	const std::vector<std::string> directions = lookup::sortedIds(here.room->exits());
@@ -347,4 +350,25 @@ void Game::tick(std::chrono::steady_clock::time_point now) {
 			respawnIn(_world.item_database, "item", respawn.room_id, respawn.def_id, respawn.seconds, room->second,
 				[](Room& r, const Item& item) { r.inventory().add(item); });
 	}
+}
+
+void Game::emit(const std::vector<long long>& players_ids, const std::string& line) {
+	if (!players_ids.empty())
+		_eventStore.push_back(Event{players_ids, line});
+}
+
+void Game::emitPresence(const Room& room, const char* type, const std::string& name) {
+	emit(room.currentPlayer(), eventLine(EVT_ROOM, std::string(type) + CMD_SEPARATOR + name));
+}
+
+void Game::emitPlayerCount() {
+	emit(playerIds(), eventLine(EVT_STATS, EVT_PLAYERS_FIELD + std::to_string(_players.size())));
+}
+
+std::vector<Event> Game::takeEvents() {
+	std::vector<Event> eventsToReturn;
+
+	std::swap(eventsToReturn, _eventStore);
+
+	return eventsToReturn;
 }
