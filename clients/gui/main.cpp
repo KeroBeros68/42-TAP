@@ -22,8 +22,31 @@ int main(int argc, char *argv[])
 	// Communication client.
 	Client client = Client();
 
+	// Print every server response to std::cout (redirected to the log view)
+	client.defineAction("OK", [](const std::string &args) {
+		std::cout << "OK " << args << std::endl;
+	});
+	client.defineAction("ERR", [](const std::string &args) {
+		std::cout << "ERR " << args << std::endl;
+	});
+	client.defineAction("EVT", [](const std::string &args) {
+		std::cout << "EVT " << args << std::endl;
+	});
+
+	// Poll the server socket from the Qt event loop so responses
+	// get read and dispatched to the actions above
+	QTimer server_timer;
+	QObject::connect(&server_timer, &QTimer::timeout, [&client] {
+		client.update(0);
+	});
+	server_timer.start(50);
+
 	TAPErrorWindow			error_window;
-	TAPGameWindow			game_window;
+	TAPGameWindow			game_window = TAPGameWindow(
+		client,
+		error_window
+	);
+
 	TAPConnectionWindow		connection_window = TAPConnectionWindow(
 		"42 TAP GUI",
 		WINDOW_WIDTH,

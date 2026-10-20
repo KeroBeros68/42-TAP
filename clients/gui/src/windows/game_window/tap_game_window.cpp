@@ -6,7 +6,8 @@
 #include <algorithm>
 
 // constructor
-TAPGameWindow::TAPGameWindow()
+TAPGameWindow::TAPGameWindow(Client &client, TAPErrorWindow  &error_window)
+    : _client(client), _error_window(error_window), action_buttons(client)
 {
     // Set window properties, clamped to the screen's available geometry
     //  (the menu bar and the dock are excluded from availableGeometry)
@@ -44,11 +45,6 @@ TAPGameWindow::TAPGameWindow()
     //  so every client print (WIP actions, etc.) shows in the logs
     this->log_view.install_as_cout();
 };
-
-// TAPGameWindow::~TAPGameWindow() {
-//     if (&this->_window_layout)
-//         delete &this->_window_layout;
-// }
 
 void TAPGameWindow::update_players_in_room_label(int value)
 {

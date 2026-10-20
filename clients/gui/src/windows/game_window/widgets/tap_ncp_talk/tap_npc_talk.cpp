@@ -87,11 +87,15 @@ void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
         this->_no_items_label.show();
         this->_validate_button.hide();
         this->_attack_button.hide();
+        this->_defend_button.hide();
+        this->_flee_button.hide();
     }
     else {
         this->_no_items_label.hide();
         this->_validate_button.show();
         this->_attack_button.show();
+        this->_defend_button.show();
+        this->_flee_button.show();
     }
 
 }
