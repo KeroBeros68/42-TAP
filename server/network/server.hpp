@@ -86,6 +86,16 @@ class Server {
 		void handleLine(Session& s, const std::string& line);
 
 		/**
+		 * Runs the action of a command. An exception is logged and becomes an INTERNAL_ERROR response.
+		 *
+		 * @param action the action of the command
+		 * @param s      the session of the client
+		 * @param args   the arguments of the command
+		 * @return       the response of the action, or INTERNAL_ERROR if it threw
+		 */
+		Response runAction(const std::function<Response(User&, const std::string&)>& action, Session& s, const std::string& args);
+
+		/**
 		 * Queues a line for a client.
 		 *
 		 * @param c    the connection of the client

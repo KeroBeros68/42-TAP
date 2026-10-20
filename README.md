@@ -45,7 +45,8 @@ The project is still in progress. At the time of writing:
 
 - ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
 - ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT` and `EVT ROOM SPAWN`.
-- ❌ `CHAT`, `INVENTORY`, `QUEST`, `QUESTS`, `WHO` and `GROUP` are not implemented yet, so there are no `CHAT` and `GROUP` events either.
+- ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
+- ❌ `QUEST` and `QUESTS` are not implemented yet.
 - ⚠️ The quests are described in `game/ressources/quests.json` but are not used by the server yet.
 - ⚠️ The GUI client is not connected to the server yet.
 
@@ -243,7 +244,7 @@ The server follows **RFC 42TAP** (`docs/protocol-rfc.html`, protocol version 1):
 | `STATUS` | `OK {"hp","max_hp","status"}` plus the state of the fight when there is one | done |
 | `QUIT` | `OK bye`, then the connection is closed | done |
 | `DEFEND`, `FLEE` | same reply as `ATTACK` | done, **not in the RFC** (our combat commands) |
-| `INVENTORY`, `CHAT`, `WHO`, `GROUP`, `QUEST`, `QUESTS` | registered, but answer a placeholder `OK Message received` | **not implemented yet** |
+| `QUEST`, `QUESTS` | registered, but answer a placeholder `OK Message received` | **not implemented yet** |
 
 ### 📣 Implemented events
 
@@ -261,7 +262,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
 | `EVT ROOM SPAWN <npc\|item> <id>` | an enemy or an item came back |
 
-The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. The `CHAT` and `GROUP` events of the RFC are not sent yet.
+The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
 
 ### ↔️ Deviations from RFC 42TAP
 
@@ -269,6 +270,7 @@ The subject asks us to document every deviation and to justify it.
 
 | # | Deviation | Justification |
 | --- | --- | --- |
+| 1b | **Extra error `ERR 500 INTERNAL_ERROR`**, sent when the server fails while handling a command (the error is logged and the server keeps running). | The RFC defines no code for a server failure; 500 is the usual "server error" class. |
 | 1 | **Extra error `ERR 400 BAD_REQUEST`**, sent for an unknown command, a malformed command (for example a name with a space in `CONNECT`), any command before `CONNECT`, and a line over 1024 bytes (the client is then disconnected). | The RFC asks for "appropriate error responses" to malformed messages (§9.3) but defines no code for them. We use 400, the usual "bad request" class, so that a client can tell a protocol error from a game error (2xx-4xx codes of the RFC). |
 | 2 | **Extra error `ERR 403 INVENTORY_FULL`** for `TAKE` when the inventory holds 10 items. | The RFC recommends limits on "resource acquisition per player" (§9.4) but defines no error for it. |
 | 3 | **Extra errors for the combat**: `409 IN_COMBAT` (`MOVE`, `TAKE`, `TALK` during a fight, or `ATTACK` on another enemy), `410 NOT_IN_COMBAT` (`DEFEND` or `FLEE` with no fight), `411 NOT_YOUR_TURN`. | The turn-based combat requested by the subject needs them, and the RFC leaves the combat to the implementers (§6.1.1). The codes continue after the 40x family of the RFC. |
@@ -276,7 +278,7 @@ The subject asks us to document every deviation and to justify it.
 | 5 | **Richer replies for `ATTACK` and `STATUS`**: the fields of the RFC (`attacker_hp`, `target_hp`, `damage`, `status`; `hp`, `max_hp`, `status`) are always there and in the same place, with extra fields added (`round`, `escaped`, `turns`; `enemy`, `turn`, `your_turn`, `turn_seconds_left`). | A turn-based fight plays several turns for one command (yours, then the enemy's), and the client needs to know them. A client of another group that only knows the RFC fields still works, because extra JSON fields can be ignored. |
 | 6 | **Instance ids are visible on the wire**: `LOOK` returns `"items":["item.herbs#3"]`, `"npcs":["npc.guard#10"]`, and `TAKE` answers `OK taken=item.herbs#3` (the RFC examples show `item.herbs`). | The subject requires items to be unique instances (no duplication). Two herbs in the same room need two different ids, so the instance counter is part of the id. The definition id (`item.herbs`), the name (`Healing Herbs`) and a word of the name are still accepted in commands, so a client that does not know about `#N` keeps working (`TAKE herbs`). A client must treat ids as opaque strings. |
 | 7 | **Player names** are limited to 32 bytes, must be valid UTF-8 without control characters, and cannot contain a space. | The RFC only requires uniqueness (§3.3) and correct handling of Unicode (§9.2). Without a limit and without spaces, a name cannot break the parsing of the lines that contain it, such as `EVT ROOM PRESENCE ENTER <name>`. |
-| 8 | **Placeholder answers** `OK Message received` for the 6 commands not yet implemented, and no `CHAT` or `GROUP` events. | Temporary state of the development, not a choice. These lines will disappear when the commands are done. |
+| 8 | **Placeholder answers** `OK Message received` for the 2 commands not yet implemented (`QUEST`, `QUESTS`). | Temporary state of the development, not a choice. These lines will disappear when the commands are done. |
 
 ### 🚨 Error handling
 

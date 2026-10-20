@@ -91,6 +91,22 @@ void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) 
 	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + id));
 }
 
+//############################ GROUP ###########################
+
+void Game::emitGroup(const std::vector<long long>& players_ids, const char* type, const std::string& data) {
+	_events.send(players_ids, eventLine(EVT_GROUP, std::string(type) + CMD_SEPARATOR + data));
+}
+
+GroupResult Game::leaveGroup(long long player_id) {
+	GroupResult result = _groups.remove(player_id);
+	auto player = _players.find(player_id);
+	if (result.status == GroupStatus::DONE && player != _players.end()) {
+		emitGroup(result.others, EVT_GROUP_LEAVE, player->second.name());
+		LOG_INFO("player left group", {"client", player_id}, {"player", player->second.name()}, {"group", result.group_id});
+	}
+	return result;
+}
+
 //########################## RESPAWN ###########################
 
 void Game::enemyDied(Room& room, Npc* npc, const std::string& killer) {
@@ -140,6 +156,7 @@ void Game::removePlayer(long long id) {
 		emitPresence(room->second, EVT_PRESENCE_LEAVE, player->second.name());
 	}
 	_combat.abandon(id);
+	leaveGroup(id);
 	LOG_INFO("player left room", {"client", id}, {"player", player->second.name()}, {"room", player->second.currentMap()});
 	_players.erase(player);
 	emitPlayerCount();
@@ -304,6 +321,81 @@ std::optional<CombatView> Game::combatView(long long player_id) const {
 	return _combat.view(player_id);
 }
 
+//############################ GROUP ###########################
+
+GroupReply Game::groupCreate(long long player_id) {
+	Player* player = findPlayer(player_id);
+	if (!player)
+		return {GroupStatus::NOT_IN_GROUP, "", true};
+
+	GroupResult result = _groups.create(player_id);
+	if (result.status == GroupStatus::DONE)
+		LOG_INFO("group created", {"client", player_id}, {"player", player->name()}, {"group", result.group_id});
+	return {result.status, result.group_id, false};
+}
+
+GroupReply Game::groupInvite(long long player_id, const std::string& target) {
+	Player* player = findPlayer(player_id);
+	if (!player)
+		return {GroupStatus::NOT_IN_GROUP, "", true};
+
+	long long invited_id = 0;
+	bool found = false;
+	for (const auto& p : _players) {
+		if (p.second.name() == target) {
+			invited_id = p.first;
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		LOG_DEBUG("invitation of an unknown player", {"client", player_id}, {"target", target});
+		return {GroupStatus::DONE, "", true};
+	}
+
+	GroupResult result = _groups.invite(player_id, invited_id);
+	if (result.status == GroupStatus::DONE) {
+		emitGroup({invited_id}, EVT_GROUP_INVITE, player->name());
+		LOG_INFO("player invited", {"client", player_id}, {"player", player->name()}, {"invited", target}, {"group", result.group_id});
+	}
+	return {result.status, result.group_id, false};
+}
+
+GroupReply Game::groupJoin(long long player_id, const std::string& target) {
+	Player* player = findPlayer(player_id);
+	if (!player)
+		return {GroupStatus::NOT_IN_GROUP, "", true};
+
+	long long member_id = 0;
+	bool found = false;
+	for (const auto& p : _players) {
+		if (p.second.name() == target) {
+			member_id = p.first;
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		LOG_DEBUG("join of a group of an unknown player", {"client", player_id}, {"target", target});
+		return {GroupStatus::DONE, "", true};
+	}
+
+	GroupResult result = _groups.join(player_id, member_id);
+	if (result.status == GroupStatus::DONE) {
+		emitGroup(result.others, EVT_GROUP_JOIN, player->name());
+		LOG_INFO("player joined group", {"client", player_id}, {"player", player->name()}, {"group", result.group_id});
+	}
+	return {result.status, result.group_id, false};
+}
+
+GroupReply Game::groupLeave(long long player_id) {
+	if (!findPlayer(player_id))
+		return {GroupStatus::NOT_IN_GROUP, "", true};
+
+	GroupResult result = leaveGroup(player_id);
+	return {result.status, result.group_id, false};
+}
+
 //############################ CHAT ############################
 
 ChatStatus Game::chat(long long player_id, ChatScope scope, const std::string& text) {
@@ -316,10 +408,15 @@ ChatStatus Game::chat(long long player_id, ChatScope scope, const std::string& t
 		_events.send(playerIds(), eventLine(EVT_GLOBAL, data));
 	else if (scope == ChatScope::ROOM)
 		_events.toRoom(*here.room, eventLine(EVT_ROOM, data));
-	else
-		return ChatStatus::NOT_IN_GROUP;
+	else {
+		const std::vector<long long> members = _groups.membersOf(player_id);
+		if (members.empty())
+			return ChatStatus::NOT_IN_GROUP;
+		_events.send(members, eventLine(EVT_GROUP, data));
+	}
 
-	LOG_INFO("chat message", LOG_HERE(here), {"scope", scope == ChatScope::GLOBAL ? CHAT_SCOPE_GLOBAL : CHAT_SCOPE_ROOM}, {"length", text.size()});
+	const char* scope_name = scope == ChatScope::GLOBAL ? CHAT_SCOPE_GLOBAL : scope == ChatScope::ROOM ? CHAT_SCOPE_ROOM : CHAT_SCOPE_GROUP;
+	LOG_INFO("chat message", LOG_HERE(here), {"scope", scope_name}, {"length", text.size()});
 	LOG_DEBUG("chat text", LOG_HERE(here), {"text", text});
 	return ChatStatus::SENT;
 }

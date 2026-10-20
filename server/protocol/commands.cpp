@@ -258,6 +258,47 @@ static Response cmdChat(Game& game, User& user, const std::string& args) {
 }
 
 /**
+ * GROUP: creates a group, invites a player, joins the group of a player who invited, or leaves the group.
+ * It is allowed during a fight.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @param args the sub-command (CREATE, INVITE, JOIN or LEAVE, in any case), then its argument
+ * @return     OK (with group=<id> for CREATE and JOIN), or NOT_IN_GROUP / ALREADY_IN_GROUP / BAD_REQUEST
+ */
+static Response cmdGroup(Game& game, User& user, const std::string& args) {
+	std::string word, target;
+	splitCommand(args, word, target);
+	for (char& c : word)
+		c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+
+	GroupReply reply;
+	bool with_id = false;
+	if (word == GROUP_CREATE && target.empty()) {
+		reply = game.groupCreate(user.id());
+		with_id = true;
+	} else if (word == GROUP_INVITE && !target.empty())
+		reply = game.groupInvite(user.id(), target);
+	else if (word == GROUP_JOIN && !target.empty()) {
+		reply = game.groupJoin(user.id(), target);
+		with_id = true;
+	} else if (word == GROUP_LEAVE && target.empty())
+		reply = game.groupLeave(user.id());
+	else
+		return Response::failure(TapError::BAD_REQUEST);
+
+	if (reply.unknown_player)
+		return Response::failure(TapError::BAD_REQUEST);
+	switch (reply.status) {
+		case GroupStatus::DONE:				break;
+		case GroupStatus::NOT_IN_GROUP:		return Response::failure(TapError::NOT_IN_GROUP);
+		case GroupStatus::ALREADY_IN_GROUP:	return Response::failure(TapError::ALREADY_IN_GROUP);
+		default:							return Response::failure(TapError::BAD_REQUEST);
+	}
+	return with_id ? Response::success(TapOk::GROUP, reply.group_id) : Response::success();
+}
+
+/**
  * Answers for a command that is not implemented yet.
  *
  * @param cmd  the command
@@ -315,12 +356,15 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_CHAT, [&game](User& user, const std::string& args) {
 		return cmdChat(game, user, args);
 	});
+	server.defineAction(CMD_GROUP, [&game](User& user, const std::string& args) {
+		return cmdGroup(game, user, args);
+	});
 	server.defineAction(CMD_STATUS, [&game](User& user, const std::string&) {
 		return cmdStatus(game, user);
 	});
 
 	const std::string stubs[] = {
-		CMD_QUEST, CMD_QUESTS, CMD_GROUP
+		CMD_QUEST, CMD_QUESTS
 	};
 	for (const std::string& cmd : stubs) {
 		server.defineAction(cmd, [cmd](User& user, const std::string& args) {
