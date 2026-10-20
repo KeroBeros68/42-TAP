@@ -51,6 +51,46 @@ std::string TAPConnectionWindow::getUsername()
     return this->_username_filed.text().toStdString();
 };
 
+// onServerOk
+void TAPConnectionWindow::onServerOk(const std::string &args)
+{
+    // The greeting arrives right after connect(), before the answer to CONNECT
+    if (args.rfind("hello", 0) == 0) {
+        std::cout << "[OK] " << args << std::endl;
+        return;
+    }
+
+    // "OK connected": the name was accepted, enter the game
+    if (this->_awaiting_connect && args == "connected") {
+        this->_awaiting_connect = false;
+        std::cout << "[OK] " << args << std::endl;
+        this->_game_window.show();
+        this->hide();
+        return;
+    }
+
+    std::cout << "[OK] " << args << std::endl;
+};
+
+// onServerErr
+void TAPConnectionWindow::onServerErr(const std::string &args)
+{
+    std::cout << "[ERR] " << args << std::endl;
+
+    // Before entering the game, an error can only be the answer to CONNECT
+    if (!this->_awaiting_connect)
+        return;
+    this->_awaiting_connect = false;
+
+    // args is "201 NAME_IN_USE": show the error, then let the player retry
+    std::string message = "The server refused the connection: " + args;
+    if (args.find("NAME_IN_USE") != std::string::npos)
+        message = "This player name is already in use.";
+    this->_client.disconnect();
+    this->_error_window.setErrorMessage(message);
+    this->_error_window.show();
+};
+
 // connectToServer
 void TAPConnectionWindow::connectToServer()
 {
@@ -60,16 +100,16 @@ void TAPConnectionWindow::connectToServer()
     // Server connection
     try {
         _client.connect();
+        this->_awaiting_connect = true;
         _client.send(std::string("CONNECT ") + this->getUsername().c_str());
-        _game_window.show();
-        this->hide();
     }
     catch (const std::exception &e) {
         this->_error_window.setErrorMessage(e.what());
         this->_error_window.show();
         return;
     }
-
+    // The answer is read by client.update() (see the QTimer in main.cpp)
+    // and handled by onServerOk() / onServerErr()
 }
 
 // Init window with elements
@@ -113,6 +153,14 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 	this->_layout.addWidget(&_button, 0, Qt::AlignCenter);
 	this->_layout.addStretch();
 	this->setLayout(&this->_layout);
+
+    // Server answers: defineAction keeps one handler per type, so printing is done here too
+	this->_client.defineAction("OK", [this](const std::string &args) {
+		this->onServerOk(args);
+	});
+	this->_client.defineAction("ERR", [this](const std::string &args) {
+		this->onServerErr(args);
+	});
 
     // Connect button
 	this->connect(&this->_button,
