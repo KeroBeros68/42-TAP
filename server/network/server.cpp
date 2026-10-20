@@ -107,8 +107,15 @@ void Server::readFrom(Session& s) {
 		break;
 	}
 	std::string line;
-	while (c.popLine(line))
+	while (c.popLine(line)) {
+		if (line.size() > MAX_LINE_LENGTH) {
+			LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", line.size()});
+			c.setClosing(true);
+			replyError(c, TapError::BAD_REQUEST);
+			return;
+		}
 		handleLine(s, line);
+	}
 	if (c.in().size() > MAX_LINE_LENGTH) {
 		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
 		c.setClosing(true);
@@ -136,7 +143,7 @@ void Server::handleLine(Session& s, const std::string& line)
 	auto it = _actions.find(cmd);
 	if (it != _actions.end())
 	{
-		Response r = it->second(s.user, args);
+		Response r = runAction(it->second, s, args);
 		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
 			{"response", r.isOk ? shorten(r.line(), LOG_RESPONSE_MAX) : r.line()});
 		reply(s.conn, r.line());
@@ -148,6 +155,17 @@ void Server::handleLine(Session& s, const std::string& line)
 		LOG_WARN("unknown command", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
 		replyError(s.conn, TapError::BAD_REQUEST);
 	}
+}
+
+Response Server::runAction(const std::function<Response(User&, const std::string&)>& action, Session& s, const std::string& args) {
+	try {
+		return action(s.user, args);
+	} catch (const std::exception& e) {
+		LOG_ERROR("command failed", {"client", s.user.id()}, {"player", playerName(s.user)}, {"error", e.what()});
+	} catch (...) {
+		LOG_ERROR("command failed", {"client", s.user.id()}, {"player", playerName(s.user)}, {"error", "unknown exception"});
+	}
+	return Response::failure(TapError::INTERNAL_ERROR);
 }
 
 void Server::reply(Connection& c, const std::string& line) {
@@ -231,8 +249,12 @@ void Server::start(const size_t& port) {
 void Server::updatePoll() {
 	for (auto it = _sessions.begin(); it != _sessions.end();) {
 		if (it->second.conn.isClosing()) {
-			if (_onDisconnect)
-				_onDisconnect(it->second.user);
+			try {
+				if (_onDisconnect)
+					_onDisconnect(it->second.user);
+			} catch (const std::exception& e) {
+				LOG_ERROR("disconnect callback failed", {"client", it->first}, {"error", e.what()});
+			}
 			close(it->second.conn.fd());
 			LOG_INFO("client disconnected", {"client", it->first}, {"ip", it->second.conn.ip()}, {"player", playerName(it->second.user)});
 			_available_id.push_back(it->first);

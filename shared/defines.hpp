@@ -108,4 +108,10 @@
 # define CMD_DEFEND			"DEFEND"	// play a defense in a fight
 # define CMD_FLEE			"FLEE"		// try to run away from a fight
 
+// -- Group sub-commands -------------------------------------------------------
+# define GROUP_CREATE	"CREATE"	// GROUP CREATE: creates a group
+# define GROUP_INVITE	"INVITE"	// GROUP INVITE <player>: invites a player
+# define GROUP_JOIN		"JOIN"		// GROUP JOIN <player>: joins the group of a player who invited
+# define GROUP_LEAVE	"LEAVE"		// GROUP LEAVE: leaves the group
+
 #endif

@@ -33,10 +33,18 @@ int main() {
 		server.start(static_cast<size_t>(getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT)));
 
 		while (server.getStatus()) {
-			server.updatePoll();
-			game.tick(std::chrono::steady_clock::now());
-			for (const Event& event : game.takeEvents())
-				server.sendToArray(event.line, event.players_ids);
+			try {
+				server.updatePoll();
+			} catch (const std::exception& e) {
+				LOG_ERROR("network turn failed", {"error", e.what()});
+			}
+			try {
+				game.tick(std::chrono::steady_clock::now());
+				for (const Event& event : game.takeEvents())
+					server.sendToArray(event.line, event.players_ids);
+			} catch (const std::exception& e) {
+				LOG_ERROR("game turn failed", {"error", e.what()});
+			}
 		}
 		LOG_INFO("server stopped");
 	} catch (const std::exception& e) {
