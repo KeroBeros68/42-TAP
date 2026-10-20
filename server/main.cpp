@@ -42,6 +42,7 @@ int main() {
 				game.tick(std::chrono::steady_clock::now());
 				for (const Event& event : game.takeEvents())
 					server.sendToArray(event.line, event.players_ids);
+				server.flushAll();
 			} catch (const std::exception& e) {
 				LOG_ERROR("game turn failed", {"error", e.what()});
 			}

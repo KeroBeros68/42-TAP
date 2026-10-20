@@ -135,7 +135,7 @@ void Server::handleLine(Session& s, const std::string& line)
 
 	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
 
-	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
+	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT && cmd != CMD_QUIT) {
 		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
 		replyError(s.conn, TapError::BAD_REQUEST);
 		return;
@@ -358,7 +358,6 @@ void Server::sendTo(const std::string& message, long long client_id) {
 	if (it != _sessions.end()) {
 		LOG_DEBUG("sending message", {"client", client_id});
 		reply(it->second.conn, message);
-		flush(it->second.conn);
 	} else {
 		LOG_WARN("client not found", {"client", client_id});
 	}
@@ -373,8 +372,12 @@ void Server::sendToArray(const std::string& message, const std::vector<long long
 void Server::sendToAll(const std::string& message) {
 	for (auto& session : _sessions) {
 		reply(session.second.conn, message);
-		flush(session.second.conn);
 	}
+}
+
+void Server::flushAll() {
+	for (auto& session : _sessions)
+		flush(session.second.conn);
 }
 
 void Server::disconnect(long long client_id) {

@@ -159,7 +159,7 @@ class Server {
 
 		//######################### MESSAGING ##########################
 		/**
-		 * Sends a line to a client, at once. A warning is logged if there is no such client.
+		 * Queues a line for a client; flushAll() sends it. A warning is logged if there is no such client.
 		 *
 		 * @param message   the line, without its line end
 		 * @param client_id id of the client
@@ -167,7 +167,7 @@ class Server {
 		void sendTo(const std::string& message, long long client_id);
 
 		/**
-		 * Sends a line to some clients.
+		 * Queues a line for some clients; flushAll() sends it.
 		 *
 		 * @param message   the line, without its line end
 		 * @param clientIDs ids of the clients
@@ -175,11 +175,14 @@ class Server {
 		void sendToArray(const std::string& message, const std::vector<long long>& clientIDs);
 
 		/**
-		 * Sends a line to every client.
+		 * Queues a line for every client; flushAll() sends it.
 		 *
 		 * @param message the line, without its line end
 		 */
 		void sendToAll(const std::string& message);
+
+		/** Sends what is queued for every client, in one send per client. What cannot be sent yet waits for the next turn. */
+		void flushAll();
 
 		/**
 		 * Marks a client to be closed at the next turn of the loop.
