@@ -14,6 +14,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 		std::string	_username; // Server address
 		std::string	_remote_address = "127.0.0.1"; // Server address
 		std::string _remote_port	= "8080"; // Server port
+		bool			_awaiting_connect = false; // CONNECT was sent, the answer is not read yet
 		Client			&_client;
         TAPErrorWindow	&_error_window;
         TAPGameWindow	&_game_window;
@@ -51,6 +52,10 @@ class TAPConnectionWindow : public TAPBaseWindow
 
 		// Connection related functions
 		void		connectToServer();
+
+		// Server answers
+		void		onServerOk(const std::string &args);
+		void		onServerErr(const std::string &args);
 };
 
 #endif // !CONNECTION_WINDOW_HPP

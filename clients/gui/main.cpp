@@ -22,13 +22,8 @@ int main(int argc, char *argv[])
 	// Communication client.
 	Client client = Client();
 
-	// Print every server response to std::cout (redirected to the log view)
-	client.defineAction("OK", [](const std::string &args) {
-		std::cout << "OK " << args << std::endl;
-	});
-	client.defineAction("ERR", [](const std::string &args) {
-		std::cout << "ERR " << args << std::endl;
-	});
+	// "OK" and "ERR" handlers are defined by TAPConnectionWindow,
+	// whose constructor runs after this one and replaces them
 	client.defineAction("EVT", [](const std::string &args) {
 		std::cout << "EVT " << args << std::endl;
 	});
