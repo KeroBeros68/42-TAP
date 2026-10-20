@@ -3,32 +3,34 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-19 (seconde version du jour) — régénéré après `INVENTORY` (`f7bac7b`), `WHO` (`b3a1e37`), la configuration par variables d'environnement / `.env` (`9cbf0ad`), le README v2 (`83b5c65`) et la réorganisation de `shared/` en `logging/` · `protocol/` · `system/` · `text/`. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-20 — régénéré après `CHAT` global et de salle (commit `3159d1b`) **et le travail non commité sur `GROUP` et `CHAT GROUP`** (`game/group/`, état de l'arbre de travail au moment de l'audit : il compile et passe les tests ci-dessous, mais n'est pas encore dans l'historique). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -std=c++20` sans aucun warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined`. Le port se règle désormais par `SERVER_PORT` (plus besoin de recompiler : 18080 en variable). Scénarios de cette mise à jour : `INVENTORY`/`WHO` seul et à deux joueurs, `TAKE`/`DROP` puis `INVENTORY`, `LOG_LEVEL=warn`, `.env` à la racine lancé depuis `server/`, valeurs invalides, client CLI avec `SERVER_PORT`. Ceux des mises à jour précédentes (combat, événements, respawn) n'ont pas été rejoués : le code correspondant n'a changé que par déplacement de fichiers et renommages (`take`→`takeItem`, `drop`→`dropItem`). Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`, `LOG_LEVEL=info`). Scénarios de cette mise à jour : `CHAT GLOBAL|ROOM|GROUP` avec 4 joueurs dans deux salles, messages invalides, `GROUP CREATE|INVITE|JOIN|LEAVE` à 4 joueurs (dont chef, non-chef, doublon, inconnu, soi-même), client CLI qui reçoit un `EVT GLOBAL CHAT`. Les scénarios des mises à jour précédentes (combat, événements, respawn, `INVENTORY`, `WHO`, configuration) n'ont pas été rejoués : le code correspondant n'a pas changé. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
-## 🟢 État général : 11 commandes RFC sur 15, événements et combat tour par tour en place, configuration par `.env` — le travail restant est le chat, les groupes, les quêtes, et la fin du README
+## 🟢 État général : 14 commandes RFC sur 15 (dont `CHAT` et `GROUP`), tous les événements de la RFC émis — il ne reste que les quêtes (`QUEST`/`QUESTS`) et la fin du README
 
 Mesuré en conditions réelles :
 
-- ✅ **11 commandes RFC réelles** (+ `DEFEND` et `FLEE`, extensions) : `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, **`INVENTORY`**, **`WHO`**, `ATTACK`, `STATUS`. `INVENTORY` → `OK []` puis `OK ["item.herbs#3"]` après un `TAKE`, puis `OK []` après `DROP` ; autorisée en combat. `WHO` → `OK players=2` avec deux joueurs connectés (conforme à la RFC §5.2.2), insensible à la casse (`who`).
+- ✅ **`CHAT` — nouveau, vérifié** (`3159d1b`) : `CHAT GLOBAL` atteint tous les joueurs, `CHAT ROOM` seulement ceux de la salle (le joueur resté au village ne reçoit pas le message de la place), l'émetteur reçoit aussi son propre `EVT` (conforme à l'exemple du sujet §V.5 : `OK` puis `EVT GLOBAL CHAT alice Hello everyone`). Sont refusés en `ERR 400` : scope inconnu, message vide, caractère de contrôle (`\x01`), commande sans argument ; `CHAT GROUP` sans groupe → `ERR 401 NOT_IN_GROUP`. Limite de 256 octets (`MAX_CHAT_LENGTH`), UTF-8 valide, scope insensible à la casse, autorisé en combat.
+- ✅ **`GROUP` — nouveau, non commité, vérifié** : `CREATE` → `OK group=group.1` (un second → `402 ALREADY_IN_GROUP`) ; `INVITE <joueur>` réservé au chef (4 joueurs maximum, `MAX_GROUP_SIZE`), l'invité reçoit `EVT GROUP INVITE <chef>` ; `JOIN <nom d'un membre>` → `OK group=group.1` et les membres reçoivent `EVT GROUP JOIN <joueur>` ; `LEAVE` → `EVT GROUP LEAVE <joueur>` aux restants ; `CHAT GROUP` n'arrive qu'aux membres (`EVT GROUP CHAT g1 salut`). Quitter la partie (`QUIT`/coupure) fait quitter le groupe (`removePlayer` → `leaveGroup`). Syntaxe conforme à la RFC §5.3 (`GROUP JOIN <leader-name>`).
+- ✅ **11 autres commandes RFC réelles** (+ `DEFEND` et `FLEE`, extensions) : `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, **`INVENTORY`**, **`WHO`**, `ATTACK`, `STATUS`. `INVENTORY` → `OK []` puis `OK ["item.herbs#3"]` après un `TAKE`, puis `OK []` après `DROP` ; autorisée en combat. `WHO` → `OK players=2` avec deux joueurs connectés (conforme à la RFC §5.2.2), insensible à la casse (`who`).
 - ✅ **Configuration sans recompilation** — nouveau : `SERVER_PORT`, `SERVER_IP` (clients), `LOG_LEVEL` lus dans l'environnement ou dans `.env` (`shared/system/loadenv.*`, `.env.example` versionné, `.env` ignoré par git). Vérifié : `SERVER_PORT=18080` en variable ; `LOG_LEVEL=warn` supprime bien toutes les lignes INFO (0 sur le log) ; un `.env` à la racine (`SERVER_PORT = "18081"`, avec espaces, guillemets et commentaire) est trouvé depuis `server/` et appliqué ; une valeur invalide (`SERVER_PORT=abc`, `99999`, `LOG_LEVEL=zzz`) retombe silencieusement sur le défaut. La variable d'environnement passe avant le fichier.
 - ✅ **Événements `EVT`, combat au tour par tour avec initiative, `DEFEND`/`FLEE`, combat multijoueur, respawn annoncé** (acquis de la mise à jour précédente, code inchangé hors renommages).
 - ✅ **README v2** (460 lignes, +255) : sections Combat System (règles, formule, initiative, commandes, diffusion, justification), World Design (format, carte ASCII, rôles, items, validation), Configuration, tableau des 8 écarts à la RFC, tableau des événements. Il corrige tout ce que l'audit précédent relevait (casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411).
-- 🔴 **4 stubs restent** : `CHAT`, `QUEST`, `QUESTS`, `GROUP` répondent `OK Message received`. Donc **aucun événement `CHAT`/`GROUP`**, pas de coopération par groupe, et le système de quêtes (3 quêtes en données, `quests.json` toujours non lu) n'existe pas.
-- 🔴 **Le README est de nouveau en retard d'un commit** : il liste encore `INVENTORY` et `WHO` comme « not implemented yet » (statut, tableau des commandes, écart n°8 « 6 commandes »), et annonce « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script).
+- 🔴 **2 stubs restent** : `QUEST` et `QUESTS` répondent `OK Message received` ; le système de quêtes (3 quêtes en données, `quests.json` toujours non lu) n'existe pas. C'est désormais le seul grand manque fonctionnel du §V.1.
+- 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO` dans l'arbre de travail (non commité), mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script).
 - 🔴 **Six sections du README restent vides** : Instructions, Quest System, **Server Logging**, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`).
 
 ### Tableau de conformité §V.1 / §IV (serveur)
 
 | Exigence | État |
 | --- | --- |
-| Commandes RFC (15) | ⚠️ 11/15 ; 4 stubs (`CHAT`, `QUEST`, `QUESTS`, `GROUP`) ; +`DEFEND`, `FLEE` |
+| Commandes RFC (15) | ⚠️ 13/15 réelles ; 2 stubs (`QUEST`, `QUESTS`) ; +`DEFEND`, `FLEE` |
 | Événements `EVT` ROOM (PRESENCE) / STATS | ✅ |
-| Événements `EVT` CHAT (ROOM / GLOBAL / GROUP) et GROUP | ❌ |
+| Événements `EVT` CHAT (ROOM / GLOBAL / GROUP) et GROUP (INVITE / JOIN / LEAVE) | ✅ (GROUP : non commité) |
 | Commandes insensibles à la casse (RFC §4.2) | ✅ |
 | Chargement monde JSON + validation des références | ✅ ; ❌ `quests.json` jamais lu |
 | Monde : ≥ 8 salles avec boucle, ≥ 3 rôles PNJ, ≥ 4 items, ≥ 2 quêtes | ✅ données (15 salles, 2 boucles, 16 PNJ, 8 items) — quêtes non exploitées |
@@ -42,7 +44,7 @@ Mesuré en conditions réelles :
 | Fragmentation / coalescing TCP (RFC §9.2) | ✅ |
 | Limite de longueur de ligne (RFC §9.4) | ⚠️ partielle |
 | Lint / install / run-server / clean (§VII.1) | ⚠️ `install-deps` ; `lint`, `run-server`, `run-client`, `run-client-gui` absents |
-| README (§VI) | ⚠️ 6 sections remplies sur 12, mais 2 affirmations périmées |
+| README (§VI) | ⚠️ 6 sections remplies sur 12 ; 1 affirmation périmée (15 PNJ) |
 
 ---
 
@@ -80,11 +82,33 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **🔴 4 stubs `OK Message received`** : `CHAT`, `QUEST`, `QUESTS`, `GROUP`. Un client croit que l'action a réussi.
-2. **🔴 `WHO` : le sujet et la RFC divergent, et le choix n'est pas documenté** — le sujet (§V.5) montre `OK { "room": ["alice","bob"], "server": 5 }`, la RFC (§5.2.2) montre `OK players=<count>`. Le serveur suit la RFC, ce qui est défendable (la RFC prime), mais un GUI qui suivrait l'exemple du sujet n'y trouverait ni la liste de la salle ni le total. À mentionner dans les écarts/choix du README.
-3. **Ids d'instance `#N` sur le fil** (`item.herbs#3`) — documenté (écart n°6) mais hors RFC §5.4.1 ; `INVENTORY` et les `EVT … COMBAT` les propagent aussi.
-4. **Format des `EVT … COMBAT ROUND` toujours ambigu** (`… npc.wolf#11 npc.wolf#11 1 attack cara miss` : acteur et ennemi répétés, dernier champ qui mélange nombre et mots) — le README donne maintenant le tableau, mais pas de grammaire ABNF.
-5. **Validation des arguments inutiles absente** (`INVENTORY x` est accepté, `LOOK foo`, `QUIT bar`…) ; `MOVE` sans argument → `301` plutôt que `400`.
+1. **🔴 2 stubs `OK Message received`** : `QUEST`, `QUESTS`. Un client croit que l'action a réussi.
+2. **`GROUP` : les erreurs de groupe sont écrasées en `ERR 400`** (`cmdGroup`, `default:`) — non-chef qui invite (`NOT_LEADER`), groupe plein, invitation inexistante, invitation à soi-même, joueur inconnu : tout donne `400 BAD_REQUEST`, indiscernable d'une faute de syntaxe. La RFC n'a que `401`/`402` pour les groupes, mais un client ne sait pas pourquoi `GROUP JOIN` échoue (vérifié : `JOIN` sans invitation → `400`). À documenter comme écart, ou ajouter des codes dédiés.
+3. **`CHAT` : le texte est journalisé en `DEBUG`** (`chat text`), donc visible dans les logs de développement ; et le premier espace seul sépare le scope du message (`chat room  é ü` envoie `" é ü"` avec un espace en tête).
+4. **🔴 `WHO` : le sujet et la RFC divergent, et le choix n'est pas documenté** — le sujet (§V.5) montre `OK { "room": ["alice","bob"], "server": 5 }`, la RFC (§5.2.2) montre `OK players=<count>`. Le serveur suit la RFC, ce qui est défendable (la RFC prime), mais un GUI qui suivrait l'exemple du sujet n'y trouverait ni la liste de la salle ni le total. À mentionner dans les écarts/choix du README.
+5. **Ids d'instance `#N` sur le fil et grammaire des `EVT … COMBAT ROUND` ambiguë** (`item.herbs#3`) — documenté (écart n°6) mais hors RFC §5.4.1 ; `INVENTORY` et les `EVT … COMBAT` les propagent aussi. Le format `… npc.wolf#11 npc.wolf#11 1 attack cara miss` répète acteur et ennemi et mélange nombre et mots dans le dernier champ ; le README donne le tableau, pas de grammaire ABNF.
+
+> Point mineur : aucune validation des arguments inutiles (`INVENTORY x`, `LOOK foo`, `QUIT bar` acceptés) ; `MOVE` sans argument → `301` plutôt que `400`.
+
+---
+
+## `game/group/` — `group_manager.*` (non commité) · `shared/protocol/chat.hpp`
+
+### ✅ Bon
+
+1. **`GroupManager` pur et sans réseau** : travaille sur des ids de joueurs, retourne un `GroupResult` (statut, id du groupe, autres membres à prévenir) ; `Game` en tire les `EVT`. Même schéma que le combat, testable seul.
+2. **Modèle d'invitation cohérent** : l'invité ne rejoint que si une invitation de ce groupe existe (`NO_INVITATION` sinon), le chef est le premier de la liste et la tête passe automatiquement au membre suivant s'il part ; les invitations d'un chef parti ou d'un groupe vidé sont annulées ; un groupe vide est supprimé.
+3. **Bornes vérifiées** : `MAX_GROUP_SIZE` = 4 à l'invitation **et** à l'entrée (deux invités simultanés ne dépassent pas la limite), pas d'auto-invitation, pas de double appartenance (`402`).
+4. **Nettoyage à la déconnexion** (`removePlayer` → `leaveGroup` → `EVT GROUP LEAVE`) : vérifié, les membres restants sont prévenus.
+5. **`chat.hpp` : `isValidChatMessage`** (non vide, ≤ 256 octets, UTF-8 sans contrôle) partagé avec les futurs clients ; ids de groupes `group.<n>` lisibles.
+
+### ❌ Mauvais
+
+1. **Erreurs de groupe indistinctes côté client** (voir `protocol/` ❌ 2) : `NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`, `SELF` → `ERR 400`.
+2. **Invitations sans expiration** *(lecture de code)* : elles restent valables jusqu'à usage ou départ du chef ; une seconde invitation d'un autre groupe écrase la première sans prévenir l'invité.
+3. **Recherche du joueur par nom dupliquée** dans `Game::groupInvite` et `Game::groupJoin` (même boucle O(N) recopiée) ; `GroupReply.unknown_player` est un drapeau à côté d'un statut, au lieu d'un statut `UNKNOWN_PLAYER`.
+4. **Un groupe d'un seul membre persiste** (chef seul après départ des autres) : pas gênant, mais `GROUP CREATE` de ce chef donne `402`, il doit d'abord faire `LEAVE`.
+5. **Aucun test automatisé** et pas encore commité : le travail n'est pas dans l'historique, donc pas relu ni protégé.
 
 ---
 
@@ -148,7 +172,7 @@ Mesuré en conditions réelles :
 
 ---
 
-## `README.md` — v2 (460 lignes)
+## `README.md` — v2 (461 lignes, modifié dans l'arbre de travail)
 
 ### ✅ Bon
 
@@ -160,8 +184,8 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **🔴 `INVENTORY` et `WHO` encore listés « not implemented yet »** (statut, tableau des commandes, écart n°8 « 6 commands ») alors qu'ils sont livrés ; le sujet exige un README fidèle au code.
-2. **🔴 « 15 NPC definitions »** (World Design) : `npc.json` en contient **16** (3 `dialogue_npc`, 3 `quest_giver`, 10 `enemy`) ; le tableau de rôles du README en cite bien 16 noms.
+1. **L'arbre de travail a rattrapé le code** : `INVENTORY`, `WHO`, `CHAT` et `GROUP` sont déclarés implémentés (statut, tableau des commandes, événements `GLOBAL|ROOM CHAT` / `GROUP INVITE|JOIN|LEAVE|CHAT`, écart n°8 réduit à `QUEST`/`QUESTS`). Mais ces modifications du README ne sont **pas commitées** non plus, et il manque la description de la syntaxe `GROUP` dans le tableau des commandes.
+2. **🔴 « 15 NPC definitions » (toujours là)** (World Design) : `npc.json` en contient **16** (3 `dialogue_npc`, 3 `quest_giver`, 10 `enemy`) ; le tableau de rôles du README en cite bien 16 noms.
 3. **Sections vides exigées par le sujet** : **Server Logging**, **Testing**, **Quest System**, **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré.
 4. **Choix `WHO` (RFC) vs exemple du sujet non expliqué** (voir `protocol/` ❌ 2) ; la grammaire des `EVT … COMBAT ROUND` n'est pas spécifiée.
 5. **Section Group Contributions** : trois « Member » prévus alors que seuls deux logins sont cités en tête ; à aligner avec l'historique git avant le rendu.
@@ -173,6 +197,7 @@ Mesuré en conditions réelles :
 Audits précédents (2026-10-02 → 2026-10-19) : `CONNECT`, hook de déconnexion, monde, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances, `locate()`, noms UTF-8, casse, respawn, README v1 et écarts, refactors, événements `EVT`, combat tour par tour, `DEFEND`/`FLEE`, diffusion du combat, raté visible, respawn annoncé, documentation du code.
 
 Depuis la mise à jour du matin du 2026-10-19 :
+- **`CHAT` stub** → `CHAT GLOBAL|ROOM` réels, avec validation du message (`chat.hpp`) et `EVT GLOBAL|ROOM CHAT` ; **`GROUP` stub** → `CREATE|INVITE|JOIN|LEAVE` + `EVT GROUP …` + `CHAT GROUP` (non commité). Vérifiés.
 - **`INVENTORY` et `WHO` stubs** → réels (`OK ["item.herbs#3"]`, `OK players=2`). Vérifiés, y compris la casse et l'usage en combat.
 - **Port fixé à la compilation** → `SERVER_PORT` (env ou `.env`), bornes [1, 65535].
 - **Niveau de log non configurable** → `LOG_LEVEL`. Vérifié : `warn` supprime les lignes INFO.
@@ -183,8 +208,8 @@ Depuis la mise à jour du matin du 2026-10-19 :
 
 ## Priorités (ordre suggéré)
 
-1. **README** : retirer `INVENTORY`/`WHO` des stubs, corriger « 15 NPC » → 16, écrire **Server Logging** (format JSON, niveaux, `LOG_LEVEL`, comment surveiller), **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
-2. **`CHAT`** (événements `EVT ROOM|GLOBAL|GROUP CHAT`), puis `GROUP` ; supprimer les stubs ou les faire répondre `ERR` en attendant.
+1. **README** : corriger « 15 NPC » → 16 (le statut `CHAT`/`GROUP` est déjà à jour dans l'arbre de travail),  écrire **Server Logging** (format JSON, niveaux, `LOG_LEVEL`, comment surveiller), **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
+2. **Commiter `GROUP`** (aujourd'hui seulement dans l'arbre de travail) et distinguer ses erreurs (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
 3. **Quêtes** : parser `quests.json`, valider les références, `QUEST`/`QUESTS`, récompenses, lien avec les `quest_giver`.
 4. **Soin** (`Stats::heal` avec `item.herbs`) et règle de sortie pour un joueur AFK.
 5. **Anti-abus et robustesse** : compteurs par IP/joueur, plafonds de connexions et de `_out`, `try/catch` autour des actions et de `tick`, groupage des `send` d'événements.
