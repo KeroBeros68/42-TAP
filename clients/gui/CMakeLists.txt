@@ -21,6 +21,7 @@ add_executable(${PROJECT_NAME}
 
     # Network (shared with the CLI client)
     ../client.cpp
+    ../../shared/signalFd.cpp
 
     # Windows
     src/windows/base_window/tap_base_window.cpp

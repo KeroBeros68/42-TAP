@@ -6,6 +6,7 @@
 # include "widgets/game_window_widgets.hpp"
 # include <QHBoxLayout>
 # include "../error_window/tap_error_window.hpp"
+#include "../../../../client.hpp"
 
 class TAPGameWindow : public TAPBaseWindow
 {
@@ -28,12 +29,14 @@ class TAPGameWindow : public TAPBaseWindow
         TAPChatTabs         chat_tabs;
 
         // Windows
-        TAPErrorWindow      _error_window;
+        TAPErrorWindow	    &_error_window;
+        Client      	    &_client;
 
     public:
         // Constructor
         TAPGameWindow(
-            // TAPErrorWindow error_window
+            Client          &client,
+            TAPErrorWindow  &error_window
         );
 
         // Update labels

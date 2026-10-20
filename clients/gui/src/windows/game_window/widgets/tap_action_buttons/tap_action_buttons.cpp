@@ -1,7 +1,8 @@
 #include "tap_action_buttons.hpp"
 #include "globals.hpp"
 
-TAPActionButtons::TAPActionButtons()
+TAPActionButtons::TAPActionButtons(Client &client)
+    : _client(client)
 {
     // List of actions available according to the subject (V.4)
     const char *actions[7] = {
@@ -18,7 +19,7 @@ TAPActionButtons::TAPActionButtons()
 
     this->setLayout(&this->_layout);
 
-    // Connect each button to print a WIP message with its action
+    // Connect each button to send its action to the server
     for (int i = 0; i < 7; i++)
     {
         const char *action = actions[i];
@@ -26,7 +27,7 @@ TAPActionButtons::TAPActionButtons()
             &QPushButton::clicked,
             this,
             [this, action] {
-                std::cout << "[WIP] " << action << std::endl;
+                this->_client.send(std::string(action));
         });
     }
 };
