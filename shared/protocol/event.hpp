@@ -48,6 +48,10 @@
 # define EVT_GLOBAL			"GLOBAL"	// category of the events for every player
 # define EVT_CHAT			"CHAT"		// type of the events about a chat message
 
+// -- Effect events ------------------------------------------------------------
+# define EVT_EFFECT			"EFFECT"	// type of the events about the effect of a room on a player
+# define EVT_EFFECT_HEALING	"healing"	// the room gave hit points back
+
 // -- Group events -------------------------------------------------------------
 # define EVT_GROUP			"GROUP"		// category of the events for the players of a group
 # define EVT_GROUP_INVITE	"INVITE"	// a player invites you

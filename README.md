@@ -44,7 +44,7 @@ Because the protocol is the only contract between server and clients, our client
 The project is still in progress. At the time of writing:
 
 - ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
-- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT` and `EVT ROOM SPAWN`.
+- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
 - ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
 - ❌ `QUEST` and `QUESTS` are not implemented yet.
 - ⚠️ The quests are described in `game/ressources/quests.json` but are not used by the server yet.
@@ -263,6 +263,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT TIMEOUT <player> <enemy>` | a turn was played for a player who was too slow |
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
 | `EVT ROOM SPAWN <npc\|item> <id>` | an enemy or an item came back |
+| `EVT ROOM EFFECT healing <hp>` | sent only to the player healed by his room, with the hit points he got (not sent at full health) |
 
 The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
 
@@ -299,6 +300,7 @@ The combat is turn-based and can be shared: all the players of a room who attack
 - `ATTACK <enemy>` starts a fight with an enemy of the room, or joins the fight already started against it. Only NPCs with the role `enemy` can be attacked (`ERR 405` otherwise).
 - During a fight the player cannot `MOVE`, `TAKE` or `TALK` (`ERR 409 IN_COMBAT`), nor attack another enemy.
 - A fight ends when the enemy dies, when all the players are dead or gone. A player at 0 HP loses the fight and **respawns in the chapel with 50 HP** (`respawn` in `room.json`). Enemies and items come back after `respawn_seconds` (60 for the enemies of the world), announced by `EVT ROOM SPAWN`.
+- A room can have an `effect` in `room.json`, like `{ "type": "healing", "amount": 10, "interval_seconds": 5 }` (the chapel): every `interval_seconds`, at the rhythm of the room, each player in it gets `amount` hit points back, up to his maximum. A player in a fight is not healed.
 - The `status` of a player is `healthy`, `wounded` (below his maximum), `combat` or `dead`.
 
 ### 🧮 Damage formula

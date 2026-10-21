@@ -70,6 +70,7 @@ class Game : private CombatHost {
 		CombatManager _combat;
 		RespawnQueue _respawns;
 		GroupManager _groups;
+		std::unordered_map<std::string, std::chrono::steady_clock::time_point> _effect_due;
 
 		//########################## PRESENCE ##########################
 		/**
@@ -124,6 +125,31 @@ class Game : private CombatHost {
 		 * @param id   id of the object
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
+
+		//########################## EFFECTS ###########################
+		/**
+		 * Gives hit points to a player, up to his maximum. A player in a fight or dead is not healed.
+		 *
+		 * @param player_id id of the player
+		 * @param amount    the hit points to give
+		 * @return          the hit points he really got (0 if he is unknown, in a fight, dead or at full health)
+		 */
+		int regen(long long player_id, int amount);
+
+		/**
+		 * Queues an EFFECT event for a player healed by his room.
+		 *
+		 * @param player_id id of the player
+		 * @param gained    the hit points he got
+		 */
+		void emitRegen(long long player_id, int gained);
+
+		/**
+		 * Applies the effects of the rooms whose time came: each player in such a room is healed.
+		 *
+		 * @param now the current time
+		 */
+		void applyRoomEffects(std::chrono::steady_clock::time_point now);
 
 		//############################ GROUP ###########################
 		/**
@@ -331,7 +357,7 @@ class Game : private CombatHost {
 
 		//############################ TIME ############################
 		/**
-		 * Lets the time pass: plays the turns of the players who were too slow, and brings back what is due.
+		 * Lets the time pass: plays the turns of the players who were too slow, brings back what is due, and applies the effects of the rooms.
 		 * It is called at each turn of the main loop.
 		 *
 		 * @param now the current time
