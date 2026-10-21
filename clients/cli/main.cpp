@@ -1,6 +1,8 @@
 #include "../client.hpp"
+#include "../../shared/system/loadenv.hpp"
 
 int main() {
+	loadDefaultEnv();
 	Client client;
 	int i = 0;
 

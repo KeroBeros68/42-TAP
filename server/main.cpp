@@ -2,7 +2,9 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../shared/event.hpp"
+# include "../shared/protocol/event.hpp"
+# include "../shared/logging/logger.hpp"
+# include "../shared/system/loadenv.hpp"
 # include "protocol/commands.hpp"
 
 //##############################################################################
@@ -16,6 +18,12 @@
  * @return 0, or 1 after a fatal error
  */
 int main() {
+	loadDefaultEnv();
+	Logger::instance().setMinLevel(logLevelFromName(getEnv(ENV_LOG_LEVEL), LogLevel::Debug));
+	const std::string log_file = getEnv(ENV_LOG_FILE);
+	if (!log_file.empty() && !Logger::instance().openFile(log_file))
+		LOG_WARN("cannot open the log file", {"path", log_file});
+
 	try {
 		Server server;
 		Game game;
@@ -25,13 +33,22 @@ int main() {
 			game.removePlayer(user.id());
 		});
 
-		server.start(SERVER_PORT);
+		server.start(static_cast<size_t>(getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT)));
 
 		while (server.getStatus()) {
-			server.updatePoll();
-			game.tick(std::chrono::steady_clock::now());
-			for (const Event& event : game.takeEvents())
-				server.sendToArray(event.line, event.players_ids);
+			try {
+				server.updatePoll();
+			} catch (const std::exception& e) {
+				LOG_ERROR("network turn failed", {"error", e.what()});
+			}
+			try {
+				game.tick(std::chrono::steady_clock::now());
+				for (const Event& event : game.takeEvents())
+					server.sendToArray(event.line, event.players_ids);
+				server.flushAll();
+			} catch (const std::exception& e) {
+				LOG_ERROR("game turn failed", {"error", e.what()});
+			}
 		}
 		LOG_INFO("server stopped");
 	} catch (const std::exception& e) {
