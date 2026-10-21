@@ -15,11 +15,12 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../shared/event.hpp"
+# include "../shared/protocol/event.hpp"
 # include "combat/combat_host.hpp"
 # include "combat/combat_manager.hpp"
 # include "entities/player.hpp"
 # include "events/event_bus.hpp"
+# include "group/group_manager.hpp"
 # include "world/presence.hpp"
 # include "world/respawn_queue.hpp"
 # include "world/world.hpp"
@@ -30,6 +31,22 @@
 
 // -- Loot ---------------------------------------------------------------------
 # define LOOT_SEPARATOR	","	// between the ids of a loot in the logs
+
+//##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
+enum class ChatScope { GLOBAL, ROOM, GROUP };
+
+enum class ChatStatus { SENT, NOT_IN_GROUP, UNKNOWN_PLAYER };
+
+enum class GroupAction { CREATE, INVITE, JOIN, LEAVE };
+
+struct GroupReply {
+	GroupStatus status = GroupStatus::DONE;
+	std::string group_id{};
+	bool unknown_player = false;
+};
 
 //##############################################################################
 //#                                  STRUCTS                                   #
@@ -52,6 +69,7 @@ class Game : private CombatHost {
 		EventBus _events;
 		CombatManager _combat;
 		RespawnQueue _respawns;
+		GroupManager _groups;
 
 		//########################## PRESENCE ##########################
 		/**
@@ -106,6 +124,24 @@ class Game : private CombatHost {
 		 * @param id   id of the object
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
+
+		//############################ GROUP ###########################
+		/**
+		 * Queues a GROUP event for some players.
+		 *
+		 * @param players_ids ids of the players who receive it
+		 * @param type        EVT_GROUP_INVITE, EVT_GROUP_JOIN, EVT_GROUP_LEAVE or EVT_CHAT
+		 * @param data        what follows the type
+		 */
+		void emitGroup(const std::vector<long long>& players_ids, const char* type, const std::string& data);
+
+		/**
+		 * Makes a player leave his group, and tells the members who stay.
+		 *
+		 * @param player_id id of the player
+		 * @return          what GroupManager::leave returns
+		 */
+		GroupResult leaveGroup(long long player_id);
 
 		//########################## RESPAWN ###########################
 		/** @copydoc CombatHost::enemyDied */
@@ -246,6 +282,52 @@ class Game : private CombatHost {
 
 		/** Describes the fight of a player for STATUS (nothing if he is not in a fight). */
 		std::optional<CombatView> combatView(long long player_id) const;
+
+		//############################ GROUP ###########################
+		/**
+		 * Creates a group; the player is its leader.
+		 *
+		 * @param player_id id of the player
+		 * @return          DONE and the id of the group, or ALREADY_IN_GROUP
+		 */
+		GroupReply groupCreate(long long player_id);
+
+		/**
+		 * Invites a player in the group of the inviter (he must be the leader). The invited player is told with an EVT GROUP INVITE.
+		 *
+		 * @param player_id id of the inviter
+		 * @param target    name of the invited player
+		 * @return          DONE; NOT_IN_GROUP, NOT_LEADER, SELF, ALREADY_IN_GROUP, GROUP_FULL, or unknown_player if nobody has this name
+		 */
+		GroupReply groupInvite(long long player_id, const std::string& target);
+
+		/**
+		 * Joins the group of a player who invited. The members are told with an EVT GROUP JOIN.
+		 *
+		 * @param player_id id of the player who joins
+		 * @param target    name of a member of the group
+		 * @return          DONE and the id of the group; ALREADY_IN_GROUP, NO_INVITATION, GROUP_FULL, or unknown_player if nobody has this name
+		 */
+		GroupReply groupJoin(long long player_id, const std::string& target);
+
+		/**
+		 * Leaves the group. The members who stay are told with an EVT GROUP LEAVE.
+		 *
+		 * @param player_id id of the player
+		 * @return          DONE, or NOT_IN_GROUP
+		 */
+		GroupReply groupLeave(long long player_id);
+
+		//############################ CHAT ############################
+		/**
+		 * Sends a chat message to the players of a scope; the sender receives it too.
+		 *
+		 * @param player_id id of the sender
+		 * @param scope     who receives it: everybody, the players of his room, or the players of his group
+		 * @param text      the message, already checked with isValidChatMessage
+		 * @return          SENT, NOT_IN_GROUP for the group scope if he has no group, or UNKNOWN_PLAYER
+		 */
+		ChatStatus chat(long long player_id, ChatScope scope, const std::string& text);
 
 		//############################ TIME ############################
 		/**

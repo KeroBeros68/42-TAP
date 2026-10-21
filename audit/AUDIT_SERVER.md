@@ -3,70 +3,74 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-19 — régénéré après le combat au tour par tour (`24befcb`), le système d'événements `EVT` (`e786ce7`) et le refactor « commentaires, combat, event bus, file de respawn » (`8bdcc27`). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
-> **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `README.md` (comme documentation de conformité).
+> **Dernière mise à jour** : 2026-10-20 (seconde version) — régénéré après `GROUP` (commit `17d05bc`), la gestion des exceptions et le groupage des `send` (`f9ecfb1`) **et le travail non commité sur les protections anti-abus** (`server/network/server.cpp`, `server/defines.hpp`, README : état de l'arbre de travail au moment de l'audit — il compile et passe les tests ci-dessous). Mise à jour précédente du jour : `CHAT` (`3159d1b`). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -std=c++20` sans aucun warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` sur le port 18080 (le 8080 est utilisé par un autre `server` sur la machine). Dans la copie seulement : délai d'un tour de combat ramené de 20 s à 2 s et respawn de 60 s à 3 s. Scénarios : observateurs et événements, combat complet (`ATTACK`/`DEFEND`/`FLEE`), `MOVE`/`TALK`/`TAKE` refusés en combat, tour hors-délai, deuxième joueur qui rejoint un combat, mort contre le boss, client CLI qui reçoit des `EVT`. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`, `LOG_LEVEL=info`). Scénarios de cette mise à jour : `QUIT` avant `CONNECT`, ligne complète de 2000 octets, rafale de 100 commandes, flood soutenu sur 4 secondes, 7 connexions simultanées depuis une même adresse. Les scénarios des mises à jour précédentes (chat, groupes, combat, événements, respawn, configuration) n'ont pas été rejoués : leur code n'a pas changé. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
-## 🟢 État général : le serveur devient un vrai jeu multijoueur — événements de présence, combat tour par tour à plusieurs, `DEFEND`/`FLEE` — mais 6 commandes RFC restent des stubs et le README est maintenant très en retard sur le code
+## 🟢 État général : 13 commandes RFC sur 15, tous les événements de la RFC émis, protection anti-abus et gestion des exceptions en place — il ne reste que les quêtes (`QUEST`/`QUESTS`) et la fin du README
 
 Mesuré en conditions réelles :
 
-- ✅ **Événements `EVT` — le plus gros manque des audits précédents est comblé** : `EVT ROOM PRESENCE ENTER|LEAVE <joueur>` (connexion, `MOVE`, mort/fuite, `QUIT`, déconnexion), `EVT STATS players=<n>` à chaque connexion/déconnexion, au format exact de la RFC §6.2. Vérifié avec un observateur resté dans la salle : il voit `ENTER bob`, `LEAVE bob`, `ENTER bob`, `LEAVE bob` et `players=1/2/1`. Vérifié aussi avec le **client CLI** : les `[EVT]` s'affichent pendant qu'il attend la saisie (critère central du §V.3).
-- ✅ **Combat au tour par tour avec initiative** (§V.1 « turn-based mechanics, initiative order, additional commands ») : `ATTACK`, `DEFEND` (dégâts reçus ÷ 2), `FLEE` (jet de fuite, succès → téléportation vers une sortie au hasard), rounds numérotés, ordre d'initiative recalculé à chaque round (le loup a joué avant le joueur au round 3), chance de toucher `hit / (hit + 0.2 × flee)`. Vérifié : `{"round":3,"turns":[{"actor":"cara","action":"attack","missed":false,"damage":9}]}`, `FLEE` raté puis réussi (`"escaped":true`).
-- ✅ **Combat multijoueur** : un second joueur qui attaque le même ennemi **rejoint** le combat (`EVT … COMBAT JOIN j2 npc.wolf#11` reçu par le premier) ; hors de son tour il reçoit `ERR 411 NOT_YOUR_TURN`. `STATUS` indique `your_turn`, `turn`, `turn_seconds_left`. Un joueur qui tarde (20 s en production) voit un `DEFEND` joué à sa place ; vérifié par des rounds auto-joués pendant l'attente (2 s dans la copie).
-- ✅ **Combat diffusé** (§V.1 « logged **and broadcast** ») : l'observateur reçoit `COMBAT START`, chaque `ROUND` (acteur, action, cible, dégâts ou `miss`/`failed`/`escaped`), `TURN`, `END … escaped|victory|defeat`. Le raté est enfin visible (`"missed":true`).
-- ✅ **États cohérents pendant un combat** : `MOVE`, `TALK`, `TAKE` → `ERR 409 IN_COMBAT` ; `DEFEND`/`FLEE` hors combat → `ERR 410 NOT_IN_COMBAT` ; la mort ou le départ d'un joueur (`removePlayer`) retire le combattant (`abandon`) sans bloquer le combat des autres.
-- ✅ **Respawn des PNJ annoncé** : `EVT ROOM SPAWN npc npc.wolf#23` à la salle, après le délai.
-- 🔴 **6 stubs restent** : `CHAT`, `INVENTORY`, `QUEST`, `QUESTS`, `WHO`, `GROUP` répondent `OK Message received`. Donc toujours **9 commandes RFC sur 15** (+ `DEFEND`/`FLEE`, extensions) et **aucun événement `CHAT`/`GROUP`**. `WHO` et `INVENTORY` sont les plus proches : `Game` fournit déjà `playerCount()` / `Inventory::ids()`.
-- 🔴 **Le README n'a pas suivi** (aucun commit depuis `6cc82e9`) et se contredit désormais avec le code sur 6 points (voir `README.md`).
+- ✅ **`CHAT` — nouveau, vérifié** (`3159d1b`) : `CHAT GLOBAL` atteint tous les joueurs, `CHAT ROOM` seulement ceux de la salle (le joueur resté au village ne reçoit pas le message de la place), l'émetteur reçoit aussi son propre `EVT` (conforme à l'exemple du sujet §V.5 : `OK` puis `EVT GLOBAL CHAT alice Hello everyone`). Sont refusés en `ERR 400` : scope inconnu, message vide, caractère de contrôle (`\x01`), commande sans argument ; `CHAT GROUP` sans groupe → `ERR 401 NOT_IN_GROUP`. Limite de 256 octets (`MAX_CHAT_LENGTH`), UTF-8 valide, scope insensible à la casse, autorisé en combat.
+- ✅ **Détection et limitation des abus — nouveau, non commité, vérifié** (§V.1 « command flooding, rapid connections », le dernier grand manque du logging) : plus de **20 commandes par seconde** d'un client → les suivantes reçoivent `ERR 400` (vérifié : rafale de 100 → exactement 19 réponses normales + `CONNECT`, 81 `ERR 400`), `WARN command flooding` à chaque fenêtre fautive, et **déconnexion à la 3ᵉ fenêtre consécutive** (`flooding goes on, disconnecting`, vérifié sur un flood de 4 s : coupé après 90 réponses). **64 clients** au plus, **5 par adresse**, **10 connexions par adresse en 10 s** (vérifié : sur 7 connexions simultanées depuis 127.0.0.1, les 5 premières reçoivent `OK hello`, les 2 dernières sont fermées avec `WARN too many clients for one address`). Lecture de **16 Ko max par client et par tour** de boucle (un flood ne monopolise plus le `poll`) et déconnexion d'un client dont les données non envoyées dépassent **64 Ko** *(lecture de code : non atteignable sur loopback, le tampon noyau absorbe plusieurs Mo)*. Seuils en constantes (`server/defines.hpp`), décrits dans le README.
+- ✅ **Exceptions : plus de crash serveur** (`f9ecfb1`, commité) : `runAction` encadre chaque commande (`catch (const std::exception&)` et `catch (...)`) et répond `ERR 500 INTERNAL_ERROR` (documenté README écart 1b) ; la boucle de `main` encadre séparément le tour réseau (`network turn failed`) et le tour de jeu (`game turn failed`) ; le rappel de déconnexion est lui aussi protégé. *(Lecture de code : aucune action ne lève aujourd'hui, donc le chemin n'a pas pu être déclenché en réel.)*
+- ✅ **Corrections de protocole** : `QUIT` avant `CONNECT` est accepté (`OK bye`, vérifié) ; la limite de 1024 octets s'applique à **chaque ligne**, avec ou sans `\n` (vérifié : ligne de 2000 octets → `ERR 400` puis déconnexion, la commande suivante n'est pas exécutée) ; les événements sont mis en file puis envoyés **une fois par client et par tour** (`flushAll`).
+- ✅ **`GROUP` — vérifié, commité (`17d05bc`)** : `CREATE` → `OK group=group.1` (un second → `402 ALREADY_IN_GROUP`) ; `INVITE <joueur>` réservé au chef (4 joueurs maximum, `MAX_GROUP_SIZE`), l'invité reçoit `EVT GROUP INVITE <chef>` ; `JOIN <nom d'un membre>` → `OK group=group.1` et les membres reçoivent `EVT GROUP JOIN <joueur>` ; `LEAVE` → `EVT GROUP LEAVE <joueur>` aux restants ; `CHAT GROUP` n'arrive qu'aux membres (`EVT GROUP CHAT g1 salut`). Quitter la partie (`QUIT`/coupure) fait quitter le groupe (`removePlayer` → `leaveGroup`). Syntaxe conforme à la RFC §5.3 (`GROUP JOIN <leader-name>`).
+- ✅ **11 autres commandes RFC réelles** (+ `DEFEND` et `FLEE`, extensions) : `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, **`INVENTORY`**, **`WHO`**, `ATTACK`, `STATUS`. `INVENTORY` → `OK []` puis `OK ["item.herbs#3"]` après un `TAKE`, puis `OK []` après `DROP` ; autorisée en combat. `WHO` → `OK players=2` avec deux joueurs connectés (conforme à la RFC §5.2.2), insensible à la casse (`who`).
+- ✅ **Configuration sans recompilation** — nouveau : `SERVER_PORT`, `SERVER_IP` (clients), `LOG_LEVEL` lus dans l'environnement ou dans `.env` (`shared/system/loadenv.*`, `.env.example` versionné, `.env` ignoré par git). Vérifié : `SERVER_PORT=18080` en variable ; `LOG_LEVEL=warn` supprime bien toutes les lignes INFO (0 sur le log) ; un `.env` à la racine (`SERVER_PORT = "18081"`, avec espaces, guillemets et commentaire) est trouvé depuis `server/` et appliqué ; une valeur invalide (`SERVER_PORT=abc`, `99999`, `LOG_LEVEL=zzz`) retombe silencieusement sur le défaut. La variable d'environnement passe avant le fichier.
+- ✅ **Événements `EVT`, combat au tour par tour avec initiative, `DEFEND`/`FLEE`, combat multijoueur, respawn annoncé** (acquis de la mise à jour précédente, code inchangé hors renommages).
+- ✅ **README v2** (460 lignes, +255) : sections Combat System (règles, formule, initiative, commandes, diffusion, justification), World Design (format, carte ASCII, rôles, items, validation), Configuration, tableau des 8 écarts à la RFC, tableau des événements. Il corrige tout ce que l'audit précédent relevait (casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411).
+- 🔴 **2 stubs restent** : `QUEST` et `QUESTS` répondent `OK Message received` ; le système de quêtes (3 quêtes en données, `quests.json` toujours non lu) n'existe pas. C'est désormais le seul grand manque fonctionnel du §V.1.
+- 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO`/`ERR 500` et décrit les limites anti-abus (paragraphe « Error handling », non commité), mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script), et sa sous-section « Abuse detection » (Server Logging) est toujours un titre vide.
+- 🔴 **Six sections du README restent vides** : Instructions, Quest System, **Server Logging**, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`).
 
 ### Tableau de conformité §V.1 / §IV (serveur)
 
 | Exigence | État |
 | --- | --- |
-| Commandes RFC (15) | ⚠️ 9/15 ; 6 stubs `OK` ; +`DEFEND`, `FLEE` hors RFC |
+| Commandes RFC (15) | ⚠️ 13/15 réelles ; 2 stubs (`QUEST`, `QUESTS`) ; +`DEFEND`, `FLEE` |
 | Événements `EVT` ROOM (PRESENCE) / STATS | ✅ |
-| Événements `EVT` CHAT (ROOM / GLOBAL / GROUP) et GROUP | ❌ |
+| Événements `EVT` CHAT (ROOM / GLOBAL / GROUP) et GROUP (INVITE / JOIN / LEAVE) | ✅ |
 | Commandes insensibles à la casse (RFC §4.2) | ✅ |
 | Chargement monde JSON + validation des références | ✅ ; ❌ `quests.json` jamais lu |
-| Monde : ≥ 8 salles avec boucle, ≥ 3 rôles PNJ, ≥ 4 items, ≥ 2 quêtes | ✅ données — quêtes non exploitées |
-| Items : instances uniques, prise/dépôt, id ou nom, multi-mots | ✅ ; ⚠️ ids `#N` hors RFC |
-| Respawn PNJ / items | ✅ + annoncé par `EVT` |
-| Combat : 100 HP, dégâts, contre-attaque, `STATUS`, respawn joueur | ✅ |
-| Combat : tour par tour, initiative, `DEFEND`/`FLEE`, diffusion | ✅ |
+| Monde : ≥ 8 salles avec boucle, ≥ 3 rôles PNJ, ≥ 4 items, ≥ 2 quêtes | ✅ données (15 salles, 2 boucles, 16 PNJ, 8 items) — quêtes non exploitées |
+| Items : instances uniques, prise/dépôt, id ou nom, multi-mots, inventaire visible | ✅ ; ⚠️ ids `#N` hors RFC (documenté) |
+| Respawn PNJ / items | ✅ annoncé par `EVT` |
+| Combat : 100 HP, dégâts, `STATUS`, respawn joueur, tour par tour, initiative, `DEFEND`/`FLEE`, diffusion | ✅ |
 | Quêtes (conception, validation, récompenses) | ❌ |
-| Déconnexion : état retiré **avant** le broadcast de départ | ✅ (`LEAVE` émis après `removePlayer`) |
-| Logging : connexions/IP, commandes, réponses, monde, combat, JSON, niveaux, timestamps | ✅ |
-| Logging : quêtes, détection d'abus (flood, connexions rapides) | ❌ |
+| Déconnexion : état retiré **avant** le broadcast de départ | ✅ |
+| Logging : connexions/IP, commandes, réponses, monde, combat, JSON, niveaux, timestamps | ✅ ; niveau configurable ✅ |
+| Logging : détection d'abus (flood, connexions rapides) | ✅ (non commité) |
+| Logging : fichier / sortie configurable, quêtes | ❌ |
 | Fragmentation / coalescing TCP (RFC §9.2) | ✅ |
 | Limite de longueur de ligne (RFC §9.4) | ⚠️ partielle |
 | Lint / install / run-server / clean (§VII.1) | ⚠️ `install-deps` ; `lint`, `run-server`, `run-client`, `run-client-gui` absents |
-| README (§VI) | ⚠️ 4 sections remplies sur 13 ET partiellement périmé |
+| README (§VI) | ⚠️ 6 sections remplies sur 12 ; 1 affirmation périmée (15 PNJ) |
 
 ---
 
-## `server/network/` — `server.cpp`, `connection.*`, `user.*` (+ `shared/signalFd.*`, `shared/line.hpp`)
+## `server/network/` — `server.cpp`, `connection.*`, `user.*`
 
 ### ✅ Bon
 
-1. **Boucle `poll()` mono-thread, sockets non bloquantes**, désormais cadencée par une seule boucle de `main` : `updatePoll()` → `game.tick()` → livraison des événements. Aucune course possible (vérifié : deux joueurs sur le même ennemi, même objet), aucun thread pour les timers de tour ni de respawn.
-2. **Ordre réponse → événements respecté** : la réponse à une commande est mise en file par `handeLine`, les `EVT` sont émis ensuite par `main` ; l'auteur reçoit sa réponse avant les événements qu'il a déclenchés (vérifié : `OK room=loc.village` puis `EVT ROOM PRESENCE …`).
-3. **Hook de déconnexion appelé avant `close`/`erase`** — le joueur est retiré (`removePlayer`, `abandon` du combat, `LEAVE`, `STATS`) avant la destruction de la session (§IV).
-4. **Framing et constantes centralisés** (`shared/line.hpp`, `RECV_BUFFER_SIZE`, `replyError`, `setNonBlocking`, `utf8SafeLength`), et **documentation systématique** : chaque fichier a maintenant son bandeau de sections et ses commentaires de fonctions (Javadoc-like) — commit `8bdcc27`.
-5. **Journalisation de chaque étape réseau** (connexion + IP, commande, réponse tronquée sans couper l'UTF-8, ligne trop longue, commande avant `CONNECT`, commande inconnue, échec de `recv`/`send`).
+1. **Boucle `poll()` mono-thread, sockets non bloquantes**, une seule boucle dans `main` : réseau → temps de jeu → livraison des événements. Aucune course possible, aucun thread pour les timers de tour ni de respawn. Port d'écoute lu dans l'environnement (`getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT)`), validé dans [1, 65535].
+2. **Ordre réponse → événements respecté** : l'auteur d'une commande reçoit sa réponse avant les `EVT` qu'elle déclenche.
+3. **Hook de déconnexion appelé avant `close`/`erase`** (§IV) : retrait du joueur, abandon du combat, `LEAVE`, `STATS` avant la destruction de la session.
+4. **Framing et constantes centralisés** (`shared/protocol/line.hpp`, `replyError`, `setNonBlocking`, `utf8SafeLength`), fichiers documentés (bandeaux, `@param/@return`).
+5. **Journalisation de chaque étape réseau**, désormais filtrable par `LOG_LEVEL` (le `DEBUG` par `sendTo`/socket disparaît en `info`).
 
 ### ❌ Mauvais
 
-1. **🔴 Aucune détection d'abus** (§V.1 « command flooding, rapid connections ») : les `WARN` existants ne comptent rien ; pas de limite de débit ni de connexions. `_out` reste non borné *(lecture de code)* — et avec les événements, un client qui ne lit pas (donc qui n'absorbe pas les `EVT ROOM COMBAT …`, une ligne par tour d'un ou plusieurs combattants) fait grossir plus vite la mémoire du serveur.
-2. **Exception dans une action = crash du serveur** *(lecture de code)* — toujours aucun `try/catch` autour de `it->second(s.user, args)` ni autour de `game.tick()` / `takeEvents()` dans `main` (le `try` global de `main` arrête tout le serveur, pas un seul joueur).
-3. **`sendToArray` appelle `sendTo` qui `flush` immédiatement** pour chaque événement et chaque destinataire (`main.cpp`) : une salle de N joueurs en combat provoque N appels `send()` par ligne d'événement, au lieu d'un remplissage de tampon flushé une fois par tour de `poll`. Sans conséquence à 3 joueurs, à surveiller (§V.1 « must not significantly impact performance »).
-4. **`QUIT` avant `CONNECT` refusé en `ERR 400` sans fermeture** — un client qui veut partir proprement avant de s'authentifier n'a que la coupure TCP ; le client CLI l'envoie sur Ctrl+C et attend alors 1 s.
-5. **Limite de 1024 octets appliquée seulement au reliquat sans `\n`** : une ligne complète plus longue est traitée *(lecture de code)*.
+1. **Refus de connexion silencieux** : un client refusé (trop de clients, adresse saturée, reconnexions trop rapides) est fermé **sans `OK hello` ni `ERR`** — il ne peut pas distinguer la protection d'une panne réseau. De même, un flood est répondu par `ERR 400 BAD_REQUEST`, le même code qu'une erreur de syntaxe : aucun code ni message « slow down » (le README le décrit mais ne le justifie pas parmi ses écarts).
+2. **Seuils figés dans le code et valables aussi pour `127.0.0.1`** : 5 clients simultanés et 10 connexions en 10 s par adresse (`MAX_SESSIONS_PER_IP`, `MAX_CONNECTS_PER_WINDOW`), 20 commandes/s (`MAX_COMMANDS_PER_WINDOW`). Un évaluateur qui teste le multijoueur depuis **une seule machine** (CLI + GUI + scripts de charge) atteindra la limite par adresse ; elle devrait pouvoir se régler par `.env` (comme `SERVER_PORT`/`LOG_LEVEL`) ou être désactivée pour le loopback. Vérifié : le 6ᵉ client local est refusé.
+3. **Compteur de flood par session, remis à zéro à la reconnexion** : un client coupé pour flood peut revenir tout de suite (dans la limite de 10 connexions / 10 s) ; aucune sanction par adresse. Les 20 commandes/s comptent aussi les commandes invalides et `CONNECT`.
+4. **Coût des contrôles** *(lecture de code)* : `allowConnection` parcourt toutes les sessions pour compter l'adresse et purge toute la table `_recent_connects` à **chaque** `accept` — O(N + M) par connexion, sans conséquence à 64 clients.
+5. **Quelques arêtes restantes** : `accept` en échec répété (`EMFILE`) fait tourner la boucle à vide ; ids de session recyclés ; la limite `MAX_OUT_BUFFER` n'est vérifiée qu'à chaque tour (un gros `LOOK` peut la dépasser d'un coup) ; `server.hpp` inclut ~15 en-têtes.
 
-> Points mineurs : `handeLine` (faute de frappe) ; `accept` en échec répété (`EMFILE`) fait tourner la boucle à vide ; ids de session recyclés ; `server.hpp` inclut ~13 en-têtes système.
+> Point mineur : `handeLine` (faute de frappe).
 
 ---
 
@@ -74,162 +78,151 @@ Mesuré en conditions réelles :
 
 ### ✅ Bon
 
-1. **Une fonction `cmdX` par commande, toutes documentées** (`@param`/`@return`) ; `combatResponse()` factorise la traduction d'un `CombatReport` en réponse pour `ATTACK`/`DEFEND`/`FLEE`, donc les trois commandes ne peuvent pas diverger.
-2. **Codes d'erreur précis par cas**, vérifiés : `409 IN_COMBAT`, `410 NOT_IN_COMBAT`, `411 NOT_YOUR_TURN`, `404`/`405`/`403`/`301`, plus ceux de la RFC ; `STATUS` enrichi (`round`, `enemy`, `turn`, `your_turn`, `turn_seconds_left`) seulement pendant un combat.
-3. **Un seul endroit qui écrit le JSON de réponse**, noms de champs en constantes `FIELD_*`, UTF-8 invalide remplacé ; la réponse d'`ATTACK` reste compatible avec l'exemple de la RFC (`attacker_hp`, `target_hp`, `damage`, `status`) et l'étend (`round`, `escaped`, `turns[]`) — un client qui ignore les champs inconnus continue de fonctionner.
-4. **`TapOk::ROOM` / `TapOk::BYE` + `Response.close`** pour `MOVE`/`QUIT`.
-5. **`main.cpp` documenté** : séquence réseau → temps → événements, `LOG_ERROR("fatal error")` + code 1.
+1. **Une fonction `cmdX` par commande, toutes documentées** ; `combatResponse()` factorise `ATTACK`/`DEFEND`/`FLEE`. Les deux nouvelles commandes (`cmdInventory`, `cmdWho`) suivent le même gabarit, et précisent « allowed during a fight ».
+2. **`INVENTORY` renvoie un tableau JSON d'ids** (`serializeInventory`, via `nlohmann`, donc échappé et UTF-8 sûr) ; **`WHO` utilise `TapOk::PLAYERS`** (`OK players=<n>`), le format exact de la RFC §5.2.2.
+3. **Codes d'erreur précis par cas** (`403`, `404`, `405`, `301`, `409`-`411`), vérifiés lors des mises à jour précédentes.
+4. **Un seul endroit qui écrit le JSON de réponse**, champs en constantes `FIELD_*` ; `ATTACK`/`STATUS` étendent la RFC sans en retirer de champ (écart n°5 du README).
+5. **`main.cpp`** : charge `.env`, règle le niveau de log, lit le port ; `try/catch` global (`fatal error`, code 1) **et** par tour (`network turn failed`, `game turn failed`) — une erreur de jeu ne tue plus le serveur.
 
 ### ❌ Mauvais
 
-1. **🔴 6 stubs `OK Message received`** (`CHAT`, `INVENTORY`, `QUEST`, `QUESTS`, `WHO`, `GROUP`). `INVENTORY` manque au joueur (impossible de lister ce qu'il porte) et au GUI (§V.4) ; `CHAT`/`WHO`/`GROUP` bloquent la coopération.
-2. **🔴 Ids d'instance `#N` sur le fil** (`item.herbs#3`, `npc.wolf#11`) — documenté (README, écart n°3) mais toujours hors RFC §5.4.1 ; les nouveaux `EVT … COMBAT` les propagent (`npc.wolf#11` comme cible, sans nom lisible), ce qui oblige un client à les afficher tels quels.
-3. **Extensions à la RFC non documentées** : commandes `DEFEND`/`FLEE`, erreurs `409`/`410`/`411`, événements `EVT ROOM COMBAT …` (START/JOIN/ROUND/TURN/TIMEOUT/END) et `EVT ROOM SPAWN …`, champs étendus d'`ATTACK`/`STATUS`. Le sujet impose de documenter « toute déviation » (§IV) : rien de cela n'est dans le README. Point positif : elles sont additives et ne cassent pas un client strict, sauf si celui-ci rejette un `EVT` de type inconnu.
-4. **Format des `EVT COMBAT ROUND` ambigu** : `EVT ROOM COMBAT ROUND npc.wolf#11 npc.wolf#11 1 attack cara miss` — l'acteur et l'ennemi sont répétés, et le dernier champ mélange un nombre (dégâts) et trois mots (`miss`, `failed`, `escaped`). Un client doit deviner la grammaire ; à spécifier en ABNF dans le README.
-5. **Validation des arguments inutiles absente** (`LOOK foo`, `QUIT bar`, `FLEE x` acceptés) ; `DROP` reste permis pendant un combat alors que `TAKE` est refusé (incohérent) ; `MOVE` sans argument → `301` plutôt que `400`.
+1. **🔴 2 stubs `OK Message received`** : `QUEST`, `QUESTS`. Un client croit que l'action a réussi.
+2. **`GROUP` : les erreurs de groupe sont écrasées en `ERR 400`** (`cmdGroup`, `default:`) — non-chef qui invite (`NOT_LEADER`), groupe plein, invitation inexistante, invitation à soi-même, joueur inconnu : tout donne `400 BAD_REQUEST`, indiscernable d'une faute de syntaxe. La RFC n'a que `401`/`402` pour les groupes, mais un client ne sait pas pourquoi `GROUP JOIN` échoue (vérifié : `JOIN` sans invitation → `400`). À documenter comme écart, ou ajouter des codes dédiés.
+3. **`CHAT` : le texte est journalisé en `DEBUG`** (`chat text`), donc visible dans les logs de développement ; et le premier espace seul sépare le scope du message (`chat room  é ü` envoie `" é ü"` avec un espace en tête).
+4. **🔴 `WHO` : le sujet et la RFC divergent, et le choix n'est pas documenté** — le sujet (§V.5) montre `OK { "room": ["alice","bob"], "server": 5 }`, la RFC (§5.2.2) montre `OK players=<count>`. Le serveur suit la RFC, ce qui est défendable (la RFC prime), mais un GUI qui suivrait l'exemple du sujet n'y trouverait ni la liste de la salle ni le total. À mentionner dans les écarts/choix du README.
+5. **Ids d'instance `#N` sur le fil et grammaire des `EVT … COMBAT ROUND` ambiguë** (`item.herbs#3`) — documenté (écart n°6) mais hors RFC §5.4.1 ; `INVENTORY` et les `EVT … COMBAT` les propagent aussi. Le format `… npc.wolf#11 npc.wolf#11 1 attack cara miss` répète acteur et ennemi et mélange nombre et mots dans le dernier champ ; le README donne le tableau, pas de grammaire ABNF.
+
+> Point mineur : aucune validation des arguments inutiles (`INVENTORY x`, `LOOK foo`, `QUIT bar` acceptés) ; `MOVE` sans argument → `301` plutôt que `400`.
 
 ---
 
-## `game/combat/` — `combat.cpp`, `combat_manager.cpp` (+ `combat_host.hpp`)
+## `game/group/` — `group_manager.*` · `shared/protocol/chat.hpp`
 
 ### ✅ Bon
 
-1. **Moteur pur séparé de l'orchestration** : `combat.cpp` (`startEncounter`, `join`, `advance`, `act`, `currentActor`) ne connaît que des `Stats` et des ids ; `CombatManager` fait le lien avec les salles, les joueurs et les événements. Le moteur reçoit un `roll` injectable → déterministe, testable (aucun test écrit à ce jour, voir ci-dessous).
-2. **`CombatHost` (interface)** : le gestionnaire n'a pas de dépendance directe sur `Game`, ce qui évite la dépendance circulaire et permet de le tester avec un faux hôte.
-3. **Initiative par round**, timeout de tour (20 s, `COMBAT_TURN_SECONDS`) qui joue un `DEFEND` à la place du joueur absent, `abandon()` à la déconnexion, `dropFight` qui libère tous les participants et l'ennemi — vérifié sans fuite ni crash (ASAN) dans les scénarios de départ en plein combat.
-4. **Un seul combat par ennemi, plusieurs participants** (`_fights` par id d'ennemi, `_fighting` par joueur) : refuse d'attaquer un autre ennemi pendant un combat (`ANOTHER_ENEMY` → `409`).
-5. **Toutes les constantes nommées** (`COMBAT_DEFENSE_SCALE`, `COMBAT_DEFEND_DIVISOR`, `COMBAT_FLEE_WEIGHT`, `COMBAT_MIN_DAMAGE`) et documentées ; formule de dégâts `attack × 50/(50+défense)`, minimum 1.
+1. **`GroupManager` pur et sans réseau** : travaille sur des ids de joueurs, retourne un `GroupResult` (statut, id du groupe, autres membres à prévenir) ; `Game` en tire les `EVT`. Même schéma que le combat, testable seul.
+2. **Modèle d'invitation cohérent** : l'invité ne rejoint que si une invitation de ce groupe existe (`NO_INVITATION` sinon), le chef est le premier de la liste et la tête passe automatiquement au membre suivant s'il part ; les invitations d'un chef parti ou d'un groupe vidé sont annulées ; un groupe vide est supprimé.
+3. **Bornes vérifiées** : `MAX_GROUP_SIZE` = 4 à l'invitation **et** à l'entrée (deux invités simultanés ne dépassent pas la limite), pas d'auto-invitation, pas de double appartenance (`402`).
+4. **Nettoyage à la déconnexion** (`removePlayer` → `leaveGroup` → `EVT GROUP LEAVE`) : vérifié, les membres restants sont prévenus.
+5. **`chat.hpp` : `isValidChatMessage`** (non vide, ≤ 256 octets, UTF-8 sans contrôle) partagé avec les futurs clients ; ids de groupes `group.<n>` lisibles.
 
 ### ❌ Mauvais
 
-1. **🔴 Formule, initiative, `DEFEND`/`FLEE`, timeout non décrits dans le README** (section Combat System vide) : toutes les justifications que le sujet demande (§V.1 « Document and justify your choices ») sont dans les commentaires du code mais pas dans le livrable.
-2. **Toujours aucun soin ni régénération** — `Stats::heal()` n'est appelé nulle part (`grep`), `item.herbs` ne sert à rien ; avec `DEFEND` ÷ 2 et `FLEE`, un joueur peut survivre un peu plus longtemps mais pas récupérer. La fuite est de plus aléatoire et les PNJ blessés qui ne meurent pas ne guérissent pas.
-3. **Un joueur AFK reste lié au combat indéfiniment** (le timeout joue `DEFEND` à chaque tour) *(lecture de code + rounds auto-joués observés)* : il ne se retire jamais, subit des dégâts réduits à chaque round et empêche les autres de partir librement de la salle tant que le PNJ vit ; aucune règle de sortie après N timeouts.
-4. **Fuite réussie = téléportation aléatoire vers une sortie** (`playerFled`), sans l'annoncer à la salle d'arrivée au-delà du `PRESENCE ENTER`, et sans interdire de fuir vers la salle d'un autre ennemi : un joueur blessé peut se retrouver dans un combat voisin.
-5. **Aucun test automatisé** malgré le design testable (`roll` injectable, `CombatHost` virtuel) ; `Makefile` sans cible `test`.
+1. **Erreurs de groupe indistinctes côté client** (voir `protocol/` ❌ 2) : `NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`, `SELF` → `ERR 400`.
+2. **Invitations sans expiration** *(lecture de code)* : elles restent valables jusqu'à usage ou départ du chef ; une seconde invitation d'un autre groupe écrase la première sans prévenir l'invité.
+3. **Recherche du joueur par nom dupliquée** dans `Game::groupInvite` et `Game::groupJoin` (même boucle O(N) recopiée) ; `GroupReply.unknown_player` est un drapeau à côté d'un statut, au lieu d'un statut `UNKNOWN_PLAYER`.
+4. **Un groupe d'un seul membre persiste** (chef seul après départ des autres) : pas gênant, mais `GROUP CREATE` de ce chef donne `402`, il doit d'abord faire `LEAVE`.
+5. **Aucun test automatisé** du `GroupManager`, alors que son interface (ids, statuts) s'y prête.
 
 ---
 
-## `game/game.cpp` (+ `events/event_bus.*`, `world/presence.hpp`, `entities/player.*`)
+## `game/combat/` · `game/game.cpp` · `game/events/` · `game/world/` · `game/entities/` · `game/utils/lookup.hpp`
 
 ### ✅ Bon
 
-1. **`EventBus` : file d'événements découplée du réseau** — `send`, `toRoom`, `toOthers`, `take()` ; le jeu ne sait pas ce qu'est un socket, `main` délivre. Aucun événement n'est émis s'il n'y a pas de destinataire.
-2. **Événements émis aux bons endroits** : `ENTER` à la connexion et à l'arrivée, `LEAVE` au départ (après retrait de la salle), `STATS` à chaque variation du nombre de joueurs, `SPAWN` au respawn d'un PNJ ou d'un item. `teleport` (mort/fuite) émet les deux présences.
-3. **`Presence` / `locate()`** centralisent « joueur ∈ salle » ; `LOG_HERE` unifie le contexte des logs (client, joueur, salle).
-4. **File de respawn** (`RespawnQueue`) en structure dédiée, planifiant PNJ et items, avec `update(now, world, callback)` qui annonce chaque retour via `EVT`.
-5. **Respawn du joueur conforme au sujet** (mort → chapelle, 50 PV) et inventaire plafonné à 10 avec `transfer()` atomique.
+1. **Combat : moteur pur (`combat.cpp`, `roll` injectable) / orchestration (`CombatManager`) / interface (`CombatHost`)** — testable sans réseau ni horloge. Rounds, initiative, timeout, multijoueur, `abandon` à la déconnexion, `dropFight` complet. Formules et décisions maintenant **justifiées dans le README**.
+2. **`EventBus`** découplé du réseau (`send`, `toRoom`, `toOthers`, `take`), événements aux bons endroits (présence, `STATS`, combat, `SPAWN`) ; `RespawnQueue` dédiée.
+3. **Validation fail-fast du monde** (sorties, directions, spawns, items, `count`, `respawn_seconds`, stats) ; je l'ai revérifiée sur les données : 15 salles, **toutes les sorties ont un retour**, 2 boucles (`square→village→plain→plain2→square` et `square→forest→forest_edge→plain2→square`), 0 référence cassée.
+4. **Séparation définition / instance** (`Definition<T>`, `Instance<T>`, `Respawnable`), `Inventory` unique pour joueur et salle, `transfer()` atomique ; `Game::showInventories` expose l'inventaire sans exposer `Player`.
+5. **`lookup::findIn`** (id d'instance, id de définition, nom, un mot du nom, casse ignorée) ; `lookup::sortedIds` pour des choix déterministes.
 
 ### ❌ Mauvais
 
-1. **`emitPlayerCount` envoie à tous les joueurs à chaque connexion/déconnexion** (`_events.send(playerIds(), …)`) : O(N) par événement, O(N²) lors d'un pic de connexions. Acceptable à l'échelle d'un projet 42.
-2. **Aucun événement d'inventaire** : `TAKE`/`DROP` ne préviennent pas les autres joueurs de la salle, qui ne voient la salle changer qu'au `LOOK` suivant (la RFC ne définit pas d'événement pour cela, mais une extension `EVT ROOM ITEM …` serait cohérente avec `SPAWN`).
-3. **Items inépuisables** (`item.herbs` réapparaît dans la salle d'origine même si le joueur garde l'original) — vérifié précédemment ; non documenté.
-4. **Un PNJ réapparu peut surgir dans une salle occupée** (annoncé par `EVT … SPAWN`) sans règle de proximité ni délai de grâce ; aucune borne sur le nombre d'instances vivantes.
-5. **Statistiques du joueur codées en dur** (`player.cpp` : 100 PV, attaque 10, défense 10, `hit`/`flee`), pas de progression ni d'équipement ; à justifier dans le README.
+1. **🔴 `quests.json` n'est toujours pas lu** (aucun `QuestDef`, aucune progression) ; `QUEST`/`QUESTS` stubs ; les 3 PNJ `quest_giver` répondent par un dialogue aléatoire comme les autres. Le README annonce honnêtement que les quêtes sont « described … but not used ».
+2. **Toujours aucun soin ni régénération** — `Stats::heal()` n'est appelé nulle part ; `item.herbs` (objet de la quête « Medicine for the Chapel ») ne soigne pas.
+3. **Un joueur AFK reste lié au combat indéfiniment** (le timeout joue un `DEFEND` à chaque tour) *(lecture de code)*, aucune règle de sortie après N timeouts ; **une fuite réussie téléporte vers une sortie au hasard**, possiblement dans le combat d'une autre salle.
+4. **Items inépuisables** (réapparition dans la salle d'origine même si l'original est gardé) et **PNJ qui réapparaît dans une salle occupée** sans délai de grâce ; non documenté.
+5. **Aucun test automatisé** malgré le design testable ; la section « Testing » du README est vide. `emitPlayerCount` envoie à tous les joueurs à chaque (dé)connexion (O(N)).
 
 ---
 
-## `game/world/` · `game/entities/` · `game/utils/lookup.hpp`
+## `shared/` — `logging/`, `protocol/`, `system/`, `text/`, `defines.hpp`
 
 ### ✅ Bon
 
-1. **Validation fail-fast étendue** : sorties, directions, start/respawn, spawns de PNJ/items inconnus, `count` ∈ [1, 100], `respawn_seconds` ≥ 0, stats et `hit`/`flee`, sorties à sens unique en `WARN`. Le serveur refuse de démarrer sur un monde incohérent.
-2. **Séparation définition / instance** (`Definition<T>`, `Instance<T>`, `Respawnable`) avec ids d'instance uniques ; items et PNJ partagent la même mécanique.
-3. **`lookup::findIn` générique** (id d'instance, id de définition, nom, un mot du nom, casse et espaces ignorés) ; `lookup::sortedIds` rend déterministe le choix d'une sortie de fuite.
-4. **`Inventory` unique** pour joueur et salle ; `transfer()` partagé par `TAKE`/`DROP`/butin.
-5. **Données conformes** : 15 salles avec cycle, 16 PNJ en 3 rôles, 8 items (7 obtenables), 3 quêtes, `hit`/`flee` sur tous les ennemis.
+1. **Réorganisation en sous-dossiers par responsabilité** (`logging/logger.*`, `protocol/{errors,event,line,player_name,response,success}.hpp`, `system/{loadenv,random,signalFd}`, `text/utf8`) : un client sait ce qu'il peut inclure (`protocol/`, `system/signalFd`) sans tirer le logger du serveur. Les Makefiles (`vpath`, `INCLUDES` en `../shared/*/*.hpp`) ont suivi, build propre.
+2. **`loadenv` soigné** : ignore commentaires et lignes vides, retire espaces et guillemets, n'accepte que des clés `[A-Za-z0-9_]`, **ne remplace jamais une variable déjà définie** (le shell prime), cherche `.env` dans le dossier courant, le parent et le grand-parent (le programme se lance depuis `server/` ou `clients/cli/`). `getEnvInt` borne et rejette les suites de caractères (`strtol` + `*end != '\0'`).
+3. **`LOG_LEVEL` branché** via `logLevelFromName` (insensible à la casse, repli sur `Debug`) — corrige le grief « niveau non configurable » des audits précédents.
+4. **Logging JSON structuré** complet (ts + fuseau, niveau, `src` dès WARN, échappement anti-injection, évaluation paresseuse) ; `.env.example` versionné et `.env` ignoré.
+5. **`TAP_ERRORS(X)`, `eventLine()`, `shared/protocol/*`** : un seul endroit par famille de texte du protocole.
 
 ### ❌ Mauvais
 
-1. **🔴 `quests.json` n'est toujours pas lu** (`grep` : aucune référence dans `game/` ni `server/`) — pas de `QuestDef`, pas de progression ; `QUEST`/`QUESTS` stubs ; les 4 `quest_giver` répondent par un dialogue aléatoire comme les autres.
-2. **Correspondance « un mot du nom » trop permissive** — `TAKE of` ou `TAKE the` prend le premier objet dont le nom contient ce mot ; aucun avertissement d'ambiguïté.
-3. **`Npc::dropLoot` ignore l'échec de `add`** (retour jamais testé) ; sans conséquence tant que l'inventaire d'une salle est illimité.
-4. **Ids d'instance par compteur statique global**, dépendant de l'ordre de parcours d'un `unordered_map` ; les ids changent d'une exécution à l'autre.
-5. **Pas d'événement « PNJ mort »** distinct hors combat et pas de butin annoncé : `COMBAT END … victory` ne précise pas le loot déposé (seulement journalisé).
+1. **Sortie des logs toujours non configurable** — `Logger::openFile` et `setOutput` ne sont toujours appelés nulle part : pas de fichier de log, pas de redirection (`LOG_FILE` serait la suite logique de `LOG_LEVEL`). La section « Server Logging » du README (formats, niveaux, destinations, surveillance) est un titre vide.
+2. **Valeurs invalides ignorées en silence** : `SERVER_PORT=abc` ou `99999` retombe sur 8080 sans le dire — l'utilisateur croit lancer un serveur sur son port et ne le voit qu'au démarrage (`"port":8080` dans le log INFO). Une ligne `WARN` à la lecture serait utile. De même `PORT=8080 # commentaire` (commentaire en fin de ligne) donne une valeur invalide ignorée.
+3. **`.env` cherché par chemins relatifs** — depuis un autre dossier que `server/`, `clients/cli/`, la racine ou leurs parents, le fichier n'est pas trouvé et le défaut s'applique sans message ; `PROJECT_ROOT` (compilé) n'est pas réutilisé pour le localiser.
+4. **`shared/defines.hpp` mélange toujours** système, protocole, noms de champs JSON, règles de jeu et configuration (`ENV_*`, `MIN_PORT`) ; `INSTANCE_SEPARATOR`, `MAX_NAME_LENGTH`, `PLAYER_INVENTORY_CAPACITY` n'ont rien à y faire pour les clients.
+5. **Décalage horaire figé au démarrage** ; **erreurs `409`-`411` hors RFC** (documentées) proches de conventions HTTP sans rapport avec la plage 4xx de la RFC.
 
 ---
 
-## `shared/` — `logger.*`, `utf8.*`, `errors.hpp`, `event.hpp`, `defines.hpp`, `response.hpp`, `success.hpp`, `random.hpp`
+## `server/Makefile` · `Makefile` (racine) · `.env.example`
 
 ### ✅ Bon
 
-1. **Logging structuré JSON** (ts + fuseau, niveau, `src` dès WARN, champs typés), échappement robuste (pas d'injection de fausse ligne de log), macros `LOG_*` à évaluation paresseuse, couleurs seulement sur TTY. Les événements de combat ajoutent `combat started`, `player joined a combat`, `combat turn`, `combat turn timeout`, `player fled`, `player died`/`respawned` : toute la partie « combat results » du §V.1 est tracée.
-2. **`shared/event.hpp`** : toutes les chaînes d'événements en constantes (`EVT_PRESENCE_ENTER`, `EVT_COMBAT_ROUND`, `EVT_MISS`…) et `eventLine()` — un seul endroit qui construit `EVT <catégorie> <données>`, comme `tapErrorLine` pour les erreurs.
-3. **`TAP_ERRORS(X)` (X-macro)** : une liste génère l'`enum`, les codes et les noms ; ajouter `IN_COMBAT`/`NOT_IN_COMBAT`/`NOT_YOUR_TURN` a coûté trois lignes.
-4. **`validateUTF8` / `jsonEscape` / `utf8SafeLength`** réutilisés par les noms, les logs et la troncature.
-5. **`random.hpp`** : générateur thread-local + `randomUnit()` injectable, utilisé par le combat et le choix de sortie de fuite.
+1. **`install-deps`** : nlohmann/json avec SHA-256 épinglé, documenté.
+2. **`SRCS`/`vpath`/`INCLUDES` à jour** après la réorganisation de `shared/` (`loadenv.cpp` ajouté) ; build propre, **zéro warning**, `-Wall -Wextra -Werror -std=c++20`.
+3. **`INCLUDES` par `wildcard`** (y compris `../shared/*/*.hpp`).
+4. **Binaires et `.env` ignorés par git**, `.env.example` versionné ; `clean/fclean/re` propagés.
+5. **README documente cibles et configuration** (tableau des variables, priorité shell > fichier).
 
 ### ❌ Mauvais
 
-1. **Niveau de log non configurable, fichier jamais utilisé** — `setMinLevel` / `setOutput` / `openFile` ne sont appelés nulle part : le serveur tourne toujours en `Debug` (et avec le combat, une ligne INFO par tour s'ajoute aux 2 lignes par commande).
-2. **Pas de journalisation des quêtes ni d'événement d'abus** (§V.1).
-3. **Décalage horaire calculé une seule fois au démarrage** ; le timestamp s'appelle `utc` mais utilise `localtime_r`.
-4. **`shared/defines.hpp` est devenu un fourre-tout de ~140 lignes** (système, protocole, noms de champs JSON, règles de jeu, tailles de tampon) ; `INSTANCE_SEPARATOR`, `MAX_NAME_LENGTH`, `PLAYER_INVENTORY_CAPACITY` n'ont rien à y faire pour les clients. Les noms `FIELD_*` sont utiles aux clients mais mélangés aux autres.
-5. **Erreurs ajoutées hors RFC (`400`, `403`, `409`, `410`, `411`)** : `400`/`403` documentés, `409`-`411` non ; le préfixe 4xx de la RFC est réservé aux erreurs de groupe/ressource/quête, `409`-`411` sont proches de conventions HTTP sans rapport.
-
----
-
-## `server/Makefile` · `Makefile` (racine)
-
-### ✅ Bon
-
-1. **`install-deps`** : nlohmann/json avec SHA-256 épinglé, documenté dans le README.
-2. **`SRCS` et `vpath` étendus** (`combat_manager.cpp`, `event_bus.cpp`, `respawn_queue.cpp`, `../game/events`) ; build propre, **zéro warning**, `-Wall -Wextra -Werror -std=c++20`.
-3. **`INCLUDES` par `wildcard`** : tout en-tête modifié (y compris `game/*/*.hpp`) recompile.
-4. **Binaires ignorés par git**, `clean/fclean/re` propagés.
-5. **README documente les cibles** (tableau, prérequis).
-
-### ❌ Mauvais
-
-1. **Cibles §VII.1 manquantes : `lint`, `run-server`, `run-client`, `run-client-gui`** (le README le reconnaît en `TODO`) ; aucun outil d'analyse statique installé sur la machine d'audit.
+1. **Cibles §VII.1 manquantes : `lint`, `run-server`, `run-client`, `run-client-gui`** (le README le reconnaît en `TODO`).
 2. **Pas de cible `test`** alors que le moteur de combat est conçu pour être testé.
 3. **`all: $(NAME) run`** — `make` build **et lance** le serveur au premier plan ; incompatible avec une CI.
 4. **Cible `help` toujours vide.**
-5. **Téléchargement réseau au premier `make`** et `PROJECT_ROOT` absolu compilé dans le binaire (documentés) ; `.vscode/c_cpp_properties.json` versionné.
+5. **Téléchargement réseau au premier `make`**, `PROJECT_ROOT` absolu compilé, `.vscode/c_cpp_properties.json` versionné.
 
 ---
 
-## `README.md` — inchangé depuis `6cc82e9`
+## `README.md` — v2 (461 lignes, modifié dans l'arbre de travail)
 
 ### ✅ Bon
 
-1. **Forme conforme** : première ligne italique correcte, anglais, plan reprenant les sections du §VI.
-2. **Section Protocol Implementation** (écarts n°1-7 avec justification) et **Architecture** (dispatcher, `poll`, mono-thread, couches) toujours de bonne qualité.
-3. **Honnêteté sur l'avancement** (`Current status`, `TODO`).
-4. **Usage de l'IA** documenté pour `Room::findNpc`.
-5. **Instructions de build détaillées** (prérequis, `install-deps`, cibles).
+1. **Sections remplies et de bonne qualité** : Description, Build (avec Configuration), Architecture (dispatcher, `poll`, couches), Protocol Implementation (commandes, événements, **8 écarts justifiés**), **Combat System** (règles, formule, initiative, `DEFEND`/`FLEE`, diffusion, justification), **World Design** (format JSON, carte ASCII, rôles, items, validation). Les affirmations vérifiées par l'audit (15 salles, retours de toutes les sorties, deux boucles, 7 items obtenables sur 8, 3 rôles) sont exactes.
+2. **Rattrapage complet de l'état précédent** : casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411, extensions (`COMBAT`, `SPAWN`), tableau des événements — tout ce que l'audit du jour précédent listait comme périmé est corrigé.
+3. **Honnêteté** (`Current status`, `TODO` explicites, « GUI not connected yet »).
+4. **Justification de conception** pour le combat (ratio de défense, initiative par `flee`, minuteur de tour) — exactement ce que le §V.1 demande.
+5. **Usage de l'IA** documenté pour `Room::findNpc`.
 
 ### ❌ Mauvais
 
-1. **🔴 Six affirmations fausses ou périmées** : « 9 of the 15 RFC commands » (+`DEFEND`/`FLEE` existent) ; « *The server does not push EVT events yet* » (présence, stats, combat et spawn sont émis) ; écart n°4 « *Command names are case-sensitive* » (corrigé) ; « Implemented events: None yet » ; écart n°6 (« `ATTACK` returns the status of the attacker … `ERR 400` when the target is already dead » : la réponse a changé, `ERR 400` n'est plus renvoyé pour un PNJ mort) ; « `combat` … runs one round of fight on two `Stats` objects » (c'est maintenant un combat à plusieurs, par rounds).
-2. **🔴 Les sections que le code remplit déjà restent vides** : **Combat System** (formule, initiative, `DEFEND`, `FLEE`, délai, multijoueur), **Server Logging**, **World Design**, **Testing**.
-3. **Extensions à la RFC non documentées** (commandes `DEFEND`/`FLEE`, événements `COMBAT`/`SPAWN`, erreurs 409-411).
-4. **Sections vides inchangées** : Quest System, Group Contributions, Resources, Instructions, Client interface choice ; commentaires HTML du squelette (`<!-- … -->`) toujours dans le fichier livré.
-5. **Pas de description du protocole d'événements** : aucun tableau des `EVT` émis ni de grammaire.
+1. **L'arbre de travail a rattrapé le code** : `INVENTORY`, `WHO`, `CHAT` et `GROUP` sont déclarés implémentés (statut, tableau des commandes, événements `GLOBAL|ROOM CHAT` / `GROUP INVITE|JOIN|LEAVE|CHAT`, écart n°8 réduit à `QUEST`/`QUESTS`). Mais ces modifications du README ne sont **pas commitées** non plus, et il manque la description de la syntaxe `GROUP` dans le tableau des commandes.
+2. **🔴 « 15 NPC definitions » (toujours là)** (World Design) : `npc.json` en contient **16** (3 `dialogue_npc`, 3 `quest_giver`, 10 `enemy`) ; le tableau de rôles du README en cite bien 16 noms.
+3. **Sections vides exigées par le sujet** : **Server Logging**, **Testing**, **Quest System**, **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré.
+4. **Choix `WHO` (RFC) vs exemple du sujet non expliqué** (voir `protocol/` ❌ 2) ; la grammaire des `EVT … COMBAT ROUND` n'est pas spécifiée.
+5. **Section Group Contributions** : trois « Member » prévus alors que seuls deux logins sont cités en tête ; à aligner avec l'historique git avant le rendu.
 
 ---
 
 ## Corrigés depuis l'audit initial
 
-Audits précédents (2026-10-02 → 2026-10-17) : `CONNECT`, hook de déconnexion, chargement et validation du monde, `Connection::ip`, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances d'items et de PNJ, `locate()`, noms UTF-8, casse des commandes, respawn PNJ/items, README v1 et écarts documentés, `authenticate()`, refactors (`network/`, `protocol/`, X-macro des erreurs, `LOG_HERE`).
+Audits précédents (2026-10-02 → 2026-10-19) : `CONNECT`, hook de déconnexion, monde, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances, `locate()`, noms UTF-8, casse, respawn, README v1 et écarts, refactors, événements `EVT`, combat tour par tour, `DEFEND`/`FLEE`, diffusion du combat, raté visible, respawn annoncé, documentation du code.
 
-Depuis le 2026-10-17 :
-- **Aucun événement `EVT`** → `EventBus`, `shared/event.hpp`, présence, `STATS`, combat, `SPAWN`. Vérifié avec un observateur et avec le client CLI.
-- **Combat non « turn-based »** (un coup, une riposte) → `CombatManager` : rounds, initiative par round, `DEFEND`, `FLEE`, timeout, multijoueur (`JOIN`).
-- **Pas de diffusion du combat aux autres joueurs** → `EVT ROOM COMBAT …`.
-- **Pas de commandes de combat supplémentaires** (`DEFEND`/`FLEE`) → ajoutées.
-- **`in_combat` permanent** → fin de combat explicite (`END`, `abandon`, `dropFight`).
-- **Coup raté invisible** → `"missed"` dans `turns[]`, `miss`/`failed` dans les événements.
-- **Respawn non annoncé** → `EVT ROOM SPAWN`.
-- **Fonctions non documentées** → bandeaux et commentaires `@param/@return` sur tous les fichiers.
+Depuis la mise à jour du 2026-10-20 (chat) :
+- **Aucune détection d'abus** → limite de débit, de clients, d'adresses, de reconnexions, de lecture et de tampon de sortie ; avertissements et déconnexion (non commité). Vérifié.
+- **Exception dans une action = crash** → `runAction`, `ERR 500 INTERNAL_ERROR`, `try/catch` par tour (`f9ecfb1`).
+- **`sendToArray` flush par destinataire** → `flushAll` une fois par tour.
+- **`QUIT` avant `CONNECT` refusé** → accepté. **Ligne longue acceptée si elle finit par `\n`** → refusée et déconnexion.
+- **`GROUP`** commité (`17d05bc`).
+
+Depuis la mise à jour du matin du 2026-10-19 :
+- **`CHAT` stub** → `CHAT GLOBAL|ROOM` réels, avec validation du message (`chat.hpp`) et `EVT GLOBAL|ROOM CHAT` ; **`GROUP` stub** → `CREATE|INVITE|JOIN|LEAVE` + `EVT GROUP …` + `CHAT GROUP` (non commité). Vérifiés.
+- **`INVENTORY` et `WHO` stubs** → réels (`OK ["item.herbs#3"]`, `OK players=2`). Vérifiés, y compris la casse et l'usage en combat.
+- **Port fixé à la compilation** → `SERVER_PORT` (env ou `.env`), bornes [1, 65535].
+- **Niveau de log non configurable** → `LOG_LEVEL`. Vérifié : `warn` supprime les lignes INFO.
+- **README en retard sur le code** (casse, `EVT`, combat) → README v2 avec Combat System, World Design, Configuration et 8 écarts.
+- **`shared/` plat** → `logging/`, `protocol/`, `system/`, `text/`.
+- **`Game::take`/`drop` ambigus** → `takeItem`/`dropItem`.
+- *(Correction de l'audit précédent : il annonçait « 4 PNJ `quest_giver` » ; `npc.json` en contient 3.)*
 
 ## Priorités (ordre suggéré)
 
-1. **README** : corriger les six affirmations périmées ; écrire **Combat System** (formule `attack × 50/(50+défense)`, `hit/(hit+0.2·flee)`, initiative par round, `DEFEND` ÷ 2, `FLEE`, timeout de 20 s, multijoueur), **Server Logging**, **World Design**, **Testing** ; documenter les extensions (`DEFEND`/`FLEE`, `409`-`411`, `EVT COMBAT`/`SPAWN`) avec leur grammaire.
-2. **`WHO`, `INVENTORY`, `CHAT`** (événements `EVT ROOM|GLOBAL|GROUP CHAT` inclus), puis `GROUP` ; supprimer les stubs ou les faire répondre `ERR`.
-3. **Quêtes** : parser `quests.json`, valider les références, `QUEST`/`QUESTS`, récompenses ; relier aux `quest_giver`.
-4. **Soin** : utiliser `Stats::heal` (herbes, repos) ; règle de sortie pour un joueur AFK.
-5. **Anti-abus et robustesse** : compteurs par IP/joueur, plafonds de connexions et de `_out`, `try/catch` autour des actions et de `tick`, `QUIT` avant `CONNECT`, groupage des `send` d'événements.
-6. **Logger** : niveau/fichier configurables (variable d'environnement).
+1. **README** : corriger « 15 NPC » → 16  écrire **Server Logging** (format JSON, niveaux, `LOG_LEVEL`, comment surveiller), **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
+2. **Commiter les protections anti-abus** (aujourd'hui seulement dans l'arbre de travail), rendre leurs seuils configurables et répondre explicitement à un client refusé ; **distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
+3. **Quêtes** : parser `quests.json`, valider les références, `QUEST`/`QUESTS`, récompenses, lien avec les `quest_giver`.
+4. **Soin** (`Stats::heal` avec `item.herbs`) et règle de sortie pour un joueur AFK.
+5. **Robustesse restante** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, cohérence des codes d'erreur (flood, refus).
+6. **Logger** : `LOG_FILE`, avertir quand une variable d'environnement est invalide.
 7. **Tests automatisés** du moteur de combat (`roll` injecté) et cibles Makefile §VII.1 (`lint`, `run-server`, `run-client`, `run-client-gui`, `test`).

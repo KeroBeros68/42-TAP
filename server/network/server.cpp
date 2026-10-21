@@ -3,8 +3,8 @@
 //##############################################################################
 
 # include "server.hpp"
-# include "../../shared/line.hpp"
-# include "../../shared/utf8.hpp"
+# include "../../shared/protocol/line.hpp"
+# include "../../shared/text/utf8.hpp"
 
 //##############################################################################
 //#                                  HELPERS                                   #
@@ -85,11 +85,13 @@ Server::~Server() {
 void Server::readFrom(Session& s) {
 	Connection& c = s.conn;
 	char buff[RECV_BUFFER_SIZE];
+	size_t total = 0;
 
-	while (true) {
+	while (total < MAX_READ_PER_TURN) {
 		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
 		if (n > 0) {
 			c.appendIn(buff, n);
+			total += n;
 			continue;
 		}
 		if (n == 0) {
@@ -107,8 +109,15 @@ void Server::readFrom(Session& s) {
 		break;
 	}
 	std::string line;
-	while (c.popLine(line))
+	while (c.popLine(line)) {
+		if (line.size() > MAX_LINE_LENGTH) {
+			LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", line.size()});
+			c.setClosing(true);
+			replyError(c, TapError::BAD_REQUEST);
+			return;
+		}
 		handleLine(s, line);
+	}
 	if (c.in().size() > MAX_LINE_LENGTH) {
 		LOG_WARN("line too long, disconnecting", {"client", s.user.id()}, {"ip", c.ip()}, {"bytes", c.in().size()});
 		c.setClosing(true);
@@ -116,8 +125,65 @@ void Server::readFrom(Session& s) {
 	}
 }
 
+bool Server::allowCommand(Session& s) {
+	const auto now = std::chrono::steady_clock::now();
+	if (now - s.window_start >= std::chrono::milliseconds(COMMAND_WINDOW_MS)) {
+		s.flood_windows = s.window_flooded ? s.flood_windows : 0;
+		s.window_start = now;
+		s.window_commands = 0;
+		s.window_flooded = false;
+	}
+	if (++s.window_commands <= MAX_COMMANDS_PER_WINDOW)
+		return true;
+	if (!s.window_flooded) {
+		s.window_flooded = true;
+		++s.flood_windows;
+		LOG_WARN("command flooding", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"player", playerName(s.user)}, {"windows", s.flood_windows});
+		if (s.flood_windows >= MAX_FLOOD_WINDOWS) {
+			LOG_WARN("flooding goes on, disconnecting", {"client", s.user.id()}, {"ip", s.conn.ip()});
+			s.conn.setClosing(true);
+		}
+	}
+	return false;
+}
+
+bool Server::allowConnection(const std::string& ip) {
+	const auto now = std::chrono::steady_clock::now();
+	for (auto it = _recent_connects.begin(); it != _recent_connects.end();) {
+		std::deque<std::chrono::steady_clock::time_point>& times = it->second;
+		while (!times.empty() && now - times.front() >= std::chrono::milliseconds(CONNECT_WINDOW_MS))
+			times.pop_front();
+		it = times.empty() ? _recent_connects.erase(it) : std::next(it);
+	}
+
+	size_t same_ip = 0;
+	for (const auto& session : _sessions) {
+		if (session.second.conn.ip() == ip)
+			++same_ip;
+	}
+	if (_sessions.size() >= MAX_SESSIONS) {
+		LOG_WARN("too many clients, refusing a connection", {"ip", ip}, {"clients", _sessions.size()});
+		return false;
+	}
+	if (same_ip >= MAX_SESSIONS_PER_IP) {
+		LOG_WARN("too many clients for one address, refusing a connection", {"ip", ip}, {"clients", same_ip});
+		return false;
+	}
+	std::deque<std::chrono::steady_clock::time_point>& times = _recent_connects[ip];
+	if (times.size() >= MAX_CONNECTS_PER_WINDOW) {
+		LOG_WARN("connections too fast, refusing a connection", {"ip", ip}, {"connections", times.size()});
+		return false;
+	}
+	times.push_back(now);
+	return true;
+}
+
 void Server::handleLine(Session& s, const std::string& line)
 {
+	if (!allowCommand(s)) {
+		replyError(s.conn, TapError::BAD_REQUEST);
+		return;
+	}
 	std::string cmd, args;
 	splitCommand(line, cmd, args);
 
@@ -128,7 +194,7 @@ void Server::handleLine(Session& s, const std::string& line)
 
 	LOG_INFO("command received", {"client", s.user.id()}, {"player", playerName(s.user)}, {"cmd", cmd}, {"args", args});
 
-	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT) {
+	if (!s.user.isAuthenticated() && cmd != CMD_CONNECT && cmd != CMD_QUIT) {
 		LOG_WARN("command before CONNECT", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"cmd", cmd});
 		replyError(s.conn, TapError::BAD_REQUEST);
 		return;
@@ -136,7 +202,7 @@ void Server::handleLine(Session& s, const std::string& line)
 	auto it = _actions.find(cmd);
 	if (it != _actions.end())
 	{
-		Response r = it->second(s.user, args);
+		Response r = runAction(it->second, s, args);
 		LOG_INFO("response sent", {"client", s.user.id()}, {"player", playerName(s.user)}, {"ok", r.isOk},
 			{"response", r.isOk ? shorten(r.line(), LOG_RESPONSE_MAX) : r.line()});
 		reply(s.conn, r.line());
@@ -150,8 +216,23 @@ void Server::handleLine(Session& s, const std::string& line)
 	}
 }
 
+Response Server::runAction(const std::function<Response(User&, const std::string&)>& action, Session& s, const std::string& args) {
+	try {
+		return action(s.user, args);
+	} catch (const std::exception& e) {
+		LOG_ERROR("command failed", {"client", s.user.id()}, {"player", playerName(s.user)}, {"error", e.what()});
+	} catch (...) {
+		LOG_ERROR("command failed", {"client", s.user.id()}, {"player", playerName(s.user)}, {"error", "unknown exception"});
+	}
+	return Response::failure(TapError::INTERNAL_ERROR);
+}
+
 void Server::reply(Connection& c, const std::string& line) {
 	c.appendOut(line + LINE_END);
+	if (c.out().size() > MAX_OUT_BUFFER && !c.isClosing()) {
+		LOG_WARN("client does not read, disconnecting", {"ip", c.ip()}, {"bytes", c.out().size()});
+		c.setClosing(true);
+	}
 }
 
 void Server::replyError(Connection& c, TapError error) {
@@ -231,8 +312,12 @@ void Server::start(const size_t& port) {
 void Server::updatePoll() {
 	for (auto it = _sessions.begin(); it != _sessions.end();) {
 		if (it->second.conn.isClosing()) {
-			if (_onDisconnect)
-				_onDisconnect(it->second.user);
+			try {
+				if (_onDisconnect)
+					_onDisconnect(it->second.user);
+			} catch (const std::exception& e) {
+				LOG_ERROR("disconnect callback failed", {"client", it->first}, {"error", e.what()});
+			}
 			close(it->second.conn.fd());
 			LOG_INFO("client disconnected", {"client", it->first}, {"ip", it->second.conn.ip()}, {"player", playerName(it->second.user)});
 			_available_id.push_back(it->first);
@@ -283,7 +368,9 @@ void Server::updatePoll() {
 		if (client_socket == SYSCALL_ERROR) {
 			LOG_ERROR("accept failed", {"error", strerror(errno)});
 		} else {
-			if (!setNonBlocking(client_socket, "client socket"))
+			char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
+			inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
+			if (!allowConnection(ip) || !setNonBlocking(client_socket, "client socket"))
 				close(client_socket);
 			else {
 				long long client_id;
@@ -293,8 +380,6 @@ void Server::updatePoll() {
 					client_id = _available_id.back();
 					_available_id.pop_back();
 				}
-				char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
-				inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
 				Session& session = _sessions.emplace(client_id, Session(client_socket, ip, client_id)).first->second;
 				LOG_INFO("client connected", {"client", client_id}, {"ip", ip});
 				reply(session.conn, tapOkLine(TapOk::HELLO));
@@ -336,7 +421,6 @@ void Server::sendTo(const std::string& message, long long client_id) {
 	if (it != _sessions.end()) {
 		LOG_DEBUG("sending message", {"client", client_id});
 		reply(it->second.conn, message);
-		flush(it->second.conn);
 	} else {
 		LOG_WARN("client not found", {"client", client_id});
 	}
@@ -351,8 +435,12 @@ void Server::sendToArray(const std::string& message, const std::vector<long long
 void Server::sendToAll(const std::string& message) {
 	for (auto& session : _sessions) {
 		reply(session.second.conn, message);
-		flush(session.second.conn);
 	}
+}
+
+void Server::flushAll() {
+	for (auto& session : _sessions)
+		flush(session.second.conn);
 }
 
 void Server::disconnect(long long client_id) {
