@@ -19,8 +19,20 @@
 # include "../utils/lookup.hpp"
 
 //##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
+enum class RoomEffectType { HEALING };
+
+//##############################################################################
 //#                                  STRUCTS                                   #
 //##############################################################################
+
+struct RoomEffect {
+	RoomEffectType	type = RoomEffectType::HEALING;
+	int				amount = 0;
+	int				interval_seconds = 0;
+};
 
 struct Spawn {
 	std::string	id;
@@ -48,6 +60,9 @@ class Room {
 		std::unordered_map<std::string, Npc> _alive_npcs;
 		Inventory _inventory;
 
+		//########################## EFFECTS ###########################
+		std::optional<RoomEffect> _effect;
+
 		//########################## PLAYERS ###########################
 		std::vector<long long> _current_player;
 
@@ -62,10 +77,12 @@ class Room {
 		 * @param exits       id of the room behind each direction
 		 * @param item_spawns items created in the room
 		 * @param npc_spawns  npcs created in the room
+		 * @param effect      what the room does to the players in it, at regular times (none by default)
 		 */
 		Room(const std::string& id, const std::string& name, const std::string& description,
 			const std::unordered_map<std::string, std::string>& exits,
-			const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns
+			const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns,
+			const std::optional<RoomEffect>& effect = std::nullopt
 		);
 
 		//########################## IDENTITY ##########################
@@ -80,6 +97,10 @@ class Room {
 
 		/** Returns the exits: the id of the room behind each direction. */
 		const std::unordered_map<std::string, std::string>& exits() const;
+
+		//########################## EFFECTS ###########################
+		/** Returns what the room does to the players in it (nothing if it has no effect). */
+		const std::optional<RoomEffect>& effect() const;
 
 		//########################### SPAWNS ###########################
 		/** Returns the spawns of the items of the room. */

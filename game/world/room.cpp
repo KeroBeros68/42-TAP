@@ -14,9 +14,10 @@
 
 Room::Room(const std::string& id, const std::string& name, const std::string& description,
 	const std::unordered_map<std::string, std::string>& exits,
-	const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns
+	const std::vector<Spawn>& item_spawns, const std::vector<Spawn>& npc_spawns,
+	const std::optional<RoomEffect>& effect
 )
-	: _id(id), _name(name), _description(description), _exits(exits), _item_spawns(item_spawns), _npc_spawns(npc_spawns) {}
+	: _id(id), _name(name), _description(description), _exits(exits), _item_spawns(item_spawns), _npc_spawns(npc_spawns), _effect(effect) {}
 
 //########################## IDENTITY ##########################
 
@@ -34,6 +35,12 @@ const std::string& Room::description() const {
 
 const std::unordered_map<std::string, std::string>& Room::exits() const {
 	return _exits;
+}
+
+//########################## EFFECTS ###########################
+
+const std::optional<RoomEffect>& Room::effect() const {
+	return _effect;
 }
 
 //########################### SPAWNS ###########################
