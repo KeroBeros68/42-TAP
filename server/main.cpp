@@ -20,6 +20,9 @@
 int main() {
 	loadDefaultEnv();
 	Logger::instance().setMinLevel(logLevelFromName(getEnv(ENV_LOG_LEVEL), LogLevel::Debug));
+	const std::string log_file = getEnv(ENV_LOG_FILE);
+	if (!log_file.empty() && !Logger::instance().openFile(log_file))
+		LOG_WARN("cannot open the log file", {"path", log_file});
 
 	try {
 		Server server;

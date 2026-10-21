@@ -8,6 +8,8 @@
 # include <algorithm>
 # include <arpa/inet.h>
 # include <cerrno>
+# include <chrono>
+# include <deque>
 # include <cstring>
 # include <fcntl.h>
 # include <functional>
@@ -42,6 +44,10 @@ class Server {
 		struct Session {
 			Connection	conn;
 			User		user;
+			std::chrono::steady_clock::time_point	window_start{};
+			int			window_commands = 0;
+			int			flood_windows = 0;
+			bool		window_flooded = false;
 
 			/**
 			 * Builds the session of a new client.
@@ -62,6 +68,7 @@ class Server {
 		std::unordered_map<long long, Session> _sessions;
 		long long _next_client_id = 0;
 		std::vector<long long> _available_id;
+		std::unordered_map<std::string, std::deque<std::chrono::steady_clock::time_point>> _recent_connects;
 
 		//########################## COMMANDS ##########################
 		std::unordered_map<std::string, std::function<Response(User&, const std::string&)>> _actions;
@@ -84,6 +91,22 @@ class Server {
 		 * @param line the line, without its line end
 		 */
 		void handleLine(Session& s, const std::string& line);
+
+		/**
+		 * Counts a command of a client. Over the limit the command is refused, and a client who keeps doing it is marked to be closed.
+		 *
+		 * @param s the session of the client
+		 * @return  false if the command must be refused
+		 */
+		bool allowCommand(Session& s);
+
+		/**
+		 * Tells whether a new client may connect: there must be room on the server and for his address, and he must not reconnect too fast.
+		 *
+		 * @param ip address of the client
+		 * @return   false if he must be refused
+		 */
+		bool allowConnection(const std::string& ip);
 
 		/**
 		 * Runs the action of a command. An exception is logged and becomes an INTERNAL_ERROR response.

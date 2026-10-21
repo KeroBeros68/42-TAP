@@ -85,11 +85,13 @@ Server::~Server() {
 void Server::readFrom(Session& s) {
 	Connection& c = s.conn;
 	char buff[RECV_BUFFER_SIZE];
+	size_t total = 0;
 
-	while (true) {
+	while (total < MAX_READ_PER_TURN) {
 		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
 		if (n > 0) {
 			c.appendIn(buff, n);
+			total += n;
 			continue;
 		}
 		if (n == 0) {
@@ -123,8 +125,65 @@ void Server::readFrom(Session& s) {
 	}
 }
 
+bool Server::allowCommand(Session& s) {
+	const auto now = std::chrono::steady_clock::now();
+	if (now - s.window_start >= std::chrono::milliseconds(COMMAND_WINDOW_MS)) {
+		s.flood_windows = s.window_flooded ? s.flood_windows : 0;
+		s.window_start = now;
+		s.window_commands = 0;
+		s.window_flooded = false;
+	}
+	if (++s.window_commands <= MAX_COMMANDS_PER_WINDOW)
+		return true;
+	if (!s.window_flooded) {
+		s.window_flooded = true;
+		++s.flood_windows;
+		LOG_WARN("command flooding", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"player", playerName(s.user)}, {"windows", s.flood_windows});
+		if (s.flood_windows >= MAX_FLOOD_WINDOWS) {
+			LOG_WARN("flooding goes on, disconnecting", {"client", s.user.id()}, {"ip", s.conn.ip()});
+			s.conn.setClosing(true);
+		}
+	}
+	return false;
+}
+
+bool Server::allowConnection(const std::string& ip) {
+	const auto now = std::chrono::steady_clock::now();
+	for (auto it = _recent_connects.begin(); it != _recent_connects.end();) {
+		std::deque<std::chrono::steady_clock::time_point>& times = it->second;
+		while (!times.empty() && now - times.front() >= std::chrono::milliseconds(CONNECT_WINDOW_MS))
+			times.pop_front();
+		it = times.empty() ? _recent_connects.erase(it) : std::next(it);
+	}
+
+	size_t same_ip = 0;
+	for (const auto& session : _sessions) {
+		if (session.second.conn.ip() == ip)
+			++same_ip;
+	}
+	if (_sessions.size() >= MAX_SESSIONS) {
+		LOG_WARN("too many clients, refusing a connection", {"ip", ip}, {"clients", _sessions.size()});
+		return false;
+	}
+	if (same_ip >= MAX_SESSIONS_PER_IP) {
+		LOG_WARN("too many clients for one address, refusing a connection", {"ip", ip}, {"clients", same_ip});
+		return false;
+	}
+	std::deque<std::chrono::steady_clock::time_point>& times = _recent_connects[ip];
+	if (times.size() >= MAX_CONNECTS_PER_WINDOW) {
+		LOG_WARN("connections too fast, refusing a connection", {"ip", ip}, {"connections", times.size()});
+		return false;
+	}
+	times.push_back(now);
+	return true;
+}
+
 void Server::handleLine(Session& s, const std::string& line)
 {
+	if (!allowCommand(s)) {
+		replyError(s.conn, TapError::BAD_REQUEST);
+		return;
+	}
 	std::string cmd, args;
 	splitCommand(line, cmd, args);
 
@@ -170,6 +229,10 @@ Response Server::runAction(const std::function<Response(User&, const std::string
 
 void Server::reply(Connection& c, const std::string& line) {
 	c.appendOut(line + LINE_END);
+	if (c.out().size() > MAX_OUT_BUFFER && !c.isClosing()) {
+		LOG_WARN("client does not read, disconnecting", {"ip", c.ip()}, {"bytes", c.out().size()});
+		c.setClosing(true);
+	}
 }
 
 void Server::replyError(Connection& c, TapError error) {
@@ -305,7 +368,9 @@ void Server::updatePoll() {
 		if (client_socket == SYSCALL_ERROR) {
 			LOG_ERROR("accept failed", {"error", strerror(errno)});
 		} else {
-			if (!setNonBlocking(client_socket, "client socket"))
+			char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
+			inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
+			if (!allowConnection(ip) || !setNonBlocking(client_socket, "client socket"))
 				close(client_socket);
 			else {
 				long long client_id;
@@ -315,8 +380,6 @@ void Server::updatePoll() {
 					client_id = _available_id.back();
 					_available_id.pop_back();
 				}
-				char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
-				inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
 				Session& session = _sessions.emplace(client_id, Session(client_socket, ip, client_id)).first->second;
 				LOG_INFO("client connected", {"client", client_id}, {"ip", ip});
 				reply(session.conn, tapOkLine(TapOk::HELLO));
