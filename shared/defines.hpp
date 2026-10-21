@@ -13,6 +13,7 @@
 # define ENV_PORT			"SERVER_PORT"	// variable that overrides SERVER_PORT
 # define ENV_IP				"SERVER_IP"		// variable that overrides the address of the server, for the clients
 # define ENV_LOG_LEVEL		"LOG_LEVEL"		// variable for the lowest level of the logs: debug, info, warn or error
+# define ENV_LOG_FILE		"LOG_FILE"		// variable for the file where the logs are also written (none if empty)
 # define MIN_PORT			1				// lowest TCP port that can be used
 # define MAX_PORT			65535			// highest TCP port
 

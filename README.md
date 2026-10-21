@@ -106,6 +106,7 @@ The server and the CLI client read a few settings from the environment, with the
 | `SERVER_PORT` | server, clients | TCP port, from 1 to 65535 | `8080` |
 | `SERVER_IP` | clients | address of the server | `127.0.0.1` |
 | `LOG_LEVEL` | server | lowest level of the logs: `debug`, `info`, `warn` or `error` | `debug` |
+| `LOG_FILE` | server | file where the logs are also written, at its end (the console output stays) | none |
 
 Copy `.env.example` to `.env` at the root of the project to set them (the file is ignored by git). A variable that is already set in the shell wins over the file (`SERVER_PORT=9099 ./server/server`), and an invalid value (not a number, out of range, unknown level) is ignored and the default is used.
 
@@ -201,7 +202,8 @@ Because the replies are written during step 1 and the events during step 3, a pl
 
 - All sockets are **non-blocking**. Reading drains the socket into a per-client input buffer; complete lines (ending with `\n`, an optional `\r` is tolerated) are extracted from it and dispatched. Replies go to a per-client output buffer, flushed with `send(MSG_NOSIGNAL)`, so a client that disconnects in the middle of a send cannot kill the server or block the others.
 - Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/system/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
-- A line longer than 1024 bytes without newline gets an error and the client is disconnected, which bounds the memory used per client.
+- A line longer than 1024 bytes (with or without newline) gets an error and the client is disconnected, which bounds the memory used per client.
+- Abuse is logged (`WARN`) and limited, with the thresholds in `server/defines.hpp`: more than 20 commands per second are answered `ERR 400` (3 such seconds in a row disconnect the client), a client whose unsent data exceeds 64 KB is disconnected, at most 16 KB are read per client and per loop turn, and the server refuses new connections beyond 64 clients, 5 per address, or 10 per address in 10 seconds.
 - On disconnection (`QUIT`, closed socket, error), the player is removed from the game by the `onDisconnect` callback **before** the session is destroyed, as the subject requires, so that no leave event can reach a player who is already gone.
 
 Why this model: since every command is handled one after the other in a single thread, the game state (rooms, items, NPCs, fights) is never accessed concurrently. Two players taking the same item at the same moment is solved for free: the first command processed wins and the second gets `ITEM_NOT_FOUND`. The timers of the fights and of the respawns do not need a thread either, they are checked at each turn of the loop. A MUD is I/O-bound and has few players, so one thread is largely enough, and there are no locks to get wrong.
@@ -429,11 +431,65 @@ At startup, `game/world/parser.cpp` checks the files and **refuses to start** wi
 ## 📝 Server Logging <!-- [S] -->
 
 ### Log format
+
+One JSON object per line (`std::endl` flushes each line), built by hand in `shared/logging/logger.cpp`:
+
+```json
+{"ts":"2026-10-21T11:57:56.213+00:00","level":"INFO","msg":"world loaded","rooms":15}
+{"ts":"...","level":"WARN","msg":"command flooding","src":"server/network/server.cpp:171","client":3,"ip":"127.0.0.1","windows":1}
+```
+
+- `ts`: local date and time with milliseconds and the UTC offset; `level`; `msg`: a short fixed sentence.
+- `src` (file and line) is added from `WARN` upward.
+- The other keys are the context of the event (`client` id, `player`, `ip`, `room`, ...). Texts are escaped, so a line is always valid JSON.
+
 ### Log levels and event types
+
+| Level | Used for |
+|-------|----------|
+| `DEBUG` | details: sockets, actions defined, messages sent, chat text |
+| `INFO` | normal life: connections, commands and responses, moves, fights, groups, respawns |
+| `WARN` | abnormal but handled: unknown command, command before `CONNECT`, bad request, abuse, a client that does not read |
+| `ERROR` | failures of the server: an exception in a command or in a turn of the loop, failed system calls, inconsistent data |
+
+`LOG_LEVEL` sets the lowest level written (default `debug`).
+
 ### Output destinations
+
+- `DEBUG` and `INFO` go to the standard output, `WARN` and `ERROR` to the standard error (red or yellow when it is a terminal; `NO_COLOR` disables the colours).
+- `LOG_FILE` (in the environment or `.env`) also writes every line, without colours, at the end of a file. If the file cannot be opened, a `WARN` is logged and the server goes on with the console only.
+
 ### Monitoring the server
+
+The logs are JSON lines, so they can be followed and filtered with ordinary tools:
+
+```sh
+LOG_FILE=server.log make -C server          # also write server.log
+tail -f server.log | grep '"level":"WARN"'  # warnings only
+grep '"msg":"player took an item"' server.log
+```
+
+Each connection has a `client` id, so all the lines of one player can be found with `grep '"client":3'`.
+
 ### Abuse detection (command flooding, rapid connections)
+
+Abuse is logged at `WARN` level and limited (thresholds in `server/defines.hpp`):
+
+| Message | Meaning |
+|---------|---------|
+| `command flooding` | a client sent more than 20 commands in one second (one line per second; the extra commands get `ERR 400`) |
+| `flooding goes on, disconnecting` | 3 seconds in a row over the limit: the client is disconnected |
+| `client does not read, disconnecting` | more than 64 KB waiting to be sent to a client |
+| `line too long, disconnecting` | a line over 1024 bytes |
+| `too many clients, refusing a connection` / `... for one address ...` | 64 clients in all, or 5 from one address |
+| `connections too fast, refusing a connection` | more than 10 connections from one address in 10 seconds |
+| `command before CONNECT`, `unknown command` | commands that are not allowed or do not exist |
+
 ### Performance considerations
+
+- The server is single-threaded (`poll`), so a log line is written in the loop: with `LOG_LEVEL=debug` every command and every message is logged, which is useful to develop but is more output than needed to run. `info` is a good level for a running server.
+- The level is checked before the line is built, so a disabled level costs almost nothing.
+- Every line is flushed at once, so no log is lost if the server stops.
 
 ## 🧪 Testing <!-- [S] -->
 
