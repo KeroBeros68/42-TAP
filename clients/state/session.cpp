@@ -1,6 +1,13 @@
 #include "session.hpp"
 
 //##############################################################################
+//#                                  INCLUDES                                  #
+//##############################################################################
+
+# include "../../shared/event.hpp"	// EVT_ROOM, EVT_STATS
+# include <cstdlib>					// std::atoi
+
+//##############################################################################
 //#                             INTERNAL CONSTANTS                             #
 //##############################################################################
 
@@ -11,12 +18,59 @@ namespace {
 // The journal keeps the latest lines only: a long session must not grow forever
 const size_t	LOG_MAX_LINES = 500;
 
+// Sub-type of "EVT ROOM ...". There is no constant for it in event.hpp:
+// EVT_PRESENCE_ENTER is the whole sub-type and action ("PRESENCE ENTER").
+const char* const	EVT_PRESENCE = "PRESENCE";
+
+// Chat categories. event.hpp only names the room and server ones, and the
+// subject's chat scopes (GLOBAL, ROOM, GROUP) are ours to name.
+const char* const	EVT_GLOBAL = "GLOBAL";
+const char* const	EVT_GROUP = "GROUP";
+const char* const	EVT_CHAT = "CHAT";
+
 bool	contains(const std::vector<std::string>& list, const std::string& value)
 {
 	for (const std::string& element : list)
 		if (element == value)
 			return true;
 	return false;
+}
+
+// Takes the first word out of text, and leaves the rest in rest.
+// Same job as takeFirstWord() in message.cpp, which is private to that file.
+std::string	takeWord(const std::string& text, std::string& rest)
+{
+	size_t begin = 0;
+	while (begin < text.size() && text[begin] == CMD_SEPARATOR)
+		++begin;
+	size_t end = begin;
+	while (end < text.size() && text[end] != CMD_SEPARATOR)
+		++end;
+	const std::string word = text.substr(begin, end - begin);
+	while (end < text.size() && text[end] == CMD_SEPARATOR)
+		++end;
+	rest = text.substr(end);
+	return word;
+}
+
+// Cuts text on its separators: "START alice npc.goblin" -> {"START", "alice", "npc.goblin"}
+std::vector<std::string>	splitWords(const std::string& text)
+{
+	std::vector<std::string>	words;
+	size_t						begin = 0;
+
+	while (begin < text.size())
+	{
+		while (begin < text.size() && text[begin] == CMD_SEPARATOR)
+			++begin;
+		size_t end = begin;
+		while (end < text.size() && text[end] != CMD_SEPARATOR)
+			++end;
+		if (end > begin)
+			words.push_back(text.substr(begin, end - begin));
+		begin = end;
+	}
+	return words;
 }
 
 void	removeFrom(std::vector<std::string>& list, const std::string& value)
@@ -593,5 +647,277 @@ void	Session::handleErr(const Pending& pending, const ServerMessage& message)
 
 void	Session::handleEvent(const ServerMessage& message)
 {
+	// The category is the big family: ROOM, STATS, GLOBAL, GROUP...
+	if (message.category == EVT_STATS)
+	{
+		// "EVT STATS players=42": the whole server count, nothing else
+		const size_t separator = message.data.find('=');
+		if (separator != std::string::npos)
+		{
+			_state.server_players = std::atoi(message.data.c_str() + separator + 1);
+			changed(Section::Counters);
+			return;
+		}
+	}
+	else if (message.category == EVT_ROOM)
+	{
+		handleRoomEvent(message.data);
+		return;
+	}
+	else if (message.category == EVT_GLOBAL)
+	{
+		// "EVT GLOBAL CHAT <author> <message>"
+		applyChat(_state.chat_global, message.data);
+		return;
+	}
+	else if (message.category == EVT_GROUP)
+	{
+		// "EVT GROUP CHAT <author> <message>", INVITE, JOIN or LEAVE
+		std::string rest;
+		const std::string sub = takeWord(message.data, rest);
+		if (sub == EVT_CHAT)
+			applyChat(_state.chat_group, message.data);
+		else
+			applyGroupEvent(message.data);
+		return;
+	}
+
+	// Everything not handled yet still goes to the journal: the rule of
+	// interoperability says an unknown event is never an error.
 	log("EVT " + message.category + " " + message.data);
+}
+
+void	Session::handleRoomEvent(const std::string& data)
+{
+	// "PRESENCE ENTER alice": sub-type first, then the rest
+	std::string rest;
+	const std::string sub = takeWord(data, rest);
+
+	if (sub == EVT_PRESENCE)
+	{
+		std::string player;
+		const std::string action = takeWord(rest, player);
+		applyPresence(action, player);
+		return;
+	}
+
+	if (sub == EVT_COMBAT)
+	{
+		// "COMBAT START alice npc.goblin": every combat event starts with
+		// the sub-type, a player and an enemy, so we split the whole rest.
+		applyCombatEvent(splitWords(data));
+		return;
+	}
+
+	if (sub == EVT_CHAT)
+	{
+		// "EVT ROOM CHAT <author> <message>": room scope
+		applyChat(_state.chat_room, data);
+		return;
+	}
+
+	if (sub == EVT_SPAWN)
+	{
+		// "SPAWN npc npc.goblin": something came back into the room.
+		// We do not guess where: ask for the room again.
+		log("spawn: " + rest);
+		send("LOOK");
+		return;
+	}
+
+	log("EVT ROOM " + data);
+}
+
+void	Session::applyGroupEvent(const std::string& data)
+{
+	// data is "INVITE <leader>", "JOIN <player>" or "LEAVE <player>"
+	std::string rest;
+	const std::string sub = takeWord(data, rest);
+
+	if (sub == "INVITE")
+	{
+		// "<leader> invites us": remembered until GROUP JOIN or CREATE answers
+		if (rest.empty())
+		{
+			log("EVT GROUP INVITE: no leader name");
+			return;
+		}
+		_state.pending_invite = rest;
+		log(rest + " invites you to a group");
+		changed(Section::Group);
+		return;
+	}
+
+	if (sub == "JOIN")
+	{
+		log(rest + " joined the group");
+		return;
+	}
+
+	if (sub == "LEAVE")
+	{
+		// A named player leaving is not us: GROUP LEAVE is answered by
+		// an OK, and that is what clears our own group.
+		if (!rest.empty())
+		{
+			log(rest + " left the group");
+			return;
+		}
+	}
+
+	log("EVT GROUP " + data);
+}
+
+void	Session::applyChat(std::vector<ChatLine>& history, const std::string& data)
+{
+	// data is "CHAT <author> <message...>": cut twice, never more,
+	// because the message itself may hold separators.
+	std::string rest;
+	const std::string kind = takeWord(data, rest);
+	if (kind != EVT_CHAT)
+	{
+		log("chat: unknown event " + data);
+		return;
+	}
+
+	std::string text;
+	const std::string author = takeWord(rest, text);
+	if (author.empty() || text.empty())
+	{
+		log("chat: malformed event " + data);
+		return;
+	}
+
+	// Chat never goes into the journal: the subject requires a separate view
+	history.push_back({author, text});
+	if (history.size() > LOG_MAX_LINES)
+		history.erase(history.begin());
+
+	changed(Section::Chat);
+}
+
+void	Session::applyCombatEvent(const std::vector<std::string>& words)
+{
+	// words: {"COMBAT", <type>, <player>, <enemy>, ...}
+	if (words.size() < 4)
+	{
+		log("EVT ROOM COMBAT: malformed event");
+		return;
+	}
+
+	const std::string	&type = words[1];
+	const std::string	&player = words[2];
+	const std::string	&enemy_id = words[3];
+	const std::string	enemy = _catalog.name(enemy_id);
+	const bool			mine = (player == _state.me);
+
+	if (type == EVT_COMBAT_START || type == EVT_COMBAT_JOIN)
+	{
+		log(player + (type == EVT_COMBAT_START ? " starts fighting " : " joins the fight against ") + enemy);
+		// Our own fight is the only one this state describes
+		if (mine)
+		{
+			_state.combat.active = true;
+			_state.combat.enemy = enemy_id;
+			_state.combat.round = 0;
+			_state.combat.my_turn = false;
+			_state.combat.seconds_left = 0;
+			changed(Section::Combat);
+		}
+		return;
+	}
+
+	if (type == EVT_COMBAT_ROUND)
+	{
+		// "ROUND <actor> <enemy> <round> <action> <target> <result>"
+		if (words.size() < 8)
+		{
+			log("EVT ROOM COMBAT ROUND: malformed event");
+			return;
+		}
+		const std::string	&round = words[4];
+		const std::string	&action = words[5];
+		const std::string	&target = words[6];
+		const std::string	&result = words[7];
+
+		log("round " + round + ": " + player + " " + action + " on " + target
+			+ " (" + result + ")");
+
+		// The round number is the server's: it may describe somebody else's
+		// fight in the same room, so only our own enemy updates our state.
+		if (_state.combat.active && enemy_id == _state.combat.enemy)
+			_state.combat.round = std::atoi(round.c_str());
+		changed(Section::Combat);
+		return;
+	}
+
+	if (type == EVT_COMBAT_TURN)
+	{
+		// "TURN <player> <enemy> <seconds>"
+		_state.combat.my_turn = mine;
+		if (mine)
+		{
+			_state.combat.enemy = enemy_id;
+			_state.combat.seconds_left = (words.size() > 4) ? std::atoi(words[4].c_str()) : 0;
+		}
+		log(mine ? "your turn" : player + "'s turn");
+		changed(Section::Combat);
+		return;
+	}
+
+	if (type == EVT_COMBAT_TIMEOUT)
+	{
+		log(player + " was too slow");
+		if (mine)
+			_state.combat.my_turn = false;
+		changed(Section::Combat);
+		return;
+	}
+
+	if (type == EVT_COMBAT_END)
+	{
+		// "END <player> <enemy> <victory|defeat|escaped>"
+		const std::string	result = (words.size() > 4) ? words[4] : "over";
+		log(player + " leaves the fight against " + enemy + ": " + result);
+
+		if (mine)
+		{
+			_state.combat = GameState::Combat();	// no fight any more
+			// Victory and defeat move nobody; an escape changes the room,
+			// but the ATTACK/FLEE answer already asked for a LOOK.
+			changed(Section::Combat);
+		}
+		return;
+	}
+
+	log("EVT ROOM COMBAT " + type + ": unknown sub-type");
+}
+
+void	Session::applyPresence(const std::string& action, const std::string& player)
+{
+	if (player.empty())
+	{
+		log("EVT ROOM PRESENCE: no player name");
+		return;
+	}
+
+	if (action == "ENTER")
+	{
+		// No duplicate: the same ENTER can arrive twice (reconnect, LOOK race)
+		if (!contains(_state.players, player))
+			_state.players.push_back(player);
+		changed(Section::Room);
+		changed(Section::Counters);
+		return;
+	}
+
+	if (action == "LEAVE")
+	{
+		removeFrom(_state.players, player);
+		changed(Section::Room);
+		changed(Section::Counters);
+		return;
+	}
+
+	log("EVT ROOM PRESENCE " + action + " " + player);
 }

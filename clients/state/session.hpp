@@ -95,6 +95,22 @@ class Session
 		// Route one event. Events never consume the queue.
 		void	handleEvent(const ServerMessage& message);
 
+		// EVT ROOM ...: the data starts with a sub-type (PRESENCE, COMBAT, SPAWN)
+		void	handleRoomEvent(const std::string& data);
+
+		// EVT ROOM PRESENCE ENTER <player> / LEAVE <player>
+		void	applyPresence(const std::string& action, const std::string& player);
+
+		// EVT ROOM COMBAT ...: one sub-type per event, all sharing <player> <enemy>
+		void	applyCombatEvent(const std::vector<std::string>& words);
+
+		// "CHAT <author> <message...>": the message may hold spaces, so only
+		// the author is cut out; the whole rest is the text.
+		void	applyChat(std::vector<ChatLine>& history, const std::string& data);
+
+		// EVT GROUP INVITE <leader> / JOIN <player> / LEAVE <player>
+		void	applyGroupEvent(const std::string& data);
+
 	public:
 		// The greeting arrives before any command: the queue starts with
 		// HELLO so that the first OK has a head to belong to.
