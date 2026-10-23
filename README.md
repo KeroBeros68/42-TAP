@@ -212,7 +212,7 @@ Because the replies are written during step 1 and the events during step 3, a pl
 - All sockets are **non-blocking**. Reading drains the socket into a per-client input buffer; complete lines (ending with `\n`, an optional `\r` is tolerated) are extracted from it and dispatched. Replies go to a per-client output buffer, flushed with `send(MSG_NOSIGNAL)`, so a client that disconnects in the middle of a send cannot kill the server or block the others.
 - Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/system/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
 - A line longer than 1024 bytes (with or without newline) gets an error and the client is disconnected, which bounds the memory used per client.
-- Abuse is logged (`WARN`) and limited, with the thresholds in `server/defines.hpp`: more than 20 commands per second are answered `ERR 400` (3 such seconds in a row disconnect the client), a client whose unsent data exceeds 64 KB is disconnected, at most 16 KB are read per client and per loop turn, and the server refuses new connections beyond 64 clients, 5 per address, or 10 per address in 10 seconds.
+- Abuse is logged (`WARN`) and limited, with the defaults in `server/defines.hpp` (each one can be set in the environment or in `.env`, see *Configuration*): more than 20 commands per second are answered `ERR 429 RATE_LIMITED` (3 such seconds in a row disconnect the client), a client whose unsent data exceeds 64 KB is disconnected, at most 16 KB are read per client and per loop turn, and a new connection is answered `ERR 503 SERVER_BUSY` and closed beyond 64 clients, 5 per address, or 10 per address in 10 seconds. The limits of commands, clients and connections are turned off with the value `0`. The per-address limits also apply to `127.0.0.1`, so a test with many local clients needs `MAX_SESSIONS_PER_IP` and `MAX_CONNECTS_PER_WINDOW` raised (or `0`). A setting that is not a number or is out of its bounds is ignored, with a `WARN` `invalid setting ignored, default used`.
 - On disconnection (`QUIT`, closed socket, error), the player is removed from the game by the `onDisconnect` callback **before** the session is destroyed, as the subject requires, so that no leave event can reach a player who is already gone.
 
 Why this model: since every command is handled one after the other in a single thread, the game state (rooms, items, NPCs, fights) is never accessed concurrently. Two players taking the same item at the same moment is solved for free: the first command processed wins and the second gets `ITEM_NOT_FOUND`. The timers of the fights and of the respawns do not need a thread either, they are checked at each turn of the loop. A MUD is I/O-bound and has few players, so one thread is largely enough, and there are no locks to get wrong.
@@ -283,6 +283,7 @@ The subject asks us to document every deviation and to justify it.
 | # | Deviation | Justification |
 | --- | --- | --- |
 | 1b | **Extra error `ERR 500 INTERNAL_ERROR`**, sent when the server fails while handling a command (the error is logged and the server keeps running). | The RFC defines no code for a server failure; 500 is the usual "server error" class. |
+| 1c | **Extra errors `ERR 429 RATE_LIMITED`** (more than 20 commands per second) **and `ERR 503 SERVER_BUSY`** (connection refused, sent in place of the greeting `OK hello`, then the socket is closed). | The subject asks to monitor command flooding and rapid connections (§V.1) but the RFC has no code for them. Reusing `400` would hide the reason from the client. 429 and 503 are the usual HTTP classes for "slow down" and "server cannot accept you". |
 | 1 | **Extra error `ERR 400 BAD_REQUEST`**, sent for an unknown command, a malformed command (for example a name with a space in `CONNECT`), any command before `CONNECT`, and a line over 1024 bytes (the client is then disconnected). | The RFC asks for "appropriate error responses" to malformed messages (§9.3) but defines no code for them. We use 400, the usual "bad request" class, so that a client can tell a protocol error from a game error (2xx-4xx codes of the RFC). |
 | 2 | **Extra error `ERR 403 INVENTORY_FULL`** for `TAKE` when the inventory holds 10 items. | The RFC recommends limits on "resource acquisition per player" (§9.4) but defines no error for it. |
 | 3 | **Extra errors for the combat**: `409 IN_COMBAT` (`MOVE`, `TAKE`, `TALK` during a fight, or `ATTACK` on another enemy), `410 NOT_IN_COMBAT` (`DEFEND` or `FLEE` with no fight), `411 NOT_YOUR_TURN`. | The turn-based combat requested by the subject needs them, and the RFC leaves the combat to the implementers (§6.1.1). The codes continue after the 40x family of the RFC. |
@@ -488,12 +489,12 @@ Abuse is logged at `WARN` level and limited (thresholds in `server/defines.hpp`)
 
 | Message | Meaning |
 |---------|---------|
-| `command flooding` | a client sent more than 20 commands in one second (one line per second; the extra commands get `ERR 400`) |
+| `command flooding` | a client sent more than 20 commands in one second (one line per second; the extra commands get `ERR 429 RATE_LIMITED`) |
 | `flooding goes on, disconnecting` | 3 seconds in a row over the limit: the client is disconnected |
 | `client does not read, disconnecting` | more than 64 KB waiting to be sent to a client |
 | `line too long, disconnecting` | a line over 1024 bytes |
-| `too many clients, refusing a connection` / `... for one address ...` | 64 clients in all, or 5 from one address |
-| `connections too fast, refusing a connection` | more than 10 connections from one address in 10 seconds |
+| `too many clients, refusing a connection` / `... for one address ...` (the client gets `ERR 503 SERVER_BUSY`) | 64 clients in all, or 5 from one address |
+| `connections too fast, refusing a connection` (`ERR 503 SERVER_BUSY` too) | more than 10 connections from one address in 10 seconds |
 | `command before CONNECT`, `unknown command` | commands that are not allowed or do not exist |
 
 ### Performance considerations

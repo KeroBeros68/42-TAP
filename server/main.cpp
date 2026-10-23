@@ -24,6 +24,8 @@ int main() {
 	Logger::instance().setMinLevel(config.log_level);
 	if (!config.log_file.empty() && !Logger::instance().openFile(config.log_file))
 		LOG_WARN("cannot open the log file", {"path", config.log_file});
+	for (const std::string& setting : config.ignored)
+		LOG_WARN("invalid setting ignored, default used", {"setting", setting});
 
 	try {
 		Server server(config);

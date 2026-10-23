@@ -33,7 +33,8 @@
 # define MAX_READ_PER_TURN_LIMIT	1048576		// highest MAX_READ_PER_TURN
 # define MIN_WINDOW_MS			100			// lowest length of a window
 # define MAX_WINDOW_MS			600000		// highest length of a window
-# define MIN_COUNT				1			// lowest number of commands, windows, clients or connections
+# define MIN_COUNT				1			// lowest number of windows in a row
+# define MIN_LIMIT				0			// lowest limit of commands, clients or connections: 0 turns the limit off
 # define MAX_COUNT				10000		// highest number of commands, windows, clients or connections
 
 // -- Poll slots ---------------------------------------------------------------

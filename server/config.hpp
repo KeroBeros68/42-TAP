@@ -7,6 +7,7 @@
 
 # include <cstddef>
 # include <string>
+# include <vector>
 
 //##############################################################################
 //#                                  INCLUDES                                  #
@@ -36,10 +37,14 @@ struct ServConfig {
 	int		connect_window_ms = CONNECT_WINDOW_MS;
 	size_t	max_connects_per_window = MAX_CONNECTS_PER_WINDOW;
 
+	std::vector<std::string>	ignored;
+
 	//######################### FUNCTIONS ##########################
 	/**
 	 * Reads the settings of the server: the .env file, then the environment (which wins).
-	 * A setting that is missing or out of its bounds keeps its default value.
+	 * A setting that is missing keeps its default value. A setting that is not a number, or out of its bounds,
+	 * keeps its default value too, and is listed in "ignored" as NAME=value.
+	 * For the limits of commands, clients and connections, 0 turns the limit off.
 	 */
 	void loadServerConfig();
 };
