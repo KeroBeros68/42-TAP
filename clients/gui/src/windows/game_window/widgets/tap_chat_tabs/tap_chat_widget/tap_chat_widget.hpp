@@ -22,8 +22,12 @@ class TAPChatWidget : public QWidget
 	public:
 		TAPChatWidget();
 		~TAPChatWidget();
+
+		// Replace the whole history by the one given, and rebuild the labels.
+		// Keys of each message: "author" and "content".
+		void update_messages(const std::vector<std::map<std::string, std::string>> &messages);
+
 		void clear_messages_history();
-		void add_message(std::map<std::string, std::string>);
 
 };
 

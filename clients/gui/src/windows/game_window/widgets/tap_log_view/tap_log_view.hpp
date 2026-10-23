@@ -4,6 +4,8 @@
 # include "globals.hpp"
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
 # include <QPlainTextEdit>
+# include <deque>
+# include <string>
 # include <streambuf>
 # include <iostream>
 
@@ -63,6 +65,10 @@ class TAPLogView : public TAPGameSectionWidget
         // Afficher une ligne complète dans la zone de texte
         // (appelé uniquement par TAPLogStreamBuf)
         void append_log(const std::string &line);
+
+        // Replace the whole journal by the lines given.
+        // Used by the GUI when the state's journal changed.
+        void update_logs(const std::deque<std::string> &lines);
 
         // BRANCHEMENT : installer notre évier dans std::cout.
         // Équivalent Python :  sys.stdout = Capturer()

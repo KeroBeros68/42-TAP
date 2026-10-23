@@ -49,9 +49,9 @@ class TAPGameWindow : public TAPBaseWindow
         void update_inventory(std::map<std::string, std::string> data);
         void update_npcs(std::map<std::string, std::string> data);
         void update_quests(std::vector<std::map<std::string, std::string>> data);
-        void add_global_message(std::map<std::string, std::string> data);
-        void add_room_message(std::map<std::string, std::string> data);
-        void add_group_message(std::map<std::string, std::string> data);
+        void update_global_messages(const std::vector<std::map<std::string, std::string>> &messages);
+        void update_room_messages(const std::vector<std::map<std::string, std::string>> &messages);
+        void update_group_messages(const std::vector<std::map<std::string, std::string>> &messages);
         void clear_messages_history();
 };
 

@@ -91,19 +91,19 @@ void TAPGameWindow::update_quests(std::vector<std::map<std::string, std::string>
     this->quests_view.update_quests(data);
 };
 
-void TAPGameWindow::add_global_message(std::map<std::string, std::string> data)
+void TAPGameWindow::update_global_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->chat_tabs.add_global_message(data);
+    this->chat_tabs.update_global_messages(messages);
 };
 
-void TAPGameWindow::add_room_message(std::map<std::string, std::string> data)
+void TAPGameWindow::update_room_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->chat_tabs.add_room_message(data);
+    this->chat_tabs.update_room_messages(messages);
 };
 
-void TAPGameWindow::add_group_message(std::map<std::string, std::string> data)
+void TAPGameWindow::update_group_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->chat_tabs.add_group_message(data);
+    this->chat_tabs.update_group_messages(messages);
 };
 
 void TAPGameWindow::clear_messages_history()
