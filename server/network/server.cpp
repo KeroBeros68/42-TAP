@@ -26,6 +26,17 @@ static bool setNonBlocking(int fd, const char* what) {
 }
 
 /**
+ * Refuses a new client: tells him why with one error line (without waiting) and closes his socket.
+ *
+ * @param fd the socket of the client
+ */
+static void refuse(int fd) {
+	const std::string line = tapErrorLine(TapError::SERVER_BUSY) + LINE_END;
+	::send(fd, line.data(), line.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+	close(fd);
+}
+
+/**
  * Finds the name of a user for the logs.
  *
  * @param user the user
@@ -126,6 +137,8 @@ void Server::readFrom(Session& s) {
 }
 
 bool Server::allowCommand(Session& s) {
+	if (_config.max_commands_per_window == 0)
+		return true;
 	const auto now = std::chrono::steady_clock::now();
 	if (now - s.window_start >= std::chrono::milliseconds(_config.command_window_ms)) {
 		s.flood_windows = s.window_flooded ? s.flood_windows : 0;
@@ -161,16 +174,16 @@ bool Server::allowConnection(const std::string& ip) {
 		if (session.second.conn.ip() == ip)
 			++same_ip;
 	}
-	if (_sessions.size() >= _config.max_sessions) {
+	if (_config.max_sessions && _sessions.size() >= _config.max_sessions) {
 		LOG_WARN("too many clients, refusing a connection", {"ip", ip}, {"clients", _sessions.size()});
 		return false;
 	}
-	if (same_ip >= _config.max_sessions_per_ip) {
+	if (_config.max_sessions_per_ip && same_ip >= _config.max_sessions_per_ip) {
 		LOG_WARN("too many clients for one address, refusing a connection", {"ip", ip}, {"clients", same_ip});
 		return false;
 	}
 	std::deque<std::chrono::steady_clock::time_point>& times = _recent_connects[ip];
-	if (times.size() >= _config.max_connects_per_window) {
+	if (_config.max_connects_per_window && times.size() >= _config.max_connects_per_window) {
 		LOG_WARN("connections too fast, refusing a connection", {"ip", ip}, {"connections", times.size()});
 		return false;
 	}
@@ -181,7 +194,7 @@ bool Server::allowConnection(const std::string& ip) {
 void Server::handleLine(Session& s, const std::string& line)
 {
 	if (!allowCommand(s)) {
-		replyError(s.conn, TapError::BAD_REQUEST);
+		replyError(s.conn, TapError::RATE_LIMITED);
 		return;
 	}
 	std::string cmd, args;
@@ -370,7 +383,9 @@ void Server::updatePoll() {
 		} else {
 			char ip[INET_ADDRSTRLEN] = UNKNOWN_IP;
 			inet_ntop(AF_INET, &client_addr.sin_addr, ip, sizeof(ip));
-			if (!allowConnection(ip) || !setNonBlocking(client_socket, "client socket"))
+			if (!allowConnection(ip))
+				refuse(client_socket);
+			else if (!setNonBlocking(client_socket, "client socket"))
 				close(client_socket);
 			else {
 				long long client_id;
