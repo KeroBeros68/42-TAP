@@ -1,7 +1,8 @@
 #include "tap_npc_talk.hpp"
 #include <iostream>
 
-TAPNPCTalkView::TAPNPCTalkView()
+TAPNPCTalkView::TAPNPCTalkView(Session &session)
+    : _session(session)
 {
     // Section title
     this->_section_title.setText("NPC TALK");
@@ -27,28 +28,27 @@ TAPNPCTalkView::TAPNPCTalkView()
         this,
         [this] {
             if (this->get_selected_npc_id() == "") {return ;}
-            std::cout << "[WIP] TALK " << this->get_selected_npc_id() << std::endl;
+            this->_session.send("TALK", this->get_selected_npc_id());
     });
     this->connect(&this->_attack_button,
         &QPushButton::clicked,
         this,
         [this] {
             if (this->get_selected_npc_id() == "") {return ;}
-            std::cout << "[WIP] ATTACK " << this->get_selected_npc_id() << std::endl;
+            this->_session.send("ATTACK", this->get_selected_npc_id());
     });
     this->connect(&this->_defend_button,
         &QPushButton::clicked,
         this,
         [this] {
-            if (this->get_selected_npc_id() == "") {return ;}
-            std::cout << "[WIP] DEFEND " << this->get_selected_npc_id() << std::endl;
+            // DEFEND takes no target: the fight is already the selected one
+            this->_session.send("DEFEND");
     });
     this->connect(&this->_flee_button,
         &QPushButton::clicked,
         this,
         [this] {
-            if (this->get_selected_npc_id() == "") {return ;}
-            std::cout << "[WIP] FLEE " << this->get_selected_npc_id() << std::endl;
+            this->_session.send("FLEE");
     });
 
     this->setLayout(&this->_layout);

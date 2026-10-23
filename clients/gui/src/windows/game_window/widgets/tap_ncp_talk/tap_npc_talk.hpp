@@ -3,6 +3,7 @@
 
 # include "globals.hpp"
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
+# include "../../../../../../state/session.hpp"
 
 class TAPNPCTalkView : public TAPGameSectionWidget
 {
@@ -19,9 +20,10 @@ class TAPNPCTalkView : public TAPGameSectionWidget
         // items list : canonical_id, human_readable_name
         std::map<std::string, std::string> _npcs;
         std::vector<QRadioButton *> _npc_buttons;
+        Session     &_session;
 
     public:
-        TAPNPCTalkView();
+        explicit TAPNPCTalkView(Session &session);
         void update_npcs(std::map<std::string, std::string> data);
         std::string get_selected_npc_id(void) const;
 };

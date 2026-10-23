@@ -2,7 +2,7 @@
 # define TAP_ACTION_BUTTONS_HPP
 
 # include "../../../../custom_ui_elements/custom_ui_elements.hpp"
-# include "../../../../../../client.hpp"
+# include "../../../../../../state/session.hpp"
 # include <iostream>
 # include <QWidget>
 # include <QVBoxLayout>
@@ -12,10 +12,10 @@ class TAPActionButtons : public TAPGameSectionWidget
     private:
         QVBoxLayout _layout;
         TAPButton   _buttons[12];
-        Client      &_client;
+        Session     &_session;
 
     public:
-        explicit TAPActionButtons(Client &client);
+        explicit TAPActionButtons(Session &session);
 };
 
 #endif // !TAP_ACTION_BUTTONS_HPP

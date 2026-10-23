@@ -11,6 +11,53 @@ namespace {
 // The journal keeps the latest lines only: a long session must not grow forever
 const size_t	LOG_MAX_LINES = 500;
 
+bool	contains(const std::vector<std::string>& list, const std::string& value)
+{
+	for (const std::string& element : list)
+		if (element == value)
+			return true;
+	return false;
+}
+
+void	removeFrom(std::vector<std::string>& list, const std::string& value)
+{
+	for (std::vector<std::string>::iterator it = list.begin(); it != list.end(); ++it)
+		if (*it == value)
+		{
+			list.erase(it);
+			return;
+		}
+}
+
+// One line of journal for one turn of a fight.
+// A turn looks like: {actor, target, round, action, missed, damage}.
+// Everything is read with a default: a server leaving a field out must not
+// break the display (interchangeability rule).
+std::string	describeTurn(const nlohmann::json& turn)
+{
+	if (!turn.is_object())
+		return "combat: unreadable turn";
+
+	const std::string	actor = turn.value(FIELD_ACTOR, "?");
+	const std::string	target = turn.value(FIELD_TARGET, "?");
+	const std::string	action = turn.value(FIELD_ACTION, "?");
+	const int			round = turn.value(FIELD_ROUND, 0);
+	const bool			missed = turn.value(FIELD_MISSED, false);
+	const int			damage = turn.value(FIELD_DAMAGE, 0);
+
+	std::string	line = "round " + std::to_string(round) + ": " + actor + " ";
+	if (action == ACTION_ATTACK)
+		line += missed ? "misses " + target : "hits " + target + " for "
+			+ std::to_string(damage) + " damage";
+	else if (action == ACTION_DEFEND)
+		line += "defends";
+	else if (action == ACTION_FLEE)
+		line += missed ? "fails to flee" : "flees";
+	else
+		line += action + " " + target;
+	return line;
+}
+
 }
 
 //##############################################################################
@@ -32,8 +79,45 @@ void	Session::send(const std::string& command, const std::string& args)
 	const std::string	line = args.empty() ? command : command + " " + args;
 	_client.send(line);
 	_pending.push_back({command, args});  // Add the command to the registry
+
+	// A new attempt: the previous failure is no longer news
+	_state.last_error.reset();
 }
 
+
+void	Session::listen()
+{
+	// Client::handleLine splits the line and gives us only the arguments:
+	// "OK {…}" arrives here as "{…}". Put the kind back in front, so the
+	// same parser handles lines from the socket and lines injected in tests.
+	_client.defineAction("OK", [this](const std::string& args) {
+		this->handleLine(std::string(RESPONSE_OK) + CMD_SEPARATOR + args);
+	});
+	_client.defineAction("ERR", [this](const std::string& args) {
+		this->handleLine(std::string(RESPONSE_ERR) + CMD_SEPARATOR + args);
+	});
+	_client.defineAction("EVT", [this](const std::string& args) {
+		this->handleLine(std::string(RESPONSE_EVT) + CMD_SEPARATOR + args);
+	});
+}
+
+void	Session::restart()
+{
+	// Everything the previous server told us is now wrong
+	_pending.clear();
+	_state = GameState();
+	_pending.push_back({"HELLO", ""});
+	changed(Section::Connection);
+}
+
+void	Session::handleDisconnect()
+{
+	// We no longer have a queue: the answers to those commands will never come
+	_pending.clear();
+	_state.phase = GameState::Phase::TERMINATED;
+	log("connection lost");
+	changed(Section::Connection);
+}
 
 void	Session::onChanged(std::function<void(Section)> callback)
 {
@@ -43,6 +127,11 @@ void	Session::onChanged(std::function<void(Section)> callback)
 const GameState&	Session::state() const
 {
 	return _state;
+}
+
+const Catalog&	Session::catalog() const
+{
+	return _catalog;
 }
 
 // Save a given information in the session's logs
@@ -150,6 +239,51 @@ void	Session::handleOk(const Pending& pending, const ServerMessage& message)
 	if (pending.command == "WHO")
 	{
 		applyWho(message.data);
+		return;
+	}
+
+	if (pending.command == "MOVE")
+	{
+		applyMove(message.data);
+		return;
+	}
+
+	if (pending.command == "TAKE")
+	{
+		applyTake(message.data);
+		return;
+	}
+
+	if (pending.command == "DROP")
+	{
+		applyDrop(message.data);
+		return;
+	}
+
+	if (pending.command == "TALK")
+	{
+		applyTalk(message.data);
+		return;
+	}
+
+	if (pending.command == "ATTACK" || pending.command == "DEFEND"
+		|| pending.command == "FLEE")
+	{
+		applyCombat(pending.command, message.data);
+		return;
+	}
+
+	if (pending.command == "CHAT")
+	{
+		// Nothing to apply: the server sends the message back to its author
+		// as an EVT, and that is where the chat is filled. Applying it here
+		// too would display it twice.
+		return;
+	}
+
+	if (pending.command == "GROUP")
+	{
+		applyGroup(pending.args, message.data);
 		return;
 	}
 
@@ -273,10 +407,188 @@ void	Session::applyWho(const std::string& data)
 	changed(Section::Counters);
 }
 
+void	Session::applyMove(const std::string& data)
+{
+	// "OK room=<id>": the room id only. We moved, so the old room content is
+	// wrong now: ask for a fresh LOOK instead of guessing.
+	const size_t separator = data.find('=');
+	if (separator == std::string::npos)
+	{
+		log("MOVE: unreadable answer: " + data);
+		return;
+	}
+	_state.room.id = data.substr(separator + 1);
+	_state.room.name.clear();
+	_state.room.description.clear();
+	_state.room.exits.clear();
+	_state.players.clear();
+	_state.items.clear();
+	_state.npcs.clear();
+
+	changed(Section::Room);
+	send("LOOK");
+}
+
+void	Session::applyTake(const std::string& data)
+{
+	// "OK taken=<id>": move the id from the floor to the inventory.
+	// The local move is optimistic: the LOOK and INVENTORY that follow
+	// correct it if another player was faster.
+	const size_t separator = data.find('=');
+	if (separator == std::string::npos)
+	{
+		log("TAKE: unreadable answer: " + data);
+		return;
+	}
+	const std::string id = data.substr(separator + 1);
+
+	removeFrom(_state.items, id);
+	if (!contains(_state.inventory, id))
+		_state.inventory.push_back(id);
+
+	changed(Section::Room);
+	changed(Section::Inventory);
+
+	// The server is the source of truth: resynchronize both lists
+	send("LOOK");
+	send("INVENTORY");
+}
+
+void	Session::applyCombat(const std::string& command, const std::string& data)
+{
+	const std::optional<json> payload = asJson(data);
+	if (!payload || !payload->is_object())
+	{
+		log(command + ": unreadable answer: " + data);
+		return;
+	}
+
+	const json& report = *payload;
+
+	// Our hit points after the turns, told by the server: never computed here
+	_state.hp = report.value(FIELD_ATTACKER_HP, _state.hp);
+	_state.status = report.value(FIELD_STATUS, _state.status);
+	_state.combat.active = true;
+	_state.combat.round = report.value(FIELD_ROUND, _state.combat.round);
+
+	// One line per turn in the journal, so the fight can be followed
+	if (report.contains(FIELD_TURNS) && report[FIELD_TURNS].is_array())
+		for (const auto& turn : report[FIELD_TURNS])
+			log(describeTurn(turn));
+
+	const bool escaped = report.value(FIELD_ESCAPED, false);
+	if (escaped)
+	{
+		// We ran away: the room changed, its content must be asked again
+		_state.combat.active = false;
+		_state.room.name.clear();
+		_state.room.description.clear();
+		_state.room.exits.clear();
+		_state.players.clear();
+		_state.items.clear();
+		_state.npcs.clear();
+		changed(Section::Room);
+		send("LOOK");
+	}
+	else
+	{
+		// Fresh hit points, status and turn information
+		send("STATUS");
+	}
+
+	changed(Section::Combat);
+	changed(Section::Status);
+}
+
+void	Session::applyGroup(const std::string& args, const std::string& data)
+{
+	// args is the sub-command: "CREATE", "JOIN <leader>" or "LEAVE".
+	// The first word tells which one we asked.
+	const std::string	sub = args.substr(0, args.find(' '));
+
+	if (sub.empty())
+	{
+		// "GROUP" alone is not a command the server understands
+		log("GROUP: missing sub-command");
+		return;
+	}
+
+	if (sub == "LEAVE")
+	{
+		// "OK": we left, we belong to nobody any more
+		_state.group.reset();
+		log("left the group");
+		changed(Section::Group);
+		return;
+	}
+
+	// CREATE and JOIN both answer "OK group=<id>"
+	const size_t separator = data.find('=');
+	if (separator == std::string::npos)
+	{
+		log("GROUP " + sub + ": unreadable answer: " + data);
+		return;
+	}
+	_state.group = data.substr(separator + 1);
+	_state.pending_invite.reset();	// the invitation is accepted or refused
+
+	// Read it back rather than dereference: a server answering "OK group="
+	// would give an empty id.
+	log("group " + sub + ": " + _state.group.value_or(""));
+	changed(Section::Group);
+}
+
+void	Session::applyTalk(const std::string& data)
+{
+	// Our server answers "OK <dialogue>"; the subject shows that some servers
+	// answer "OK {"npc":...,"dialogue":...}". Accept both.
+	std::string said = data;
+	const std::optional<json> payload = asJson(data);
+	if (payload && payload->is_object() && payload->contains("dialogue"))
+		said = payload->value("dialogue", data);
+
+	if (said.empty())
+	{
+		log("TALK: empty answer");
+		return;
+	}
+	log("TALK: " + said);
+}
+
+void	Session::applyDrop(const std::string& data)
+{
+	// "OK dropped=<id>": the mirror of TAKE
+	const size_t separator = data.find('=');
+	if (separator == std::string::npos)
+	{
+		log("DROP: unreadable answer: " + data);
+		return;
+	}
+	const std::string id = data.substr(separator + 1);
+
+	removeFrom(_state.inventory, id);
+	if (!contains(_state.items, id))
+		_state.items.push_back(id);
+
+	changed(Section::Room);
+	changed(Section::Inventory);
+
+	send("LOOK");
+	send("INVENTORY");
+}
+
 void	Session::handleErr(const Pending& pending, const ServerMessage& message)
 {
-	// The code and the name are both logged: 404 means three different things
-	log(pending.command + " -> ERR " + std::to_string(message.code) + " " + message.name);
+	// The code and the name are both kept: 404 means three different things
+	_state.last_error = std::to_string(message.code) + " " + message.name;
+	log(pending.command + " -> ERR " + *_state.last_error);
+	changed(Section::Connection);
+
+	// A TAKE that failed means another player probably took the item first:
+	// our list of the floor is stale, ask the server again.
+	// The name is checked, not the code: 404 is shared by three errors.
+	if (pending.command == "TAKE" && message.name == "ITEM_NOT_FOUND")
+		send("LOOK");
 }
 
 void	Session::handleEvent(const ServerMessage& message)

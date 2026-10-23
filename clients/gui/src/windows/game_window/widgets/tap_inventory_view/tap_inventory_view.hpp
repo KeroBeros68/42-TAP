@@ -3,6 +3,7 @@
 
 # include "globals.hpp"
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
+# include "../../../../../../state/session.hpp"
 
 class TAPInventoryView : public TAPGameSectionWidget
 {
@@ -15,9 +16,10 @@ class TAPInventoryView : public TAPGameSectionWidget
         // items list : canonical_id, human_readable_name
         std::map<std::string, std::string> _items;
         std::vector<QRadioButton *> _item_buttons;
+        Session     &_session;
 
     public:
-        TAPInventoryView();
+        explicit TAPInventoryView(Session &session);
         void update_inventory(std::map<std::string, std::string> data);
         std::string get_selected_item_id(void) const;
 };

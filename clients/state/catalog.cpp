@@ -5,8 +5,10 @@
 //##############################################################################
 
 # include "message.hpp"				// nlohmann::json
+# include "../defines.hpp"				// ENV_CATALOG_DIR, CATALOG_DEFAULT_DIR
 # include "../../shared/defines.hpp"	// INSTANCE_SEPARATOR
 # include <cctype>
+# include <cstdlib>					// std::getenv
 # include <fstream>
 
 using json = nlohmann::json;
@@ -96,10 +98,20 @@ std::string humanize(const std::string& id)
 
 Catalog::Catalog()
 {
-	loadFile("game/ressources/items.json");
-	loadFile("game/ressources/npc.json");
-	loadFile("game/ressources/quests.json");
-	loadFile("game/ressources/room.json");
+	// The world files may live anywhere: the environment wins when it is set.
+	// Without it, the default path is relative to the working directory.
+	const char* environment = std::getenv(ENV_CATALOG_DIR);
+	std::string directory = (environment != nullptr && *environment != '\0')
+		? environment : CATALOG_DEFAULT_DIR;
+
+	// A trailing separator keeps the concatenation below simple
+	if (!directory.empty() && directory.back() != '/')
+		directory += '/';
+
+	loadFile(directory + "items.json");
+	loadFile(directory + "npc.json");
+	loadFile(directory + "quests.json");
+	loadFile(directory + "room.json");
 }
 
 bool Catalog::loadFile(const std::string& filePath)

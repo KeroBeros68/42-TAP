@@ -6,7 +6,7 @@
 # include "widgets/game_window_widgets.hpp"
 # include <QHBoxLayout>
 # include "../error_window/tap_error_window.hpp"
-#include "../../../../client.hpp"
+#include "../../../../state/session.hpp"
 
 class TAPGameWindow : public TAPBaseWindow
 {
@@ -30,14 +30,30 @@ class TAPGameWindow : public TAPBaseWindow
 
         // Windows
         TAPErrorWindow	    &_error_window;
-        Client      	    &_client;
+        Session     	    &_session;
+
+        // One redraw per section, each reading the state it needs.
+        // ids -> {id, display name}: the Catalog turns opaque ids into text.
+        std::map<std::string, std::string> named(const std::vector<std::string> &ids) const;
+        std::vector<std::map<std::string, std::string>> chat_lines(const std::vector<ChatLine> &lines) const;
+
+        void update_room_section();
+        void update_inventory_section();
+        void update_status_section();
+        void update_counters_section();
+        void update_chat_section();
+        void update_log_section();
 
     public:
         // Constructor
         TAPGameWindow(
-            Client          &client,
+            Session         &session,
             TAPErrorWindow  &error_window
         );
+
+        // Read the state of the session and redraw one part of the window.
+        // The window never parses a protocol line: it reads GameState only.
+        void update_gui(Section section);
 
         // Update labels
         void update_players_in_room_label(int value);
