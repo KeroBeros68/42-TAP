@@ -23,6 +23,11 @@ add_executable(${PROJECT_NAME}
     ../client.cpp
     ../../shared/signalFd.cpp
 
+    # Local game state (pure C++17, no Qt)
+    ../state/message.cpp
+    ../state/catalog.cpp
+    ../state/session.cpp
+
     # Windows
     src/windows/base_window/tap_base_window.cpp
     src/windows/connection_window/tap_connection_window.cpp
@@ -55,6 +60,11 @@ add_executable(${PROJECT_NAME}
 # Dossiers de recherche pour les includes :
 #  - la racine du projet : permet "#include "globals.hpp"" depuis n'importe quel fichier
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# The catalog reads the world files straight from the repository, wherever the
+# executable is started from. TAP_CATALOG_DIR still overrides it at runtime.
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    CATALOG_DEFAULT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../game/ressources/")
 
 # Libraries a ajouter pour chaque executable
 target_link_libraries(${PROJECT_NAME} Qt5::Widgets)

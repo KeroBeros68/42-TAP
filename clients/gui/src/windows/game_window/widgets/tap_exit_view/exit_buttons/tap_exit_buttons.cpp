@@ -1,7 +1,8 @@
 #include "tap_exit_buttons.hpp"
 # include "../../../../../custom_ui_elements/custom_ui_elements.hpp"
 
-TAPExitButtons::TAPExitButtons()
+TAPExitButtons::TAPExitButtons(Session &session)
+    : _session(session)
 {
     // Apply style each to button, and add them to the layout
     for (int i = 0; i < 4; i++)
@@ -22,7 +23,7 @@ TAPExitButtons::TAPExitButtons()
             &QPushButton::clicked,
             this,
             [this, direction] {
-                std::cout << "[WIP] MOVE " << direction << std::endl;
+                this->_session.send("MOVE", direction);
         });
     }
 

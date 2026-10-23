@@ -2,6 +2,7 @@
 # define TAP_EXIT_BUTTONS_HPP
 
 # include "../../../../../custom_ui_elements/custom_ui_elements.hpp"
+# include "../../../../../../../state/session.hpp"
 # include <iostream>
 # include <map>
 # include <string>
@@ -14,9 +15,10 @@ class TAPExitButtons : public QWidget
         QVBoxLayout _layout;
         TAPButton _buttons[4];
         std::map<std::string, std::string> _exit_names;
+        Session     &_session;
 
     public:
-        TAPExitButtons();
+        explicit TAPExitButtons(Session &session);
 
         void update_available_exits(std::map<std::string, std::string> data);
 };

@@ -1,8 +1,8 @@
 #include "tap_action_buttons.hpp"
 #include "globals.hpp"
 
-TAPActionButtons::TAPActionButtons(Client &client)
-    : _client(client)
+TAPActionButtons::TAPActionButtons(Session &session)
+    : _session(session)
 {
     // List of actions available according to the subject (V.4)
     const char *actions[7] = {
@@ -27,7 +27,9 @@ TAPActionButtons::TAPActionButtons(Client &client)
             &QPushButton::clicked,
             this,
             [this, action] {
-                this->_client.send(std::string(action));
+                // GROUP alone means nothing to the server: the sub-command
+                // depends on the screen, so it stays a plain command for now
+                this->_session.send(std::string(action));
         });
     }
 };

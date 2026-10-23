@@ -5,6 +5,7 @@
 
 #include "src/windows/windows.hpp"
 #include "../client.hpp"
+#include "../state/session.hpp"
 #include "globals.hpp"
 #include <stdlib.h>
 
@@ -22,23 +23,14 @@ int main(int argc, char *argv[])
 	// Communication client.
 	Client client = Client();
 
-	// "OK" and "ERR" handlers are defined by TAPConnectionWindow,
-	// whose constructor runs after this one and replaces them
-	client.defineAction("EVT", [](const std::string &args) {
-		std::cout << "EVT " << args << std::endl;
-	});
-
-	// Poll the server socket from the Qt event loop so responses
-	// get read and dispatched to the actions above
-	QTimer server_timer;
-	QObject::connect(&server_timer, &QTimer::timeout, [&client] {
-		client.update(0);
-	});
-	server_timer.start(50);
+	// The Session owns the three network actions: "OK", "ERR" and "EVT".
+	// It calls listen() below, and no other object may call defineAction
+	// on those types, or it would steal them.
+	Session session(client);
 
 	TAPErrorWindow			error_window;
 	TAPGameWindow			game_window = TAPGameWindow(
-		client,
+		session,
 		error_window
 	);
 
@@ -47,9 +39,34 @@ int main(int argc, char *argv[])
 		WINDOW_WIDTH,
 		WINDOW_HEIGHT,
 		client,
+		session,
 		error_window,
 		game_window
 	);
+
+	// Every line now goes through the Session: the windows observe the state
+	session.listen();
+
+	// There is ONE onChanged slot, so main.cpp owns it and hands the section
+	// to both windows. Each window ignores the sections it does not draw.
+	session.onChanged([&connection_window, &game_window](Section section) {
+		connection_window.onStateChanged(section);
+		game_window.update_gui(section);
+	});
+
+	// Poll the server socket from the Qt event loop.
+	//  update() returns false when there is no socket, which is the state
+	//  before the first Connect and after a disconnect: only a tick that
+	//  loses an open connection is a disconnection.
+	//  The timer keeps running, so a later Connect is served by the same one.
+	QTimer server_timer;
+	QObject::connect(&server_timer, &QTimer::timeout, [&client, &session] {
+		if (!client.isConnected())
+			return;
+		if (!client.update(0))
+			session.handleDisconnect();
+	});
+	server_timer.start(50);
 	connection_window.show();
 
 	// // Error window

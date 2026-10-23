@@ -81,6 +81,16 @@ class Session
 		void	applyInventory(const std::string& data);
 		void	applyStatus(const std::string& data);
 		void	applyWho(const std::string& data);
+		void	applyMove(const std::string& data);
+		void	applyTake(const std::string& data);
+		void	applyDrop(const std::string& data);
+		void	applyTalk(const std::string& data);
+
+		// ATTACK, DEFEND and FLEE share one answer format: one handler for all three
+		void	applyCombat(const std::string& command, const std::string& data);
+
+		// GROUP CREATE / JOIN / LEAVE: args says which one we asked
+		void	applyGroup(const std::string& args, const std::string& data);
 
 		// Route one event. Events never consume the queue.
 		void	handleEvent(const ServerMessage& message);
@@ -94,14 +104,30 @@ class Session
 		// args may be empty: send("LOOK") sends exactly "LOOK".
 		void	send(const std::string& command, const std::string& args = "");
 
+		// Take the three actions of the Client ("OK", "ERR", "EVT").
+		// Client keeps ONE handler per type: whoever calls this last owns them,
+		// so nobody else must call defineAction on these three types.
+		void	listen();
+
 		// Feed one line from the server, without its line end.
 		void	handleLine(const std::string& line);
+
+		// Client::update() returned false: the socket is gone.
+		void	handleDisconnect();
+
+		// A new connection is about to start: forget the previous game.
+		// The HELLO greeting opens the queue again, as at construction.
+		void	restart();
 
 		// Called once per change, with the part that changed.
 		void	onChanged(std::function<void(Section)> callback);
 
 		// The GUI reads this; only the Session writes into it.
 		const GameState&	state() const;
+
+		// The GUI reads this too, to turn the ids of the state into names.
+		// Read only: the catalog is filled once, at construction.
+		const Catalog&	catalog() const;
 };
 
 #endif

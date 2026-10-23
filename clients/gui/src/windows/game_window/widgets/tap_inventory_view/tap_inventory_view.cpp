@@ -2,7 +2,8 @@
 #include "globals.hpp"
 #include <iostream>
 
-TAPInventoryView::TAPInventoryView()
+TAPInventoryView::TAPInventoryView(Session &session)
+    : _session(session)
 {
     // Section title
     this->_section_title.setText("INVENTORY");
@@ -20,7 +21,7 @@ TAPInventoryView::TAPInventoryView()
             this,
             [this] {
                 if (this->get_selected_item_id() == "") {return ;}
-                std::cout << "[WIP] DROP " << this->get_selected_item_id() << std::endl;
+                this->_session.send("DROP", this->get_selected_item_id());
         });
 
     this->setLayout(&this->_layout);

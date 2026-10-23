@@ -6,8 +6,10 @@
 #include <algorithm>
 
 // constructor
-TAPGameWindow::TAPGameWindow(Client &client, TAPErrorWindow  &error_window)
-    : _client(client), _error_window(error_window), action_buttons(client)
+TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
+    : exit_view(session), ground_items_view(session), inventory_view(session),
+    npc_talk_view(session), action_buttons(session),
+    _error_window(error_window), _session(session)
 {
     // Set window properties, clamped to the screen's available geometry
     //  (the menu bar and the dock are excluded from availableGeometry)
@@ -45,6 +47,97 @@ TAPGameWindow::TAPGameWindow(Client &client, TAPErrorWindow  &error_window)
     //  so every client print (WIP actions, etc.) shows in the logs
     this->log_view.install_as_cout();
 };
+
+// ============================================================
+// State -> widgets
+// ============================================================
+
+// Turn a list of ids into {id, display name}.
+// The id stays the key: it is what the server expects back in TAKE/DROP/...
+// The name is only what the player reads.
+std::map<std::string, std::string> TAPGameWindow::named(const std::vector<std::string> &ids) const
+{
+    std::map<std::string, std::string> result;
+    for (const std::string &id : ids)
+        result[id] = this->_session.catalog().name(id);
+    return result;
+}
+
+// Turn ChatLine{from, text} into the maps the chat widgets expect.
+std::vector<std::map<std::string, std::string>> TAPGameWindow::chat_lines(const std::vector<ChatLine> &lines) const
+{
+    std::vector<std::map<std::string, std::string>> result;
+    for (const ChatLine &line : lines)
+        result.push_back({{"author", line.from}, {"content", line.text}});
+    return result;
+}
+
+void TAPGameWindow::update_gui(Section section)
+{
+    switch (section)
+    {
+        case Section::Connection:   // handled by TAPConnectionWindow
+            break;
+        case Section::Room:         this->update_room_section(); break;
+        case Section::Inventory:    this->update_inventory_section(); break;
+        case Section::Status:       this->update_status_section(); break;
+        case Section::Combat:       this->update_status_section(); break; // same labels
+        case Section::Counters:     this->update_counters_section(); break;
+        case Section::Chat:         this->update_chat_section(); break;
+        case Section::Group:        break; // no group widget yet
+        case Section::Log:          this->update_log_section(); break;
+    }
+}
+
+// Name, description, exits, items on the floor, npcs in the room
+void TAPGameWindow::update_room_section()
+{
+    const GameState &state = this->_session.state();
+
+    this->room_view.update_room_name(state.room.name);
+    this->room_view.update_room_description(state.room.description);
+
+    // The exit view shows the destination names, not their ids
+    std::map<std::string, std::string> exits;
+    for (const auto &[direction, id] : state.room.exits)
+        exits[direction] = this->_session.catalog().name(id);
+    this->exit_view.update_available_exits(exits);
+
+    this->ground_items_view.update_ground_items(this->named(state.items));
+    this->npc_talk_view.update_npcs(this->named(state.npcs));
+}
+
+void TAPGameWindow::update_inventory_section()
+{
+    this->inventory_view.update_inventory(this->named(this->_session.state().inventory));
+}
+
+// No health bar widget exists yet. When one is added, this is where
+// state.hp, state.max_hp and state.combat are handed to it.
+void TAPGameWindow::update_status_section()
+{
+    this->update_counters_section();
+}
+
+void TAPGameWindow::update_counters_section()
+{
+    const GameState &state = this->_session.state();
+    this->update_players_in_room_label(static_cast<int>(state.players.size()));
+    this->update_total_players_label(state.server_players);
+}
+
+void TAPGameWindow::update_chat_section()
+{
+    const GameState &state = this->_session.state();
+    this->chat_tabs.update_global_messages(this->chat_lines(state.chat_global));
+    this->chat_tabs.update_room_messages(this->chat_lines(state.chat_room));
+    this->chat_tabs.update_group_messages(this->chat_lines(state.chat_group));
+}
+
+void TAPGameWindow::update_log_section()
+{
+    this->log_view.update_logs(this->_session.state().log);
+}
 
 void TAPGameWindow::update_players_in_room_label(int value)
 {

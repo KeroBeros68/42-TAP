@@ -40,6 +40,11 @@ struct GameState {
 	Phase		phase = Phase::DISCONNECTED;
 	std::string	me;	// our player name, once connected
 
+	// The last ERR received, as "code NAME" (for instance "201 NAME_IN_USE").
+	// Cleared when a command is sent: a new attempt must not inherit the
+	// failure of the previous one. The connection screen shows it.
+	std::optional<std::string>	last_error;
+
 	// The room we are in, as last seen
 	struct Room {
 		std::string	id;				// "loc.square"

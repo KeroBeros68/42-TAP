@@ -1,7 +1,8 @@
 #include "tap_exit_view.hpp"
 #include "globals.hpp"
 
-TAPExitView::TAPExitView()
+TAPExitView::TAPExitView(Session &session)
+    : _exit_buttons_widget(session)
 {
     // Label configuration
     this->_label_exits.setText(DEFAULT_EXIT_SECTION_LABEL_NAME);

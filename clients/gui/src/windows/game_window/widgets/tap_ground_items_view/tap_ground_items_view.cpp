@@ -1,7 +1,8 @@
 #include "tap_ground_items_view.hpp"
 #include <iostream>
 
-TAPGroundItemsView::TAPGroundItemsView()
+TAPGroundItemsView::TAPGroundItemsView(Session &session)
+    : _session(session)
 {
     // Section title
     this->_section_title.setText("GROUND ITEMS");
@@ -19,7 +20,7 @@ TAPGroundItemsView::TAPGroundItemsView()
             this,
             [this] {
                 if (this->get_selected_item_id() == "") {return ;}
-                std::cout << "[WIP] TAKE " << this->get_selected_item_id() << std::endl;
+                this->_session.send("TAKE", this->get_selected_item_id());
         });
 
     this->setLayout(&this->_layout);

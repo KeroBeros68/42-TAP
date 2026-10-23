@@ -51,44 +51,42 @@ std::string TAPConnectionWindow::getUsername()
     return this->_username_filed.text().toStdString();
 };
 
-// onServerOk
-void TAPConnectionWindow::onServerOk(const std::string &args)
+// onStateChanged
+//  The Session updates the state; this window only reads it.
+//  Two moments matter here: the authentication succeeded (enter the game),
+//  and an error arrived while we were waiting (show it, let the player retry).
+void TAPConnectionWindow::onStateChanged(Section section)
 {
-    // The greeting arrives right after connect(), before the answer to CONNECT
-    if (args.rfind("hello", 0) == 0) {
-        std::cout << "[OK] " << args << std::endl;
+    if (section != Section::Connection)
         return;
-    }
+
+    const GameState &state = this->_session.state();
 
     // "OK connected": the name was accepted, enter the game
-    if (this->_awaiting_connect && args == "connected") {
+    if (this->_awaiting_connect
+        && state.phase == GameState::Phase::AUTHENTICATED)
+    {
         this->_awaiting_connect = false;
-        std::cout << "[OK] " << args << std::endl;
         this->_game_window.show();
         this->hide();
         return;
     }
 
-    std::cout << "[OK] " << args << std::endl;
-};
+    // The CONNECT was refused: the server closed nothing, but we give up
+    // on this attempt and let the player change a field and try again
+    if (this->_awaiting_connect && state.last_error.has_value())
+    {
+        this->_awaiting_connect = false;
 
-// onServerErr
-void TAPConnectionWindow::onServerErr(const std::string &args)
-{
-    std::cout << "[ERR] " << args << std::endl;
-
-    // Before entering the game, an error can only be the answer to CONNECT
-    if (!this->_awaiting_connect)
-        return;
-    this->_awaiting_connect = false;
-
-    // args is "201 NAME_IN_USE": show the error, then let the player retry
-    std::string message = "The server refused the connection: " + args;
-    if (args.find("NAME_IN_USE") != std::string::npos)
-        message = "This player name is already in use.";
-    this->_client.disconnect();
-    this->_error_window.setErrorMessage(message);
-    this->_error_window.show();
+        // "201 NAME_IN_USE": a friendlier wording for the only error we know
+        std::string message = "The server refused the connection: "
+            + *state.last_error;
+        if (state.last_error->find("NAME_IN_USE") != std::string::npos)
+            message = "This player name is already in use.";
+        this->_client.disconnect();
+        this->_error_window.setErrorMessage(message);
+        this->_error_window.show();
+    }
 };
 
 // connectToServer
@@ -100,8 +98,9 @@ void TAPConnectionWindow::connectToServer()
     // Server connection
     try {
         _client.connect();
+        this->_session.restart(); // a new game: no leftover from the last one
         this->_awaiting_connect = true;
-        _client.send(std::string("CONNECT ") + this->getUsername().c_str());
+        this->_session.send("CONNECT", this->getUsername());
     }
     catch (const std::exception &e) {
         this->_error_window.setErrorMessage(e.what());
@@ -114,8 +113,8 @@ void TAPConnectionWindow::connectToServer()
 
 // Init window with elements
 TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, int height,
-    Client &client, TAPErrorWindow &err_window, TAPGameWindow &game_window)
-    : _client(client), _error_window(err_window), _game_window(game_window)
+    Client &client, Session &session, TAPErrorWindow &err_window, TAPGameWindow &game_window)
+    : _client(client), _session(session), _error_window(err_window), _game_window(game_window)
 {
     this->_username = findSystemUsername();
 
@@ -154,13 +153,9 @@ TAPConnectionWindow::TAPConnectionWindow(std::string window_title, int width, in
 	this->_layout.addStretch();
 	this->setLayout(&this->_layout);
 
-    // Server answers: defineAction keeps one handler per type, so printing is done here too
-	this->_client.defineAction("OK", [this](const std::string &args) {
-		this->onServerOk(args);
-	});
-	this->_client.defineAction("ERR", [this](const std::string &args) {
-		this->onServerErr(args);
-	});
+    // The lines are read by the Session (main.cpp calls session.listen()).
+    // main.cpp also owns the single onChanged slot, and calls onStateChanged()
+    // on this window: there is only one slot, so a window must not take it.
 
     // Connect button
 	this->connect(&this->_button,

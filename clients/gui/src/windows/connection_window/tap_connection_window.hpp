@@ -5,6 +5,7 @@
 #include "../../custom_ui_elements/custom_ui_elements.hpp"
 # include <iostream>
 #include "../../../../client.hpp"
+#include "../../../../state/session.hpp"
 # include "../error_window/tap_error_window.hpp"
 # include "../game_window/tap_game_window.hpp"
 
@@ -16,6 +17,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 		std::string _remote_port	= "8080"; // Server port
 		bool			_awaiting_connect = false; // CONNECT was sent, the answer is not read yet
 		Client			&_client;
+		Session			&_session; // observe its state, never the network lines
         TAPErrorWindow	&_error_window;
         TAPGameWindow	&_game_window;
 
@@ -34,6 +36,7 @@ class TAPConnectionWindow : public TAPBaseWindow
 			int width,
 			int height,
 			Client &client,
+			Session &session,
 			TAPErrorWindow &err_window,
 			TAPGameWindow &game_window
 		);
@@ -53,9 +56,9 @@ class TAPConnectionWindow : public TAPBaseWindow
 		// Connection related functions
 		void		connectToServer();
 
-		// Server answers
-		void		onServerOk(const std::string &args);
-		void		onServerErr(const std::string &args);
+		// Redraw whatever the session's state changed.
+		// main.cpp owns the single onChanged slot and calls this one.
+		void		onStateChanged(Section section);
 };
 
 #endif // !CONNECTION_WINDOW_HPP

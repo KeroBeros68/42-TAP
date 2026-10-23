@@ -14,7 +14,7 @@ class TAPExitView : public TAPGameSectionWidget
 
 
     public:
-        TAPExitView();
+        explicit TAPExitView(Session &session);
 
         void update_available_exits(std::map<std::string, std::string> data);
 };
