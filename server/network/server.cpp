@@ -61,7 +61,7 @@ Server::Session::Session(int fd, const std::string& ip, long long id) : conn(fd,
 
 //######################## CONSTRUCTORS ########################
 
-Server::Server() {}
+Server::Server(const ServConfig& config) : _config(config) {}
 
 Server::~Server() {
 	if (_listen_socket != INVALID_FD) {
@@ -87,7 +87,7 @@ void Server::readFrom(Session& s) {
 	char buff[RECV_BUFFER_SIZE];
 	size_t total = 0;
 
-	while (total < MAX_READ_PER_TURN) {
+	while (total < _config.max_read_per_turn) {
 		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
 		if (n > 0) {
 			c.appendIn(buff, n);
@@ -127,19 +127,19 @@ void Server::readFrom(Session& s) {
 
 bool Server::allowCommand(Session& s) {
 	const auto now = std::chrono::steady_clock::now();
-	if (now - s.window_start >= std::chrono::milliseconds(COMMAND_WINDOW_MS)) {
+	if (now - s.window_start >= std::chrono::milliseconds(_config.command_window_ms)) {
 		s.flood_windows = s.window_flooded ? s.flood_windows : 0;
 		s.window_start = now;
 		s.window_commands = 0;
 		s.window_flooded = false;
 	}
-	if (++s.window_commands <= MAX_COMMANDS_PER_WINDOW)
+	if (++s.window_commands <= _config.max_commands_per_window)
 		return true;
 	if (!s.window_flooded) {
 		s.window_flooded = true;
 		++s.flood_windows;
 		LOG_WARN("command flooding", {"client", s.user.id()}, {"ip", s.conn.ip()}, {"player", playerName(s.user)}, {"windows", s.flood_windows});
-		if (s.flood_windows >= MAX_FLOOD_WINDOWS) {
+		if (s.flood_windows >= _config.max_flood_windows) {
 			LOG_WARN("flooding goes on, disconnecting", {"client", s.user.id()}, {"ip", s.conn.ip()});
 			s.conn.setClosing(true);
 		}
@@ -151,7 +151,7 @@ bool Server::allowConnection(const std::string& ip) {
 	const auto now = std::chrono::steady_clock::now();
 	for (auto it = _recent_connects.begin(); it != _recent_connects.end();) {
 		std::deque<std::chrono::steady_clock::time_point>& times = it->second;
-		while (!times.empty() && now - times.front() >= std::chrono::milliseconds(CONNECT_WINDOW_MS))
+		while (!times.empty() && now - times.front() >= std::chrono::milliseconds(_config.connect_window_ms))
 			times.pop_front();
 		it = times.empty() ? _recent_connects.erase(it) : std::next(it);
 	}
@@ -161,16 +161,16 @@ bool Server::allowConnection(const std::string& ip) {
 		if (session.second.conn.ip() == ip)
 			++same_ip;
 	}
-	if (_sessions.size() >= MAX_SESSIONS) {
+	if (_sessions.size() >= _config.max_sessions) {
 		LOG_WARN("too many clients, refusing a connection", {"ip", ip}, {"clients", _sessions.size()});
 		return false;
 	}
-	if (same_ip >= MAX_SESSIONS_PER_IP) {
+	if (same_ip >= _config.max_sessions_per_ip) {
 		LOG_WARN("too many clients for one address, refusing a connection", {"ip", ip}, {"clients", same_ip});
 		return false;
 	}
 	std::deque<std::chrono::steady_clock::time_point>& times = _recent_connects[ip];
-	if (times.size() >= MAX_CONNECTS_PER_WINDOW) {
+	if (times.size() >= _config.max_connects_per_window) {
 		LOG_WARN("connections too fast, refusing a connection", {"ip", ip}, {"connections", times.size()});
 		return false;
 	}
@@ -229,7 +229,7 @@ Response Server::runAction(const std::function<Response(User&, const std::string
 
 void Server::reply(Connection& c, const std::string& line) {
 	c.appendOut(line + LINE_END);
-	if (c.out().size() > MAX_OUT_BUFFER && !c.isClosing()) {
+	if (c.out().size() > _config.max_out_buffer && !c.isClosing()) {
 		LOG_WARN("client does not read, disconnecting", {"ip", c.ip()}, {"bytes", c.out().size()});
 		c.setClosing(true);
 	}

@@ -4,8 +4,8 @@
 
 # include "../shared/protocol/event.hpp"
 # include "../shared/logging/logger.hpp"
-# include "../shared/system/loadenv.hpp"
 # include "protocol/commands.hpp"
+# include "config.hpp"
 
 //##############################################################################
 //#                                 FUNCTIONS                                  #
@@ -18,14 +18,15 @@
  * @return 0, or 1 after a fatal error
  */
 int main() {
-	loadDefaultEnv();
-	Logger::instance().setMinLevel(logLevelFromName(getEnv(ENV_LOG_LEVEL), LogLevel::Debug));
-	const std::string log_file = getEnv(ENV_LOG_FILE);
-	if (!log_file.empty() && !Logger::instance().openFile(log_file))
-		LOG_WARN("cannot open the log file", {"path", log_file});
+	ServConfig config;
+	config.loadServerConfig();
+
+	Logger::instance().setMinLevel(config.log_level);
+	if (!config.log_file.empty() && !Logger::instance().openFile(config.log_file))
+		LOG_WARN("cannot open the log file", {"path", config.log_file});
 
 	try {
-		Server server;
+		Server server(config);
 		Game game;
 
 		registerCommands(server, game);
@@ -33,7 +34,7 @@ int main() {
 			game.removePlayer(user.id());
 		});
 
-		server.start(static_cast<size_t>(getEnvInt(ENV_PORT, SERVER_PORT, MIN_PORT, MAX_PORT)));
+		server.start(static_cast<size_t>(config.port));
 
 		while (server.getStatus()) {
 			try {
