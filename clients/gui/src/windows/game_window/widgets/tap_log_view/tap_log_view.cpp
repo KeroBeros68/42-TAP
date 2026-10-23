@@ -111,6 +111,21 @@ void TAPLogView::append_log(const std::string &line)
     this->_no_logs_label.hide();
 };
 
+// Remplacer tout le journal par les lignes données.
+// clear() puis append_log() ligne à ligne : le widget montre alors
+// exactement le journal de l'état, sans garder d'anciennes lignes.
+void TAPLogView::update_logs(const std::deque<std::string> &lines)
+{
+    this->_text_edit.clear();
+    if (lines.empty())
+    {
+        this->_no_logs_label.show();
+        return;
+    }
+    for (const std::string &line : lines)
+        this->append_log(line);
+}
+
 // L'ÉCHANGE D'ÉVIER (à appeler une seule fois).
 //
 // rdbuf() a deux comportements :

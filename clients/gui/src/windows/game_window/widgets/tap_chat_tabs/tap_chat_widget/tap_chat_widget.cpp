@@ -35,17 +35,24 @@ TAPChatWidget::~TAPChatWidget()
 	this->clear_messages_history();
 }
 
-void TAPChatWidget::add_message(std::map<std::string, std::string> message)
+void TAPChatWidget::update_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-	// add the message to the list
-	this->_messages.push_back(message);
+	// Drop the labels of the previous history, then rebuild them all.
+	// Rebuilding is cheap for a small chat and keeps one single path:
+	// the widget always shows exactly what it was given.
+	this->clear_messages_history();
 
-	TAPLabel *label = new TAPLabel();
-	label->setParent(&this->_messages_container);
-	label->setText((message["author"] + std::string(" : ") + message["content"]).c_str());
-	label->setWordWrap(true);
-	this->_messages_labels.push_back(label);
-	this->_messages_layout.insertWidget(this->_messages_layout.count() - 1, label); // before the stretch
+	for (const std::map<std::string, std::string> &message : messages)
+	{
+		this->_messages.push_back(message);
+
+		TAPLabel *label = new TAPLabel();
+		label->setParent(&this->_messages_container);
+		label->setText((message.at("author") + std::string(" : ") + message.at("content")).c_str());
+		label->setWordWrap(true);
+		this->_messages_labels.push_back(label);
+		this->_messages_layout.insertWidget(this->_messages_layout.count() - 1, label); // before the stretch
+	}
 }
 
 void TAPChatWidget::clear_messages_history()

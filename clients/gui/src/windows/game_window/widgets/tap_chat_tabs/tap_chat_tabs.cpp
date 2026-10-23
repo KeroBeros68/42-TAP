@@ -14,19 +14,19 @@ TAPChatTabs::TAPChatTabs()
     this->setLayout(&this->_layout);
 }
 
-void TAPChatTabs::add_global_message(std::map<std::string, std::string> data)
+void TAPChatTabs::update_global_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->_global_chat_widget.add_message(data);
+    this->_global_chat_widget.update_messages(messages);
 }
 
-void TAPChatTabs::add_room_message(std::map<std::string, std::string> data)
+void TAPChatTabs::update_room_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->_room_chat_widget.add_message(data);
+    this->_room_chat_widget.update_messages(messages);
 }
 
-void TAPChatTabs::add_group_message(std::map<std::string, std::string> data)
+void TAPChatTabs::update_group_messages(const std::vector<std::map<std::string, std::string>> &messages)
 {
-    this->_group_chat_widget.add_message(data);
+    this->_group_chat_widget.update_messages(messages);
 }
 
 void TAPChatTabs::clear_messages_history()
