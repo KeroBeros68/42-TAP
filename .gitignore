@@ -78,3 +78,5 @@ tools
 /third_party/
 
 .env
+
+.log

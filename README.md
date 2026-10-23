@@ -107,6 +107,15 @@ The server and the CLI client read a few settings from the environment, with the
 | `SERVER_IP` | clients | address of the server | `127.0.0.1` |
 | `LOG_LEVEL` | server | lowest level of the logs: `debug`, `info`, `warn` or `error` | `debug` |
 | `LOG_FILE` | server | file where the logs are also written, at its end (the console output stays) | none |
+| `MAX_OUT_BUFFER` | server | bytes waiting to be sent to a client before he is disconnected (abuse limit; a value out of its bounds is ignored) | `65536` |
+| `MAX_READ_PER_TURN` | server | bytes read from a client in one turn of the loop (abuse limit; a value out of its bounds is ignored) | `16384` |
+| `COMMAND_WINDOW_MS` | server | length of the window in which the commands of a client are counted (abuse limit; a value out of its bounds is ignored) | `1000` |
+| `MAX_COMMANDS_PER_WINDOW` | server | commands accepted from a client in one window (abuse limit; a value out of its bounds is ignored) | `20` |
+| `MAX_FLOOD_WINDOWS` | server | windows in a row over the limit before the client is disconnected (abuse limit; a value out of its bounds is ignored) | `3` |
+| `MAX_SESSIONS` | server | clients connected at the same time (abuse limit; a value out of its bounds is ignored) | `64` |
+| `MAX_SESSIONS_PER_IP` | server | clients connected at the same time from one address (abuse limit; a value out of its bounds is ignored) | `5` |
+| `CONNECT_WINDOW_MS` | server | length of the window in which the connections of an address are counted (abuse limit; a value out of its bounds is ignored) | `10000` |
+| `MAX_CONNECTS_PER_WINDOW` | server | connections accepted from one address in one window (abuse limit; a value out of its bounds is ignored) | `10` |
 
 Copy `.env.example` to `.env` at the root of the project to set them (the file is ignored by git). A variable that is already set in the shell wins over the file (`SERVER_PORT=9099 ./server/server`), and an invalid value (not a number, out of range, unknown level) is ignored and the default is used.
 
