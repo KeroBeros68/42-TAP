@@ -21,7 +21,8 @@ add_executable(${PROJECT_NAME}
 
     # Network (shared with the CLI client)
     ../client.cpp
-    ../../shared/signalFd.cpp
+    ../../shared/system/loadenv.cpp
+    ../../shared/system/signalFd.cpp
 
     # Local game state (pure C++17, no Qt)
     ../state/message.cpp

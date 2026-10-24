@@ -4,7 +4,7 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../../shared/event.hpp"	// EVT_ROOM, EVT_STATS
+# include "../../shared/protocol/event.hpp"	// EVT_ROOM, EVT_STATS
 # include <cstdlib>					// std::atoi
 
 //##############################################################################
@@ -22,11 +22,8 @@ const size_t	LOG_MAX_LINES = 500;
 // EVT_PRESENCE_ENTER is the whole sub-type and action ("PRESENCE ENTER").
 const char* const	EVT_PRESENCE = "PRESENCE";
 
-// Chat categories. event.hpp only names the room and server ones, and the
-// subject's chat scopes (GLOBAL, ROOM, GROUP) are ours to name.
-const char* const	EVT_GLOBAL = "GLOBAL";
-const char* const	EVT_GROUP = "GROUP";
-const char* const	EVT_CHAT = "CHAT";
+// The chat scopes (GLOBAL, ROOM, GROUP) and the chat type (CHAT) are named by
+// event.hpp: EVT_GLOBAL, EVT_GROUP and EVT_CHAT.
 
 bool	contains(const std::vector<std::string>& list, const std::string& value)
 {
