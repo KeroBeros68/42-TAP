@@ -30,6 +30,7 @@
 # include "../../shared/protocol/response.hpp"
 # include "../../shared/system/signalFd.hpp"
 # include "../../shared/protocol/success.hpp"
+# include "../config.hpp"
 # include "../defines.hpp"
 # include "connection.hpp"
 # include "user.hpp"
@@ -58,6 +59,9 @@ class Server {
 			 */
 			Session(int fd, const std::string& ip, long long id);
 		};
+
+		//########################## SETTINGS ##########################
+		ServConfig _config;
 
 		//############################ LOOP ############################
 		int _listen_socket = INVALID_FD;
@@ -143,8 +147,12 @@ class Server {
 
 	public:
 		//######################## CONSTRUCTORS ########################
-		/** Builds a server that does not listen yet. */
-		Server();
+		/**
+		 * Builds a server that does not listen yet.
+		 *
+		 * @param config the limits against abuse (the port is given to start())
+		 */
+		explicit Server(const ServConfig& config);
 
 		/** Closes the sockets of the server and of its clients. */
 		~Server();

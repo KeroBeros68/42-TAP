@@ -9,13 +9,22 @@
 # define SERVER_PORT		8080	// TCP port the server listens on and the clients connect to
 
 // -- Configuration ------------------------------------------------------------
-# define ENV_FILE			".env"			// file of the settings, in the folder of the project
-# define ENV_PORT			"SERVER_PORT"	// variable that overrides SERVER_PORT
-# define ENV_IP				"SERVER_IP"		// variable that overrides the address of the server, for the clients
-# define ENV_LOG_LEVEL		"LOG_LEVEL"		// variable for the lowest level of the logs: debug, info, warn or error
-# define ENV_LOG_FILE		"LOG_FILE"		// variable for the file where the logs are also written (none if empty)
-# define MIN_PORT			1				// lowest TCP port that can be used
-# define MAX_PORT			65535			// highest TCP port
+# define ENV_FILE						".env"			// file of the settings, in the folder of the project
+# define ENV_PORT						"SERVER_PORT"	// variable that overrides SERVER_PORT
+# define ENV_IP							"SERVER_IP"		// variable that overrides the address of the server, for the clients
+# define ENV_LOG_LEVEL					"LOG_LEVEL"		// variable for the lowest level of the logs: debug, info, warn or error
+# define ENV_LOG_FILE					"LOG_FILE"		// variable for the file where the logs are also written (none if empty)
+# define ENV_MAX_OUT_BUFFER				"MAX_OUT_BUFFER"				// variable that overrides MAX_OUT_BUFFER
+# define ENV_MAX_READ_PER_TURN			"MAX_READ_PER_TURN"			// variable that overrides MAX_READ_PER_TURN
+# define ENV_COMMAND_WINDOW_MS			"COMMAND_WINDOW_MS"			// variable that overrides COMMAND_WINDOW_MS
+# define ENV_MAX_COMMANDS_PER_WINDOW	"MAX_COMMANDS_PER_WINDOW"	// variable that overrides MAX_COMMANDS_PER_WINDOW
+# define ENV_MAX_FLOOD_WINDOWS			"MAX_FLOOD_WINDOWS"			// variable that overrides MAX_FLOOD_WINDOWS
+# define ENV_MAX_SESSIONS				"MAX_SESSIONS"				// variable that overrides MAX_SESSIONS
+# define ENV_MAX_SESSIONS_PER_IP		"MAX_SESSIONS_PER_IP"		// variable that overrides MAX_SESSIONS_PER_IP
+# define ENV_CONNECT_WINDOW_MS			"CONNECT_WINDOW_MS"			// variable that overrides CONNECT_WINDOW_MS
+# define ENV_MAX_CONNECTS_PER_WINDOW	"MAX_CONNECTS_PER_WINDOW"	// variable that overrides MAX_CONNECTS_PER_WINDOW
+# define MIN_PORT						1				// lowest TCP port that can be used
+# define MAX_PORT						65535			// highest TCP port
 
 // -- Chat ---------------------------------------------------------------------
 # define CHAT_SCOPE_GLOBAL	"GLOBAL"	// scope: every player of the server

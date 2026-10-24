@@ -91,6 +91,47 @@ void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) 
 	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + id));
 }
 
+//########################## EFFECTS ###########################
+
+int Game::regen(long long player_id, int amount) {
+	Player* player = findPlayer(player_id);
+	if (!player || player->stats().in_combat)
+		return 0;
+
+	const int before = player->stats().hp;
+	player->stats().heal(amount);
+	return player->stats().hp - before;
+}
+
+void Game::emitRegen(long long player_id, int gained) {
+	_events.send({player_id}, eventLine(EVT_ROOM, std::string(EVT_EFFECT) + CMD_SEPARATOR + EVT_EFFECT_HEALING + CMD_SEPARATOR + std::to_string(gained)));
+}
+
+void Game::applyRoomEffects(std::chrono::steady_clock::time_point now) {
+	for (const auto& [room_id, room] : _world.rooms) {
+		if (!room.effect())
+			continue;
+
+		const auto interval = std::chrono::seconds(room.effect()->interval_seconds);
+		auto due = _effect_due.find(room_id);
+		if (due == _effect_due.end()) {
+			_effect_due[room_id] = now + interval;
+			continue;
+		}
+		if (now < due->second)
+			continue;
+		due->second = now + interval;
+
+		for (long long player_id : room.currentPlayer()) {
+			const int gained = regen(player_id, room.effect()->amount);
+			if (gained > 0) {
+				emitRegen(player_id, gained);
+				LOG_INFO("room healed a player", {"client", player_id}, {"room", room_id}, {"hp", gained});
+			}
+		}
+	}
+}
+
 //############################ GROUP ###########################
 
 void Game::emitGroup(const std::vector<long long>& players_ids, const char* type, const std::string& data) {
@@ -425,6 +466,7 @@ ChatStatus Game::chat(long long player_id, ChatScope scope, const std::string& t
 
 void Game::tick(std::chrono::steady_clock::time_point now) {
 	_combat.update(now);
+	applyRoomEffects(now);
 	_respawns.update(now, _world, [this](const Room& room, const char* kind, const std::string& id) {
 		emitSpawn(room, kind, id);
 	});

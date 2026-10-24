@@ -105,7 +105,7 @@ bool loadDefaultEnv() {
 	return false;
 }
 
-long getEnvInt(const char* name, long fallback, long min, long max) {
+long getEnvInt(const char* name, long fallback, long min, long max, bool* rejected) {
 	const std::string text = getEnv(name);
 	if (text.empty())
 		return fallback;
@@ -113,7 +113,10 @@ long getEnvInt(const char* name, long fallback, long min, long max) {
 	errno = 0;
 	char* end = nullptr;
 	const long value = std::strtol(text.c_str(), &end, 10);
-	if (errno != 0 || *end != '\0' || value < min || value > max)
+	if (errno != 0 || *end != '\0' || value < min || value > max) {
+		if (rejected)
+			*rejected = true;
 		return fallback;
+	}
 	return value;
 }

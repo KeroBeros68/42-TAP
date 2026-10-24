@@ -3,19 +3,22 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-20 (seconde version) — régénéré après `GROUP` (commit `17d05bc`), la gestion des exceptions et le groupage des `send` (`f9ecfb1`) **et le travail non commité sur les protections anti-abus** (`server/network/server.cpp`, `server/defines.hpp`, README : état de l'arbre de travail au moment de l'audit — il compile et passe les tests ci-dessous). Mise à jour précédente du jour : `CHAT` (`3159d1b`). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-23 (seconde version) — régénéré après `26d9ae5` (`ServConfig`, commité) **et le travail non commité** qui le complète : avertissements sur les réglages invalides, `0` pour désactiver une limite, nouveaux codes `429 RATE_LIMITED` et `503 SERVER_BUSY` (`server.cpp`, `config.*`, `loadenv.*`, `errors.hpp`, README : état de l'arbre de travail — il compile et passe les tests ci-dessous). Mises à jour précédentes : 2026-10-23 (matin), 2026-10-21, 2026-10-20, 2026-10-19. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`, `LOG_LEVEL=info`). Scénarios de cette mise à jour : `QUIT` avant `CONNECT`, ligne complète de 2000 octets, rafale de 100 commandes, flood soutenu sur 4 secondes, 7 connexions simultanées depuis une même adresse. Les scénarios des mises à jour précédentes (chat, groupes, combat, événements, respawn, configuration) n'ont pas été rejoués : leur code n'a pas changé. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`). Scénarios de cette mise à jour : 7 clients simultanés (les refusés reçoivent-ils un message ?), rafale de 30 commandes, `MAX_COMMANDS_PER_WINDOW=0` + `MAX_SESSIONS_PER_IP=0` avec 200 commandes et 8 clients locaux, réglages invalides (`abc`, `0`, `5`), `MAX_OUT_BUFFER=0`. Le reste du serveur n'a pas changé depuis le 2026-10-21 et n'a pas été rejoué. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
-## 🟢 État général : 13 commandes RFC sur 15, tous les événements de la RFC émis, protection anti-abus et gestion des exceptions en place — il ne reste que les quêtes (`QUEST`/`QUESTS`) et la fin du README
+## 🟢 État général : 13 commandes RFC sur 15, tous les événements de la RFC émis, anti-abus, exceptions, logs en fichier et soin de salle — il ne reste que les quêtes (`QUEST`/`QUESTS`), les tests et la fin du README
 
 Mesuré en conditions réelles :
 
 - ✅ **`CHAT` — nouveau, vérifié** (`3159d1b`) : `CHAT GLOBAL` atteint tous les joueurs, `CHAT ROOM` seulement ceux de la salle (le joueur resté au village ne reçoit pas le message de la place), l'émetteur reçoit aussi son propre `EVT` (conforme à l'exemple du sujet §V.5 : `OK` puis `EVT GLOBAL CHAT alice Hello everyone`). Sont refusés en `ERR 400` : scope inconnu, message vide, caractère de contrôle (`\x01`), commande sans argument ; `CHAT GROUP` sans groupe → `ERR 401 NOT_IN_GROUP`. Limite de 256 octets (`MAX_CHAT_LENGTH`), UTF-8 valide, scope insensible à la casse, autorisé en combat.
-- ✅ **Détection et limitation des abus — nouveau, non commité, vérifié** (§V.1 « command flooding, rapid connections », le dernier grand manque du logging) : plus de **20 commandes par seconde** d'un client → les suivantes reçoivent `ERR 400` (vérifié : rafale de 100 → exactement 19 réponses normales + `CONNECT`, 81 `ERR 400`), `WARN command flooding` à chaque fenêtre fautive, et **déconnexion à la 3ᵉ fenêtre consécutive** (`flooding goes on, disconnecting`, vérifié sur un flood de 4 s : coupé après 90 réponses). **64 clients** au plus, **5 par adresse**, **10 connexions par adresse en 10 s** (vérifié : sur 7 connexions simultanées depuis 127.0.0.1, les 5 premières reçoivent `OK hello`, les 2 dernières sont fermées avec `WARN too many clients for one address`). Lecture de **16 Ko max par client et par tour** de boucle (un flood ne monopolise plus le `poll`) et déconnexion d'un client dont les données non envoyées dépassent **64 Ko** *(lecture de code : non atteignable sur loopback, le tampon noyau absorbe plusieurs Mo)*. Seuils en constantes (`server/defines.hpp`), décrits dans le README.
+- ✅ **Détection et limitation des abus — commité (`c1d92ba`), vérifié** (§V.1 « command flooding, rapid connections », le dernier grand manque du logging) : plus de **20 commandes par seconde** d'un client → les suivantes reçoivent `ERR 400` (vérifié : rafale de 100 → exactement 19 réponses normales + `CONNECT`, 81 `ERR 400`), `WARN command flooding` à chaque fenêtre fautive, et **déconnexion à la 3ᵉ fenêtre consécutive** (`flooding goes on, disconnecting`, vérifié sur un flood de 4 s : coupé après 90 réponses). **64 clients** au plus, **5 par adresse**, **10 connexions par adresse en 10 s** (vérifié : sur 7 connexions simultanées depuis 127.0.0.1, les 5 premières reçoivent `OK hello`, les 2 dernières sont fermées avec `WARN too many clients for one address`). Lecture de **16 Ko max par client et par tour** de boucle (un flood ne monopolise plus le `poll`) et déconnexion d'un client dont les données non envoyées dépassent **64 Ko** *(lecture de code : non atteignable sur loopback, le tampon noyau absorbe plusieurs Mo)*. Seuils en constantes (`server/defines.hpp`), décrits dans le README.
+- ✅ **Seuils anti-abus configurables (`26d9ae5`) et rendus sûrs — vérifié** : `ServConfig` (`server/config.*`) lit port, niveau et fichier de log **et les 9 limites** dans l'environnement ou `.env`, bornées. **Nouveau (non commité)** : (a) un réglage **non numérique ou hors bornes est ignoré avec un `WARN invalid setting ignored, default used`** qui nomme la variable et la valeur (vérifié : `MAX_SESSIONS=abc`, `MAX_FLOOD_WINDOWS=0`, `COMMAND_WINDOW_MS=5`, `MAX_OUT_BUFFER=0` tous signalés) ; (b) **`0` désactive** la limite de commandes, de clients ou de connexions (vérifié : `MAX_COMMANDS_PER_WINDOW=0` → 200 `WHO` sur 200 répondus ; `MAX_SESSIONS_PER_IP=0` → 8 clients locaux acceptés), sauf la limite en octets, qui ne peut pas être coupée ; (c) **un client refusé reçoit `ERR 503 SERVER_BUSY`** à la place du greeting avant la fermeture (vérifié sur les clients 5 et 7 d'un test à 7 connexions), et un flood reçoit **`ERR 429 RATE_LIMITED`** au lieu de `400` (vérifié : 11 réponses `429` sur une rafale de 30). Le tout est documenté dans le README (écart n°1c, tableau des messages de log) et `.env.example`.
+- ✅ **Soin par les salles — (`740e0d4`), vérifié** : une salle peut porter un `effect` dans `room.json` (`{"type":"healing","amount":10,"interval_seconds":5}`, aujourd'hui la chapelle). Vérifié : joueur blessé à 95 PV par le loup, marche jusqu'à la chapelle, reçoit `EVT ROOM EFFECT healing 5` (les PV réellement gagnés, plafonnés au maximum) puis `STATUS` → 100/100 ; rien n'est envoyé à pleine santé ; le soin est refusé en combat (`in_combat`). L'effet est validé au chargement (type inconnu, montant ou intervalle ≤ 0 → le serveur refuse de démarrer) et sa description est dans le README. C'est le premier usage de `Stats::heal()`.
+- ✅ **Logs dans un fichier — nouveau, vérifié** : `LOG_FILE` (env ou `.env`, `.env.example` mis à jour) écrit chaque ligne JSON, sans couleurs, à la fin du fichier en plus de la console (46 lignes identiques dans les deux sorties) ; un fichier inutilisable (`/nonexistent/x.log`) donne `WARN cannot open the log file` et le serveur continue. **README « Server Logging » rédigé** : format, niveaux, destinations, surveillance (`tail -f … | grep`), détection d'abus.
 - ✅ **Exceptions : plus de crash serveur** (`f9ecfb1`, commité) : `runAction` encadre chaque commande (`catch (const std::exception&)` et `catch (...)`) et répond `ERR 500 INTERNAL_ERROR` (documenté README écart 1b) ; la boucle de `main` encadre séparément le tour réseau (`network turn failed`) et le tour de jeu (`game turn failed`) ; le rappel de déconnexion est lui aussi protégé. *(Lecture de code : aucune action ne lève aujourd'hui, donc le chemin n'a pas pu être déclenché en réel.)*
 - ✅ **Corrections de protocole** : `QUIT` avant `CONNECT` est accepté (`OK bye`, vérifié) ; la limite de 1024 octets s'applique à **chaque ligne**, avec ou sans `\n` (vérifié : ligne de 2000 octets → `ERR 400` puis déconnexion, la commande suivante n'est pas exécutée) ; les événements sont mis en file puis envoyés **une fois par client et par tour** (`flushAll`).
 - ✅ **`GROUP` — vérifié, commité (`17d05bc`)** : `CREATE` → `OK group=group.1` (un second → `402 ALREADY_IN_GROUP`) ; `INVITE <joueur>` réservé au chef (4 joueurs maximum, `MAX_GROUP_SIZE`), l'invité reçoit `EVT GROUP INVITE <chef>` ; `JOIN <nom d'un membre>` → `OK group=group.1` et les membres reçoivent `EVT GROUP JOIN <joueur>` ; `LEAVE` → `EVT GROUP LEAVE <joueur>` aux restants ; `CHAT GROUP` n'arrive qu'aux membres (`EVT GROUP CHAT g1 salut`). Quitter la partie (`QUIT`/coupure) fait quitter le groupe (`removePlayer` → `leaveGroup`). Syntaxe conforme à la RFC §5.3 (`GROUP JOIN <leader-name>`).
@@ -24,8 +27,9 @@ Mesuré en conditions réelles :
 - ✅ **Événements `EVT`, combat au tour par tour avec initiative, `DEFEND`/`FLEE`, combat multijoueur, respawn annoncé** (acquis de la mise à jour précédente, code inchangé hors renommages).
 - ✅ **README v2** (460 lignes, +255) : sections Combat System (règles, formule, initiative, commandes, diffusion, justification), World Design (format, carte ASCII, rôles, items, validation), Configuration, tableau des 8 écarts à la RFC, tableau des événements. Il corrige tout ce que l'audit précédent relevait (casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411).
 - 🔴 **2 stubs restent** : `QUEST` et `QUESTS` répondent `OK Message received` ; le système de quêtes (3 quêtes en données, `quests.json` toujours non lu) n'existe pas. C'est désormais le seul grand manque fonctionnel du §V.1.
-- 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO`/`ERR 500` et décrit les limites anti-abus (paragraphe « Error handling », non commité), mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script), et sa sous-section « Abuse detection » (Server Logging) est toujours un titre vide.
-- 🔴 **Six sections du README restent vides** : Instructions, Quest System, **Server Logging**, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`).
+- 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO`/`ERR 500`, les limites anti-abus, `LOG_FILE`, `EVT ROOM EFFECT` et Server Logging, mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script).
+- 🔴 **Cinq sections du README restent vides** : Instructions, Quest System, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`). « Server Logging » est désormais rempli.
+- 🔴 **`log.txt` (131 lignes d'une session de développement, port 4563) est versionné** par le commit `740e0d4` et non ignoré par `.gitignore` : fichier généré à ne pas livrer (et à ajouter à l'ignore, ou à remplacer par `LOG_FILE=server.log` ignoré).
 
 ### Tableau de conformité §V.1 / §IV (serveur)
 
@@ -43,8 +47,9 @@ Mesuré en conditions réelles :
 | Quêtes (conception, validation, récompenses) | ❌ |
 | Déconnexion : état retiré **avant** le broadcast de départ | ✅ |
 | Logging : connexions/IP, commandes, réponses, monde, combat, JSON, niveaux, timestamps | ✅ ; niveau configurable ✅ |
-| Logging : détection d'abus (flood, connexions rapides) | ✅ (non commité) |
-| Logging : fichier / sortie configurable, quêtes | ❌ |
+| Logging : détection d'abus (flood, connexions rapides) | ✅ |
+| Logging : fichier de sortie configurable (`LOG_FILE`) | ✅ |
+| Logging : événements de quêtes | ❌ (pas de quêtes) |
 | Fragmentation / coalescing TCP (RFC §9.2) | ✅ |
 | Limite de longueur de ligne (RFC §9.4) | ⚠️ partielle |
 | Lint / install / run-server / clean (§VII.1) | ⚠️ `install-deps` ; `lint`, `run-server`, `run-client`, `run-client-gui` absents |
@@ -64,8 +69,8 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **Refus de connexion silencieux** : un client refusé (trop de clients, adresse saturée, reconnexions trop rapides) est fermé **sans `OK hello` ni `ERR`** — il ne peut pas distinguer la protection d'une panne réseau. De même, un flood est répondu par `ERR 400 BAD_REQUEST`, le même code qu'une erreur de syntaxe : aucun code ni message « slow down » (le README le décrit mais ne le justifie pas parmi ses écarts).
-2. **Seuils figés dans le code et valables aussi pour `127.0.0.1`** : 5 clients simultanés et 10 connexions en 10 s par adresse (`MAX_SESSIONS_PER_IP`, `MAX_CONNECTS_PER_WINDOW`), 20 commandes/s (`MAX_COMMANDS_PER_WINDOW`). Un évaluateur qui teste le multijoueur depuis **une seule machine** (CLI + GUI + scripts de charge) atteindra la limite par adresse ; elle devrait pouvoir se régler par `.env` (comme `SERVER_PORT`/`LOG_LEVEL`) ou être désactivée pour le loopback. Vérifié : le 6ᵉ client local est refusé.
+1. **Les nouveaux codes `429` et `503` s'ajoutent aux extensions hors RFC** (documentés, écart n°1c), et le refus de connexion est envoyé avec `MSG_DONTWAIT` sans vérifier l'écriture *(lecture de code)* : sur une socket saturée le message peut être perdu, ce qui retombe sur l'ancien comportement (fermeture sans explication).
+2. **Bornes encore larges** : `MAX_COUNT` = 10 000 et `MAX_OUT_BUFFER` jusqu'à 16 Mo ; `MAX_FLOOD_WINDOWS` ≥ 1 mais sans moyen de couper le flood tout de suite, et `0` désactive aussi bien la limite par adresse sur `127.0.0.1` que sur une adresse publique (il n'existe pas de réglage « loopback uniquement »).
 3. **Compteur de flood par session, remis à zéro à la reconnexion** : un client coupé pour flood peut revenir tout de suite (dans la limite de 10 connexions / 10 s) ; aucune sanction par adresse. Les 20 commandes/s comptent aussi les commandes invalides et `CONNECT`.
 4. **Coût des contrôles** *(lecture de code)* : `allowConnection` parcourt toutes les sessions pour compter l'adresse et purge toute la table `_recent_connects` à **chaque** `accept` — O(N + M) par connexion, sans conséquence à 64 clients.
 5. **Quelques arêtes restantes** : `accept` en échec répété (`EMFILE`) fait tourner la boucle à vide ; ids de session recyclés ; la limite `MAX_OUT_BUFFER` n'est vérifiée qu'à chaque tour (un gros `LOOK` peut la dépasser d'un coup) ; `server.hpp` inclut ~15 en-têtes.
@@ -82,7 +87,7 @@ Mesuré en conditions réelles :
 2. **`INVENTORY` renvoie un tableau JSON d'ids** (`serializeInventory`, via `nlohmann`, donc échappé et UTF-8 sûr) ; **`WHO` utilise `TapOk::PLAYERS`** (`OK players=<n>`), le format exact de la RFC §5.2.2.
 3. **Codes d'erreur précis par cas** (`403`, `404`, `405`, `301`, `409`-`411`), vérifiés lors des mises à jour précédentes.
 4. **Un seul endroit qui écrit le JSON de réponse**, champs en constantes `FIELD_*` ; `ATTACK`/`STATUS` étendent la RFC sans en retirer de champ (écart n°5 du README).
-5. **`main.cpp`** : charge `.env`, règle le niveau de log, lit le port ; `try/catch` global (`fatal error`, code 1) **et** par tour (`network turn failed`, `game turn failed`) — une erreur de jeu ne tue plus le serveur.
+5. **`main.cpp`** : construit un `ServConfig` (port, log, limites) lu en un seul endroit puis le passe au `Server` (`Server(const ServConfig&)`) — plus de `getEnv` dispersés ; `try/catch` global (`fatal error`, code 1) **et** par tour (`network turn failed`, `game turn failed`) — une erreur de jeu ne tue plus le serveur.
 
 ### ❌ Mauvais
 
@@ -129,7 +134,7 @@ Mesuré en conditions réelles :
 ### ❌ Mauvais
 
 1. **🔴 `quests.json` n'est toujours pas lu** (aucun `QuestDef`, aucune progression) ; `QUEST`/`QUESTS` stubs ; les 3 PNJ `quest_giver` répondent par un dialogue aléatoire comme les autres. Le README annonce honnêtement que les quêtes sont « described … but not used ».
-2. **Toujours aucun soin ni régénération** — `Stats::heal()` n'est appelé nulle part ; `item.herbs` (objet de la quête « Medicine for the Chapel ») ne soigne pas.
+2. **Soin limité à un lieu** : seule la chapelle soigne (`effect` dans `room.json`) ; `item.herbs` (objet de la quête « Medicine for the Chapel ») ne soigne toujours pas, il n'existe pas de commande d'utilisation d'objet, et un joueur à 5 PV loin de la chapelle ne peut que s'y rendre — or la chapelle est aussi le point de respawn. Le soin n'a lieu qu'entre deux combats et un PNJ blessé qui n'est pas tué ne guérit pas.
 3. **Un joueur AFK reste lié au combat indéfiniment** (le timeout joue un `DEFEND` à chaque tour) *(lecture de code)*, aucune règle de sortie après N timeouts ; **une fuite réussie téléporte vers une sortie au hasard**, possiblement dans le combat d'une autre salle.
 4. **Items inépuisables** (réapparition dans la salle d'origine même si l'original est gardé) et **PNJ qui réapparaît dans une salle occupée** sans délai de grâce ; non documenté.
 5. **Aucun test automatisé** malgré le design testable ; la section « Testing » du README est vide. `emitPlayerCount` envoie à tous les joueurs à chaque (dé)connexion (O(N)).
@@ -148,8 +153,8 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **Sortie des logs toujours non configurable** — `Logger::openFile` et `setOutput` ne sont toujours appelés nulle part : pas de fichier de log, pas de redirection (`LOG_FILE` serait la suite logique de `LOG_LEVEL`). La section « Server Logging » du README (formats, niveaux, destinations, surveillance) est un titre vide.
-2. **Valeurs invalides ignorées en silence** : `SERVER_PORT=abc` ou `99999` retombe sur 8080 sans le dire — l'utilisateur croit lancer un serveur sur son port et ne le voit qu'au démarrage (`"port":8080` dans le log INFO). Une ligne `WARN` à la lecture serait utile. De même `PORT=8080 # commentaire` (commentaire en fin de ligne) donne une valeur invalide ignorée.
+1. **`LOG_FILE` : pas de rotation ni de limite de taille**, `std::endl` (flush) à chaque ligne dans la console et dans le fichier, `args` des commandes non tronqués (une ligne de 1024 octets est journalisée en entier) ; le fichier est ouvert en ajout, donc il grossit indéfiniment. Les chemins relatifs (`LOG_FILE=server.log`) dépendent du dossier courant.
+2. **`.env` et variables d'environnement : un `SERVER_PORT` invalide est signalé mais le serveur démarre quand même** sur le défaut (8080) — avec un avertissement dans le log INFO/WARN, pas de refus de démarrer ; une faute de frappe sur le port passe donc inaperçue si l'on ne lit pas les logs. De même `PORT=8080 # commentaire` (commentaire en fin de ligne) rend la valeur invalide.
 3. **`.env` cherché par chemins relatifs** — depuis un autre dossier que `server/`, `clients/cli/`, la racine ou leurs parents, le fichier n'est pas trouvé et le défaut s'applique sans message ; `PROJECT_ROOT` (compilé) n'est pas réutilisé pour le localiser.
 4. **`shared/defines.hpp` mélange toujours** système, protocole, noms de champs JSON, règles de jeu et configuration (`ENV_*`, `MIN_PORT`) ; `INSTANCE_SEPARATOR`, `MAX_NAME_LENGTH`, `PLAYER_INVENTORY_CAPACITY` n'ont rien à y faire pour les clients.
 5. **Décalage horaire figé au démarrage** ; **erreurs `409`-`411` hors RFC** (documentées) proches de conventions HTTP sans rapport avec la plage 4xx de la RFC.
@@ -176,7 +181,7 @@ Mesuré en conditions réelles :
 
 ---
 
-## `README.md` — v2 (461 lignes, modifié dans l'arbre de travail)
+## `README.md` — v2 (520 lignes)
 
 ### ✅ Bon
 
@@ -190,7 +195,7 @@ Mesuré en conditions réelles :
 
 1. **L'arbre de travail a rattrapé le code** : `INVENTORY`, `WHO`, `CHAT` et `GROUP` sont déclarés implémentés (statut, tableau des commandes, événements `GLOBAL|ROOM CHAT` / `GROUP INVITE|JOIN|LEAVE|CHAT`, écart n°8 réduit à `QUEST`/`QUESTS`). Mais ces modifications du README ne sont **pas commitées** non plus, et il manque la description de la syntaxe `GROUP` dans le tableau des commandes.
 2. **🔴 « 15 NPC definitions » (toujours là)** (World Design) : `npc.json` en contient **16** (3 `dialogue_npc`, 3 `quest_giver`, 10 `enemy`) ; le tableau de rôles du README en cite bien 16 noms.
-3. **Sections vides exigées par le sujet** : **Server Logging**, **Testing**, **Quest System**, **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré.
+3. **Sections vides exigées par le sujet** : **Testing**, **Quest System**, **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré. (« Server Logging » est maintenant complet : format, niveaux, destinations, surveillance, abus.)
 4. **Choix `WHO` (RFC) vs exemple du sujet non expliqué** (voir `protocol/` ❌ 2) ; la grammaire des `EVT … COMBAT ROUND` n'est pas spécifiée.
 5. **Section Group Contributions** : trois « Member » prévus alors que seuls deux logins sont cités en tête ; à aligner avec l'historique git avant le rendu.
 
@@ -199,6 +204,17 @@ Mesuré en conditions réelles :
 ## Corrigés depuis l'audit initial
 
 Audits précédents (2026-10-02 → 2026-10-19) : `CONNECT`, hook de déconnexion, monde, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances, `locate()`, noms UTF-8, casse, respawn, README v1 et écarts, refactors, événements `EVT`, combat tour par tour, `DEFEND`/`FLEE`, diffusion du combat, raté visible, respawn annoncé, documentation du code.
+
+Depuis le 2026-10-23 (matin) :
+- **Valeurs de configuration rejetées en silence** → `WARN invalid setting ignored`. **Impossible de désactiver une limite** (y compris pour `127.0.0.1`) → `0`. **Client refusé sans explication** → `ERR 503 SERVER_BUSY`. **Flood répondu en `ERR 400`** → `ERR 429 RATE_LIMITED`. Vérifiés (non commités).
+- **`ServConfig`** commité (`26d9ae5`).
+
+Depuis le 2026-10-21 :
+- **Seuils anti-abus figés dans le code** → `ServConfig` + variables d'environnement bornées (commité `26d9ae5`). Vérifié.
+
+Depuis le 2026-10-20 (soir) :
+- **Anti-abus non commité** → commité (`c1d92ba`). **Sortie des logs non configurable** → `LOG_FILE`, vérifié (y compris le cas d'un fichier inutilisable). **Section README « Server Logging » vide** → rédigée.
+- **Aucun soin** (`Stats::heal` jamais appelé) → effet de salle `healing` (`740e0d4`), vérifié : `EVT ROOM EFFECT healing 5`.
 
 Depuis la mise à jour du 2026-10-20 (chat) :
 - **Aucune détection d'abus** → limite de débit, de clients, d'adresses, de reconnexions, de lecture et de tampon de sortie ; avertissements et déconnexion (non commité). Vérifié.
@@ -219,10 +235,10 @@ Depuis la mise à jour du matin du 2026-10-19 :
 
 ## Priorités (ordre suggéré)
 
-1. **README** : corriger « 15 NPC » → 16  écrire **Server Logging** (format JSON, niveaux, `LOG_LEVEL`, comment surveiller), **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
-2. **Commiter les protections anti-abus** (aujourd'hui seulement dans l'arbre de travail), rendre leurs seuils configurables et répondre explicitement à un client refusé ; **distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
+1. **README** : corriger « 15 NPC » → 16  écrire **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
+2. **Commiter les avertissements de configuration et les codes `429`/`503`** ; **distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
 3. **Quêtes** : parser `quests.json`, valider les références, `QUEST`/`QUESTS`, récompenses, lien avec les `quest_giver`.
-4. **Soin** (`Stats::heal` avec `item.herbs`) et règle de sortie pour un joueur AFK.
+4. **Usage d'objets** (`item.herbs` soigne) et règle de sortie pour un joueur AFK ; **retirer `log.txt` du dépôt** et l'ajouter au `.gitignore`.
 5. **Robustesse restante** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, cohérence des codes d'erreur (flood, refus).
-6. **Logger** : `LOG_FILE`, avertir quand une variable d'environnement est invalide.
+6. **Logger** : avertir quand une variable d'environnement est invalide ; rotation ou taille maximale du fichier.
 7. **Tests automatisés** du moteur de combat (`roll` injecté) et cibles Makefile §VII.1 (`lint`, `run-server`, `run-client`, `run-client-gui`, `test`).

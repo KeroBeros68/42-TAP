@@ -45,6 +45,11 @@
 # define JSON_EXITS				"exits"				// exits of a room
 # define JSON_COUNT				"count"				// number of objects created by a spawn
 # define JSON_RESPAWN_SECONDS	"respawn_seconds"	// delay before a spawned object comes back
+# define JSON_EFFECT			"effect"			// what a room does to the players in it
+# define JSON_TYPE				"type"				// kind of an effect
+# define JSON_HEALING			"healing"			// type of effect: gives hit points
+# define JSON_AMOUNT			"amount"			// hit points given by an effect, each time
+# define JSON_INTERVAL_SECONDS	"interval_seconds"	// seconds between two times an effect works
 # define JSON_START_ROOM		"start_room"		// room where a new player starts
 # define JSON_RESPAWN			"respawn"			// where and with how many hit points a dead player comes back
 # define JSON_ROOM				"room"				// room of the respawn
