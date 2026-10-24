@@ -51,8 +51,9 @@ std::string getEnv(const char* name, const std::string& fallback = "");
  *                 followed by other characters), or is out of the range
  * @param min      lowest value accepted
  * @param max      highest value accepted
+ * @param rejected set to true if the variable exists but was refused (not a number, or out of the range); left alone otherwise
  * @return         the number, or the fallback
  */
-long getEnvInt(const char* name, long fallback, long min, long max);
+long getEnvInt(const char* name, long fallback, long min, long max, bool* rejected = nullptr);
 
 #endif
