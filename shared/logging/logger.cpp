@@ -3,7 +3,7 @@
 //##############################################################################
 
 # include "logger.hpp"
-# include "utf8.hpp"
+# include "../text/utf8.hpp"
 
 //##############################################################################
 //#                                  HELPERS                                   #
@@ -149,4 +149,23 @@ void Logger::log(LogLevel level, const char* file, int line, const std::string& 
 
 	if (_file.is_open())
 		_file << json << std::endl;
+}
+
+//##############################################################################
+//#                                 FUNCTIONS                                  #
+//##############################################################################
+
+LogLevel logLevelFromName(const std::string& name, LogLevel fallback) {
+	std::string lower;
+	for (char c : name)
+		lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	if (lower == "debug")
+		return LogLevel::Debug;
+	if (lower == "info")
+		return LogLevel::Info;
+	if (lower == "warn")
+		return LogLevel::Warn;
+	if (lower == "error")
+		return LogLevel::Error;
+	return fallback;
 }

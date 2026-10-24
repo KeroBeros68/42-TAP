@@ -34,6 +34,7 @@ SRCS =	server.cpp \
 	commands.cpp \
 	game.cpp \
 	event_bus.cpp \
+	loadenv.cpp \
 	respawn_queue.cpp \
 	main.cpp \
 	item.cpp \
@@ -47,15 +48,17 @@ SRCS =	server.cpp \
 	utf8.cpp \
 	combat.cpp \
 	combat_manager.cpp \
-	serializer.cpp
+	group_manager.cpp \
+	serializer.cpp \
+	config.cpp
 
 # The game sources live in ../game
-vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared:../game/combat:../game/events
+vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared/logging:../shared/system:../shared/text:../game/combat:../game/events:../game/group
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
 
-INCLUDES = $(wildcard *.hpp) $(wildcard network/*.hpp) $(wildcard protocol/*.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
+INCLUDES = $(wildcard *.hpp) $(wildcard network/*.hpp) $(wildcard protocol/*.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../shared/*/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
 
 # Compilation
 CC = c++

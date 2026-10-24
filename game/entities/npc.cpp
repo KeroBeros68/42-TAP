@@ -4,7 +4,7 @@
 
 # include "npc.hpp"
 # include "../../shared/defines.hpp"
-# include "../../shared/random.hpp"
+# include "../../shared/system/random.hpp"
 
 //##############################################################################
 //#                                  NPC DEF                                   #

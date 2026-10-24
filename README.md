@@ -44,8 +44,9 @@ Because the protocol is the only contract between server and clients, our client
 The project is still in progress. At the time of writing:
 
 - ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
-- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT` and `EVT ROOM SPAWN`.
-- ❌ `CHAT`, `INVENTORY`, `QUEST`, `QUESTS`, `WHO` and `GROUP` are not implemented yet, so there are no `CHAT` and `GROUP` events either.
+- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
+- ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
+- ❌ `QUEST` and `QUESTS` are not implemented yet.
 - ⚠️ The quests are described in `game/ressources/quests.json` but are not used by the server yet.
 - ⚠️ The GUI client is not connected to the server yet.
 
@@ -84,7 +85,7 @@ make -C server        # build ./server/server, then start it
 ./server/server       # start it again later
 ```
 
-The server listens on TCP port **8080** (`SERVER_PORT` in `shared/defines.hpp`) and loads the world from `game/ressources/*.json`. It stops cleanly on `SIGINT`/`SIGTERM` (Ctrl+C). The JSON log is written while it runs (see [Server Logging](#-server-logging)).
+The server listens on TCP port **8080** by default (`SERVER_PORT` in `shared/defines.hpp`; see *Configuration* below to change it) and loads the world from `game/ressources/*.json`. It stops cleanly on `SIGINT`/`SIGTERM` (Ctrl+C). The JSON log is written while it runs (see [Server Logging](#-server-logging)).
 
 If you move the project folder after a build, run `make -C server re`: the absolute path of the project is compiled into the server to find the world files.
 
@@ -94,7 +95,29 @@ If you move the project folder after a build, run `make -C server re`: the absol
 make client           # build ./clients/cli/clientCLI and start it in the current terminal
 ```
 
-The client connects to `127.0.0.1:8080` (`SERVER_IP` in `clients/defines.hpp` and `SERVER_PORT` in `shared/defines.hpp`). To use another address, change these values and rebuild. Start the server first.
+The client connects to `127.0.0.1:8080` by default (`SERVER_IP` in `clients/defines.hpp`, `SERVER_PORT` in `shared/defines.hpp`). To use another address or port, see *Configuration* below. Start the server first.
+
+### ⚙️ Configuration
+
+The server and the CLI client read a few settings from the environment, with the values of `shared/defines.hpp` as defaults:
+
+| Variable | Used by | Meaning | Default |
+|---|---|---|---|
+| `SERVER_PORT` | server, clients | TCP port, from 1 to 65535 | `8080` |
+| `SERVER_IP` | clients | address of the server | `127.0.0.1` |
+| `LOG_LEVEL` | server | lowest level of the logs: `debug`, `info`, `warn` or `error` | `debug` |
+| `LOG_FILE` | server | file where the logs are also written, at its end (the console output stays) | none |
+| `MAX_OUT_BUFFER` | server | bytes waiting to be sent to a client before he is disconnected (abuse limit; a value out of its bounds is ignored) | `65536` |
+| `MAX_READ_PER_TURN` | server | bytes read from a client in one turn of the loop (abuse limit; a value out of its bounds is ignored) | `16384` |
+| `COMMAND_WINDOW_MS` | server | length of the window in which the commands of a client are counted (abuse limit; a value out of its bounds is ignored) | `1000` |
+| `MAX_COMMANDS_PER_WINDOW` | server | commands accepted from a client in one window (abuse limit; a value out of its bounds is ignored) | `20` |
+| `MAX_FLOOD_WINDOWS` | server | windows in a row over the limit before the client is disconnected (abuse limit; a value out of its bounds is ignored) | `3` |
+| `MAX_SESSIONS` | server | clients connected at the same time (abuse limit; a value out of its bounds is ignored) | `64` |
+| `MAX_SESSIONS_PER_IP` | server | clients connected at the same time from one address (abuse limit; a value out of its bounds is ignored) | `5` |
+| `CONNECT_WINDOW_MS` | server | length of the window in which the connections of an address are counted (abuse limit; a value out of its bounds is ignored) | `10000` |
+| `MAX_CONNECTS_PER_WINDOW` | server | connections accepted from one address in one window (abuse limit; a value out of its bounds is ignored) | `10` |
+
+Copy `.env.example` to `.env` at the root of the project to set them (the file is ignored by git). A variable that is already set in the shell wins over the file (`SERVER_PORT=9099 ./server/server`), and an invalid value (not a number, out of range, unknown level) is ignored and the default is used.
 
 ### 🪟 GUI client
 
@@ -141,8 +164,12 @@ game/              game logic, independent from the network
   events/          EventBus: the events waiting to be sent
   ressources/      world data: room.json, npc.json, items.json, quests.json
   utils/lookup.hpp designation of an NPC / item by id or name
-shared/            code used by the server and the clients: protocol words (defines, errors,
-                   success, event), line framing, signalFd, logger, UTF-8
+shared/            code used by the server and the clients
+  defines.hpp      constants of the protocol and of the system
+  protocol/        errors, success, response, event, line framing, player name rule
+  logging/         logger
+  text/            UTF-8 checks and JSON escaping
+  system/          signalFd, random numbers
 clients/           client.cpp: network engine shared by the clients
   cli/             command-line client
   gui/             Qt client
@@ -183,8 +210,9 @@ The server is **single-threaded and event-driven**, built on `poll(2)`. There is
 Because the replies are written during step 1 and the events during step 3, a player always receives the answer to his command **before** the events it caused.
 
 - All sockets are **non-blocking**. Reading drains the socket into a per-client input buffer; complete lines (ending with `\n`, an optional `\r` is tolerated) are extracted from it and dispatched. Replies go to a per-client output buffer, flushed with `send(MSG_NOSIGNAL)`, so a client that disconnects in the middle of a send cannot kill the server or block the others.
-- Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
-- A line longer than 1024 bytes without newline gets an error and the client is disconnected, which bounds the memory used per client.
+- Signals (`SIGINT`, `SIGTERM`, `SIGQUIT`) are turned into a readable file descriptor with `signalfd` (`shared/system/signalFd.*`, also used by the CLI client), so the shutdown is handled in the same loop as the network events.
+- A line longer than 1024 bytes (with or without newline) gets an error and the client is disconnected, which bounds the memory used per client.
+- Abuse is logged (`WARN`) and limited, with the defaults in `server/defines.hpp` (each one can be set in the environment or in `.env`, see *Configuration*): more than 20 commands per second are answered `ERR 429 RATE_LIMITED` (3 such seconds in a row disconnect the client), a client whose unsent data exceeds 64 KB is disconnected, at most 16 KB are read per client and per loop turn, and a new connection is answered `ERR 503 SERVER_BUSY` and closed beyond 64 clients, 5 per address, or 10 per address in 10 seconds. The limits of commands, clients and connections are turned off with the value `0`. The per-address limits also apply to `127.0.0.1`, so a test with many local clients needs `MAX_SESSIONS_PER_IP` and `MAX_CONNECTS_PER_WINDOW` raised (or `0`). A setting that is not a number or is out of its bounds is ignored, with a `WARN` `invalid setting ignored, default used`.
 - On disconnection (`QUIT`, closed socket, error), the player is removed from the game by the `onDisconnect` callback **before** the session is destroyed, as the subject requires, so that no leave event can reach a player who is already gone.
 
 Why this model: since every command is handled one after the other in a single thread, the game state (rooms, items, NPCs, fights) is never accessed concurrently. Two players taking the same item at the same moment is solved for free: the first command processed wins and the second gets `ITEM_NOT_FOUND`. The timers of the fights and of the respawns do not need a thread either, they are checked at each turn of the loop. A MUD is I/O-bound and has few players, so one thread is largely enough, and there are no locks to get wrong.
@@ -227,7 +255,7 @@ The server follows **RFC 42TAP** (`docs/protocol-rfc.html`, protocol version 1):
 | `STATUS` | `OK {"hp","max_hp","status"}` plus the state of the fight when there is one | done |
 | `QUIT` | `OK bye`, then the connection is closed | done |
 | `DEFEND`, `FLEE` | same reply as `ATTACK` | done, **not in the RFC** (our combat commands) |
-| `INVENTORY`, `CHAT`, `WHO`, `GROUP`, `QUEST`, `QUESTS` | registered, but answer a placeholder `OK Message received` | **not implemented yet** |
+| `QUEST`, `QUESTS` | registered, but answer a placeholder `OK Message received` | **not implemented yet** |
 
 ### 📣 Implemented events
 
@@ -244,8 +272,9 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT TIMEOUT <player> <enemy>` | a turn was played for a player who was too slow |
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
 | `EVT ROOM SPAWN <npc\|item> <id>` | an enemy or an item came back |
+| `EVT ROOM EFFECT healing <hp>` | sent only to the player healed by his room, with the hit points he got (not sent at full health) |
 
-The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. The `CHAT` and `GROUP` events of the RFC are not sent yet.
+The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
 
 ### ↔️ Deviations from RFC 42TAP
 
@@ -253,6 +282,8 @@ The subject asks us to document every deviation and to justify it.
 
 | # | Deviation | Justification |
 | --- | --- | --- |
+| 1b | **Extra error `ERR 500 INTERNAL_ERROR`**, sent when the server fails while handling a command (the error is logged and the server keeps running). | The RFC defines no code for a server failure; 500 is the usual "server error" class. |
+| 1c | **Extra errors `ERR 429 RATE_LIMITED`** (more than 20 commands per second) **and `ERR 503 SERVER_BUSY`** (connection refused, sent in place of the greeting `OK hello`, then the socket is closed). | The subject asks to monitor command flooding and rapid connections (§V.1) but the RFC has no code for them. Reusing `400` would hide the reason from the client. 429 and 503 are the usual HTTP classes for "slow down" and "server cannot accept you". |
 | 1 | **Extra error `ERR 400 BAD_REQUEST`**, sent for an unknown command, a malformed command (for example a name with a space in `CONNECT`), any command before `CONNECT`, and a line over 1024 bytes (the client is then disconnected). | The RFC asks for "appropriate error responses" to malformed messages (§9.3) but defines no code for them. We use 400, the usual "bad request" class, so that a client can tell a protocol error from a game error (2xx-4xx codes of the RFC). |
 | 2 | **Extra error `ERR 403 INVENTORY_FULL`** for `TAKE` when the inventory holds 10 items. | The RFC recommends limits on "resource acquisition per player" (§9.4) but defines no error for it. |
 | 3 | **Extra errors for the combat**: `409 IN_COMBAT` (`MOVE`, `TAKE`, `TALK` during a fight, or `ATTACK` on another enemy), `410 NOT_IN_COMBAT` (`DEFEND` or `FLEE` with no fight), `411 NOT_YOUR_TURN`. | The turn-based combat requested by the subject needs them, and the RFC leaves the combat to the implementers (§6.1.1). The codes continue after the 40x family of the RFC. |
@@ -260,7 +291,7 @@ The subject asks us to document every deviation and to justify it.
 | 5 | **Richer replies for `ATTACK` and `STATUS`**: the fields of the RFC (`attacker_hp`, `target_hp`, `damage`, `status`; `hp`, `max_hp`, `status`) are always there and in the same place, with extra fields added (`round`, `escaped`, `turns`; `enemy`, `turn`, `your_turn`, `turn_seconds_left`). | A turn-based fight plays several turns for one command (yours, then the enemy's), and the client needs to know them. A client of another group that only knows the RFC fields still works, because extra JSON fields can be ignored. |
 | 6 | **Instance ids are visible on the wire**: `LOOK` returns `"items":["item.herbs#3"]`, `"npcs":["npc.guard#10"]`, and `TAKE` answers `OK taken=item.herbs#3` (the RFC examples show `item.herbs`). | The subject requires items to be unique instances (no duplication). Two herbs in the same room need two different ids, so the instance counter is part of the id. The definition id (`item.herbs`), the name (`Healing Herbs`) and a word of the name are still accepted in commands, so a client that does not know about `#N` keeps working (`TAKE herbs`). A client must treat ids as opaque strings. |
 | 7 | **Player names** are limited to 32 bytes, must be valid UTF-8 without control characters, and cannot contain a space. | The RFC only requires uniqueness (§3.3) and correct handling of Unicode (§9.2). Without a limit and without spaces, a name cannot break the parsing of the lines that contain it, such as `EVT ROOM PRESENCE ENTER <name>`. |
-| 8 | **Placeholder answers** `OK Message received` for the 6 commands not yet implemented, and no `CHAT` or `GROUP` events. | Temporary state of the development, not a choice. These lines will disappear when the commands are done. |
+| 8 | **Placeholder answers** `OK Message received` for the 2 commands not yet implemented (`QUEST`, `QUESTS`). | Temporary state of the development, not a choice. These lines will disappear when the commands are done. |
 
 ### 🚨 Error handling
 
@@ -279,6 +310,7 @@ The combat is turn-based and can be shared: all the players of a room who attack
 - `ATTACK <enemy>` starts a fight with an enemy of the room, or joins the fight already started against it. Only NPCs with the role `enemy` can be attacked (`ERR 405` otherwise).
 - During a fight the player cannot `MOVE`, `TAKE` or `TALK` (`ERR 409 IN_COMBAT`), nor attack another enemy.
 - A fight ends when the enemy dies, when all the players are dead or gone. A player at 0 HP loses the fight and **respawns in the chapel with 50 HP** (`respawn` in `room.json`). Enemies and items come back after `respawn_seconds` (60 for the enemies of the world), announced by `EVT ROOM SPAWN`.
+- A room can have an `effect` in `room.json`, like `{ "type": "healing", "amount": 10, "interval_seconds": 5 }` (the chapel): every `interval_seconds`, at the rhythm of the room, each player in it gets `amount` hit points back, up to his maximum. A player in a fight is not healed.
 - The `status` of a player is `healthy`, `wounded` (below his maximum), `combat` or `dead`.
 
 ### 🧮 Damage formula
@@ -411,11 +443,65 @@ At startup, `game/world/parser.cpp` checks the files and **refuses to start** wi
 ## 📝 Server Logging <!-- [S] -->
 
 ### Log format
+
+One JSON object per line (`std::endl` flushes each line), built by hand in `shared/logging/logger.cpp`:
+
+```json
+{"ts":"2026-10-21T11:57:56.213+00:00","level":"INFO","msg":"world loaded","rooms":15}
+{"ts":"...","level":"WARN","msg":"command flooding","src":"server/network/server.cpp:171","client":3,"ip":"127.0.0.1","windows":1}
+```
+
+- `ts`: local date and time with milliseconds and the UTC offset; `level`; `msg`: a short fixed sentence.
+- `src` (file and line) is added from `WARN` upward.
+- The other keys are the context of the event (`client` id, `player`, `ip`, `room`, ...). Texts are escaped, so a line is always valid JSON.
+
 ### Log levels and event types
+
+| Level | Used for |
+|-------|----------|
+| `DEBUG` | details: sockets, actions defined, messages sent, chat text |
+| `INFO` | normal life: connections, commands and responses, moves, fights, groups, respawns |
+| `WARN` | abnormal but handled: unknown command, command before `CONNECT`, bad request, abuse, a client that does not read |
+| `ERROR` | failures of the server: an exception in a command or in a turn of the loop, failed system calls, inconsistent data |
+
+`LOG_LEVEL` sets the lowest level written (default `debug`).
+
 ### Output destinations
+
+- `DEBUG` and `INFO` go to the standard output, `WARN` and `ERROR` to the standard error (red or yellow when it is a terminal; `NO_COLOR` disables the colours).
+- `LOG_FILE` (in the environment or `.env`) also writes every line, without colours, at the end of a file. If the file cannot be opened, a `WARN` is logged and the server goes on with the console only.
+
 ### Monitoring the server
+
+The logs are JSON lines, so they can be followed and filtered with ordinary tools:
+
+```sh
+LOG_FILE=server.log make -C server          # also write server.log
+tail -f server.log | grep '"level":"WARN"'  # warnings only
+grep '"msg":"player took an item"' server.log
+```
+
+Each connection has a `client` id, so all the lines of one player can be found with `grep '"client":3'`.
+
 ### Abuse detection (command flooding, rapid connections)
+
+Abuse is logged at `WARN` level and limited (thresholds in `server/defines.hpp`):
+
+| Message | Meaning |
+|---------|---------|
+| `command flooding` | a client sent more than 20 commands in one second (one line per second; the extra commands get `ERR 429 RATE_LIMITED`) |
+| `flooding goes on, disconnecting` | 3 seconds in a row over the limit: the client is disconnected |
+| `client does not read, disconnecting` | more than 64 KB waiting to be sent to a client |
+| `line too long, disconnecting` | a line over 1024 bytes |
+| `too many clients, refusing a connection` / `... for one address ...` (the client gets `ERR 503 SERVER_BUSY`) | 64 clients in all, or 5 from one address |
+| `connections too fast, refusing a connection` (`ERR 503 SERVER_BUSY` too) | more than 10 connections from one address in 10 seconds |
+| `command before CONNECT`, `unknown command` | commands that are not allowed or do not exist |
+
 ### Performance considerations
+
+- The server is single-threaded (`poll`), so a log line is written in the loop: with `LOG_LEVEL=debug` every command and every message is logged, which is useful to develop but is more output than needed to run. `info` is a good level for a running server.
+- The level is checked before the line is built, so a disabled level costs almost nothing.
+- Every line is flushed at once, so no log is lost if the server stops.
 
 ## 🧪 Testing <!-- [S] -->
 

@@ -29,17 +29,19 @@ OBJ_DIR = Obj
 
 SRCS =	main.cpp \
 	../client.cpp \
-	../../shared/signalFd.cpp
+	../../shared/system/signalFd.cpp \
+	../../shared/system/loadenv.cpp
 
 # Sources outside this directory (../client.cpp) are looked up here
-vpath %.cpp ..:../../shared
+vpath %.cpp ..:../../shared/system
 
 
 INCLUDES =	../client.hpp \
 	../defines.hpp \
 	../../shared/defines.hpp \
-	../../shared/line.hpp \
-	../../shared/signalFd.hpp
+	../../shared/protocol/line.hpp \
+	../../shared/system/loadenv.hpp \
+	../../shared/system/signalFd.hpp
 
 # Compilation
 CC = c++

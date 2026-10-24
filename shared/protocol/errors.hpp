@@ -11,7 +11,7 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "defines.hpp"
+# include "../defines.hpp"
 
 //##############################################################################
 //#                                  DEFINES                                   #
@@ -33,6 +33,9 @@
 	X(IN_COMBAT,				409) /* MOVE, TAKE or TALK during a fight, or another target for ATTACK (not in the RFC) */ \
 	X(NOT_IN_COMBAT,			410) /* DEFEND or FLEE with no fight (not in the RFC) */ \
 	X(NOT_YOUR_TURN,			411) /* it is the turn of someone else (not in the RFC) */ \
+	X(RATE_LIMITED,				429) /* too many commands in a short time: slow down (not in the RFC) */ \
+	X(INTERNAL_ERROR,			500) /* the server failed while handling the command (not in the RFC) */ \
+	X(SERVER_BUSY,				503) /* the connection is refused: too many clients or connections too fast (not in the RFC) */ \
 	X(CONNECTION_FAILED,		900) /* the connection could not be established */ \
 	X(SEND_FAILED,				901) /* a message could not be sent */
 

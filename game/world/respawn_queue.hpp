@@ -13,8 +13,8 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../../shared/event.hpp"
-# include "../../shared/logger.hpp"
+# include "../../shared/protocol/event.hpp"
+# include "../../shared/logging/logger.hpp"
 # include "spawn.hpp"
 # include "world.hpp"
 

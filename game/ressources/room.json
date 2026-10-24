@@ -53,6 +53,7 @@
 			"exits": {
 				"south": "loc.village"
 			},
+			"effect": { "type": "healing", "amount": 10, "interval_seconds": 5 },
 			"items": [],
 			"spawns": [
 				{ "npc": "npc.priest", "count": 1 }

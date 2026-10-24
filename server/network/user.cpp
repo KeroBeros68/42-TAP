@@ -3,7 +3,7 @@
 //##############################################################################
 
 # include "user.hpp"
-# include "../../shared/player_name.hpp"
+# include "../../shared/protocol/player_name.hpp"
 # include "../defines.hpp"
 
 //##############################################################################

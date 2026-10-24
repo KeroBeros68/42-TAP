@@ -12,7 +12,7 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "defines.hpp"
+# include "../defines.hpp"
 
 //##############################################################################
 //#                                  DEFINES                                   #
@@ -43,6 +43,20 @@
 # define EVT_SPAWN			"SPAWN"	// type of the events about something that comes back
 # define EVT_SPAWN_NPC		"npc"	// an npc came back
 # define EVT_SPAWN_ITEM		"item"	// an item came back
+
+// -- Chat events --------------------------------------------------------------
+# define EVT_GLOBAL			"GLOBAL"	// category of the events for every player
+# define EVT_CHAT			"CHAT"		// type of the events about a chat message
+
+// -- Effect events ------------------------------------------------------------
+# define EVT_EFFECT			"EFFECT"	// type of the events about the effect of a room on a player
+# define EVT_EFFECT_HEALING	"healing"	// the room gave hit points back
+
+// -- Group events -------------------------------------------------------------
+# define EVT_GROUP			"GROUP"		// category of the events for the players of a group
+# define EVT_GROUP_INVITE	"INVITE"	// a player invites you
+# define EVT_GROUP_JOIN		"JOIN"		// a player joined the group
+# define EVT_GROUP_LEAVE	"LEAVE"		// a player left the group
 
 //##############################################################################
 //#                                  STRUCTS                                   #

@@ -1,5 +1,5 @@
-#ifndef PLAYER_NAME_HPP
-# define PLAYER_NAME_HPP
+#ifndef CHAT_HPP
+# define CHAT_HPP
 
 //##############################################################################
 //#                                STD INCLUDES                                #
@@ -11,25 +11,23 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "defines.hpp"
-# include "utf8.hpp"
+# include "../defines.hpp"
+# include "../text/utf8.hpp"
 
 //##############################################################################
 //#                                 FUNCTIONS                                  #
 //##############################################################################
 
 /**
- * Checks the name that a player chooses.
+ * Checks the text of a chat message.
  *
- * @param name the name given to CONNECT
- * @return     true if it is not empty, not longer than MAX_NAME_LENGTH, valid UTF-8 without control characters, and has no space
+ * @param text the message, without the scope
+ * @return     true if it is not empty, not longer than MAX_CHAT_LENGTH bytes, and valid UTF-8 without control characters
  */
-inline bool isValidPlayerName(const std::string& name) {
-	if (name.empty() || name.size() > MAX_NAME_LENGTH)
+inline bool isValidChatMessage(const std::string& text) {
+	if (text.empty() || text.size() > MAX_CHAT_LENGTH)
 		return false;
-	if (!validateUTF8(name))
-		return false;
-	return name.find(CMD_SEPARATOR) == std::string::npos;
+	return validateUTF8(text);
 }
 
 #endif

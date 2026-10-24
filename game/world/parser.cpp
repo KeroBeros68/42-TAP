@@ -12,7 +12,7 @@
 //##############################################################################
 
 # include "parser.hpp"
-# include "../../shared/logger.hpp"
+# include "../../shared/logging/logger.hpp"
 # include "../../third_party/json.hpp"
 
 //##############################################################################
@@ -129,6 +129,33 @@ static std::vector<Spawn> readSpawns(const json& entries, const std::string& roo
 }
 
 /**
+ * Reads and checks the effect of a room.
+ * Throws std::runtime_error if it is invalid (unknown type, amount or interval that is not positive).
+ *
+ * @param entry   the effect, as written in the file
+ * @param room_id id of the room, for the errors
+ * @return        the effect
+ */
+static RoomEffect readEffect(const json& entry, const std::string& room_id) {
+	if (!entry.is_object())
+		throw std::runtime_error(ERR_ROOM_FILE + room_id + ": the effect must be an object");
+
+	RoomEffect effect;
+	const std::string type = entry.at(JSON_TYPE).get<std::string>();
+	if (type == JSON_HEALING)
+		effect.type = RoomEffectType::HEALING;
+	else
+		throw std::runtime_error(ERR_ROOM_FILE + room_id + ": unknown effect type '" + type + "'");
+	effect.amount = entry.at(JSON_AMOUNT).get<int>();
+	effect.interval_seconds = entry.at(JSON_INTERVAL_SECONDS).get<int>();
+	if (effect.amount <= 0)
+		throw std::runtime_error(ERR_ROOM_FILE + room_id + ": effect amount must be positive");
+	if (effect.interval_seconds <= 0)
+		throw std::runtime_error(ERR_ROOM_FILE + room_id + ": effect interval_seconds must be positive");
+	return effect;
+}
+
+/**
  * Reads the "rooms" object of room.json and adds the rooms.
  *
  * @param rooms receives the rooms
@@ -146,6 +173,10 @@ static void readRoom(RoomMap& rooms, json& data) {
 			if (room.contains(JSON_SPAWNS) && room[JSON_SPAWNS].is_array())
 				npc_spawns = readSpawns(room[JSON_SPAWNS], room_id, JSON_NPC);
 
+			std::optional<RoomEffect> effect;
+			if (room.contains(JSON_EFFECT))
+				effect = readEffect(room[JSON_EFFECT], room_id);
+
 			const auto exits = room.at(JSON_EXITS).get<std::unordered_map<std::string, std::string>>();
 			for (const auto& [direction, target] : exits) {
 				if (oppositeDirection(direction).empty())
@@ -159,7 +190,8 @@ static void readRoom(RoomMap& rooms, json& data) {
 				room.at(JSON_DESCRIPTION).get<std::string>(),
 				exits,
 				item_spawns,
-				npc_spawns
+				npc_spawns,
+				effect
 			);
 
 			rooms.emplace(room_id, def);

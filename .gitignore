@@ -78,3 +78,6 @@ tools
 /third_party/
 
 .DS_Store
+.env
+
+.log

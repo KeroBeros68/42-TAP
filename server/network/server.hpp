@@ -8,6 +8,8 @@
 # include <algorithm>
 # include <arpa/inet.h>
 # include <cerrno>
+# include <chrono>
+# include <deque>
 # include <cstring>
 # include <fcntl.h>
 # include <functional>
@@ -23,11 +25,12 @@
 //#                                  INCLUDES                                  #
 //##############################################################################
 
-# include "../../shared/errors.hpp"
-# include "../../shared/logger.hpp"
-# include "../../shared/response.hpp"
-# include "../../shared/signalFd.hpp"
-# include "../../shared/success.hpp"
+# include "../../shared/protocol/errors.hpp"
+# include "../../shared/logging/logger.hpp"
+# include "../../shared/protocol/response.hpp"
+# include "../../shared/system/signalFd.hpp"
+# include "../../shared/protocol/success.hpp"
+# include "../config.hpp"
 # include "../defines.hpp"
 # include "connection.hpp"
 # include "user.hpp"
@@ -42,6 +45,10 @@ class Server {
 		struct Session {
 			Connection	conn;
 			User		user;
+			std::chrono::steady_clock::time_point	window_start{};
+			int			window_commands = 0;
+			int			flood_windows = 0;
+			bool		window_flooded = false;
 
 			/**
 			 * Builds the session of a new client.
@@ -53,6 +60,9 @@ class Server {
 			Session(int fd, const std::string& ip, long long id);
 		};
 
+		//########################## SETTINGS ##########################
+		ServConfig _config;
+
 		//############################ LOOP ############################
 		int _listen_socket = INVALID_FD;
 		bool _running = true;
@@ -62,6 +72,7 @@ class Server {
 		std::unordered_map<long long, Session> _sessions;
 		long long _next_client_id = 0;
 		std::vector<long long> _available_id;
+		std::unordered_map<std::string, std::deque<std::chrono::steady_clock::time_point>> _recent_connects;
 
 		//########################## COMMANDS ##########################
 		std::unordered_map<std::string, std::function<Response(User&, const std::string&)>> _actions;
@@ -84,6 +95,32 @@ class Server {
 		 * @param line the line, without its line end
 		 */
 		void handleLine(Session& s, const std::string& line);
+
+		/**
+		 * Counts a command of a client. Over the limit the command is refused, and a client who keeps doing it is marked to be closed.
+		 *
+		 * @param s the session of the client
+		 * @return  false if the command must be refused
+		 */
+		bool allowCommand(Session& s);
+
+		/**
+		 * Tells whether a new client may connect: there must be room on the server and for his address, and he must not reconnect too fast.
+		 *
+		 * @param ip address of the client
+		 * @return   false if he must be refused
+		 */
+		bool allowConnection(const std::string& ip);
+
+		/**
+		 * Runs the action of a command. An exception is logged and becomes an INTERNAL_ERROR response.
+		 *
+		 * @param action the action of the command
+		 * @param s      the session of the client
+		 * @param args   the arguments of the command
+		 * @return       the response of the action, or INTERNAL_ERROR if it threw
+		 */
+		Response runAction(const std::function<Response(User&, const std::string&)>& action, Session& s, const std::string& args);
 
 		/**
 		 * Queues a line for a client.
@@ -110,8 +147,12 @@ class Server {
 
 	public:
 		//######################## CONSTRUCTORS ########################
-		/** Builds a server that does not listen yet. */
-		Server();
+		/**
+		 * Builds a server that does not listen yet.
+		 *
+		 * @param config the limits against abuse (the port is given to start())
+		 */
+		explicit Server(const ServConfig& config);
 
 		/** Closes the sockets of the server and of its clients. */
 		~Server();
@@ -149,7 +190,7 @@ class Server {
 
 		//######################### MESSAGING ##########################
 		/**
-		 * Sends a line to a client, at once. A warning is logged if there is no such client.
+		 * Queues a line for a client; flushAll() sends it. A warning is logged if there is no such client.
 		 *
 		 * @param message   the line, without its line end
 		 * @param client_id id of the client
@@ -157,7 +198,7 @@ class Server {
 		void sendTo(const std::string& message, long long client_id);
 
 		/**
-		 * Sends a line to some clients.
+		 * Queues a line for some clients; flushAll() sends it.
 		 *
 		 * @param message   the line, without its line end
 		 * @param clientIDs ids of the clients
@@ -165,11 +206,14 @@ class Server {
 		void sendToArray(const std::string& message, const std::vector<long long>& clientIDs);
 
 		/**
-		 * Sends a line to every client.
+		 * Queues a line for every client; flushAll() sends it.
 		 *
 		 * @param message the line, without its line end
 		 */
 		void sendToAll(const std::string& message);
+
+		/** Sends what is queued for every client, in one send per client. What cannot be sent yet waits for the next turn. */
+		void flushAll();
 
 		/**
 		 * Marks a client to be closed at the next turn of the loop.
