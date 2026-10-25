@@ -28,6 +28,7 @@ enum class Section {
 	Counters,
 	Chat,
 	Group,
+	Quests,
 	Log
 };
 
@@ -85,6 +86,13 @@ class Session
 		void	applyTake(const std::string& data);
 		void	applyDrop(const std::string& data);
 		void	applyTalk(const std::string& data);
+
+		// QUEST: the server answers the quest itself; then the whole list is
+		// asked again, because a quest may just have started or been handed in.
+		void	applyQuest(const std::string& data);
+
+		// QUESTS: the list of our quests, active and completed
+		void	applyQuests(const std::string& data);
 
 		// ATTACK, DEFEND and FLEE share one answer format: one handler for all three
 		void	applyCombat(const std::string& command, const std::string& data);

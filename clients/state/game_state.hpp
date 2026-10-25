@@ -89,6 +89,20 @@ struct GameState {
 	std::optional<std::string>	group;          // none: we are in no group
 	std::optional<std::string>	pending_invite; // none: nobody invited us; set: the inviting leader
 
+	// One quest, as the server lists it. Status is "active" or "completed";
+	// progress is already written for display ("1/3").
+	struct Quest {
+		std::string	id;			// "fetch_shield"
+		std::string	name;		// as sent by the server
+		std::string	status;		// QUEST_STATUS_ACTIVE or QUEST_STATUS_COMPLETED
+		std::string	progress;	// "1/3"
+	};
+
+	// Our quests, active and completed, as last announced by QUESTS.
+	// The server sends no event when a quest changes: the Session asks again
+	// after every QUEST, which is when a quest starts or is handed in.
+	std::vector<Quest>	quests;
+
 	// Chat, one history per scope. Chat never goes into the journal: the
 	// subject requires two separate views, and the journal is technical.
 	std::vector<ChatLine>	chat_global;

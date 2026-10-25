@@ -16,15 +16,6 @@ TAPQuestsView::TAPQuestsView()
 
     // Empty quests at startup
     this->update_quests({});
-
-    // Debug example
-    // this->update_quests(std::vector<std::map<std::string, std::string>> {
-    //     {
-    //         {"quest_id", "fetch_shield"},
-    //         {"status", "active"},
-    //         {"progress", "1/3"},
-    //     },
-    // });
 }
 
 void TAPQuestsView::update_quests(std::vector<std::map<std::string, std::string>> data)

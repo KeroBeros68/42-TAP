@@ -85,6 +85,7 @@ void TAPGameWindow::update_gui(Section section)
         case Section::Counters:     this->update_counters_section(); break;
         case Section::Chat:         this->update_chat_section(); break;
         case Section::Group:        break; // no group widget yet
+        case Section::Quests:       this->update_quests_section(); break;
         case Section::Log:          this->update_log_section(); break;
     }
 }
@@ -126,8 +127,22 @@ void TAPGameWindow::update_counters_section()
     this->update_total_players_label(state.server_players);
 }
 
-void TAPGameWindow::update_chat_section()
+// Quests, active and completed: the widget shows the progress the server sent
+void TAPGameWindow::update_quests_section()
 {
+    std::vector<std::map<std::string, std::string>> quests;
+    for (const GameState::Quest &quest : this->_session.state().quests)
+    {
+        quests.push_back({
+            {"quest_id", quest.name.empty() ? quest.id : quest.name},
+            {"status", quest.status},
+            {"progress", quest.progress}
+        });
+    }
+    this->quests_view.update_quests(quests);
+}
+
+void TAPGameWindow::update_chat_section(){
     const GameState &state = this->_session.state();
     this->chat_tabs.update_global_messages(this->chat_lines(state.chat_global));
     this->chat_tabs.update_room_messages(this->chat_lines(state.chat_room));

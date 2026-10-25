@@ -159,6 +159,7 @@ void	Session::restart()
 	_state = GameState();
 	_pending.push_back({"HELLO", ""});
 	changed(Section::Connection);
+	changed(Section::Quests);	// the quests of the previous game are gone
 }
 
 void	Session::handleDisconnect()
@@ -261,11 +262,12 @@ void	Session::handleOk(const Pending& pending, const ServerMessage& message)
 		changed(Section::Connection);
 
 		// Everything the game window needs, asked in one go.
-		// Four commands, so four answers, so four entries in the queue.
+		// Five commands, so five answers, so five entries in the queue.
 		send("LOOK");
 		send("INVENTORY");
 		send("STATUS");
 		send("WHO");
+		send("QUESTS");
 		return;
 	}
 
@@ -314,6 +316,18 @@ void	Session::handleOk(const Pending& pending, const ServerMessage& message)
 	if (pending.command == "TALK")
 	{
 		applyTalk(message.data);
+		return;
+	}
+
+	if (pending.command == "QUEST")
+	{
+		applyQuest(message.data);
+		return;
+	}
+
+	if (pending.command == "QUESTS")
+	{
+		applyQuests(message.data);
 		return;
 	}
 
@@ -604,6 +618,61 @@ void	Session::applyTalk(const std::string& data)
 		return;
 	}
 	log("TALK: " + said);
+}
+
+void	Session::applyQuest(const std::string& data)
+{
+	// Our server answers "OK {quest_id:..., status:..., progress:...}" with the
+	// quest concerned. The server sends no event when a quest starts or is
+	// handed in, so the only way to keep the list up to date is to ask it
+	// again: the answer to QUESTS carries the same fields for every quest.
+	const std::optional<json> payload = asJson(data);
+	if (!payload || !payload->is_object())
+	{
+		log("QUEST: unreadable answer: " + data);
+		return;
+	}
+
+	const std::string id = payload->value(FIELD_QUEST_ID, "");
+	if (id.empty())
+		log("QUEST: answer without a quest id: " + data);
+	else
+		log("quest " + id + ": " + payload->value(FIELD_STATUS, std::string())
+			+ " " + payload->value(FIELD_PROGRESS, std::string()));
+
+	// Handing a quest in does two things the answer does not list: the items it
+	// asks for leave the inventory and the reward enters it. Only INVENTORY
+	// knows the ids and the room left, so a completed quest asks for it again.
+	// The quest list is always asked again: a quest may just have started too.
+	if (payload->value(FIELD_STATUS, std::string()) == QUEST_STATUS_COMPLETED)
+		send("INVENTORY");
+	send("QUESTS");
+}
+
+void	Session::applyQuests(const std::string& data)
+{
+	const std::optional<json> payload = asJson(data);
+	if (!payload || !payload->is_array())
+	{
+		log("QUESTS: unreadable answer: " + data);
+		return;
+	}
+
+	_state.quests.clear();
+	for (const auto& value : *payload)
+	{
+		if (!value.is_object())
+			continue;
+		GameState::Quest quest;
+		quest.id = value.value(FIELD_QUEST_ID, "");
+		quest.name = value.value(FIELD_NAME, quest.id);
+		quest.status = value.value(FIELD_STATUS, QUEST_STATUS_ACTIVE);
+		quest.progress = value.value(FIELD_PROGRESS, "");
+		if (!quest.id.empty())
+			_state.quests.push_back(quest);
+	}
+
+	changed(Section::Quests);
 }
 
 void	Session::applyDrop(const std::string& data)
