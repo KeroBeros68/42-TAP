@@ -1,3 +1,8 @@
+/*
+	Catalog is basically used to convert item IDs into names/descriptions,
+	accordig to the loaded jsons, with a default fallback.
+*/
+
 #ifndef CATALOG_HPP
 # define CATALOG_HPP
 
@@ -23,8 +28,8 @@
 class Catalog
 {
 	private:
-		std::map<std::string, std::string>	_names;			// id (without #N) -> display name
-		std::map<std::string, std::string>	_descriptions;	// id (without #N) -> description
+		std::map<std::string, std::string>	_names;			// id, display name
+		std::map<std::string, std::string>	_descriptions;	// id, description
 
 		// id with its "#N" suffix removed, e.g. "item.herbs#3" -> "item.herbs"
 		static std::string	stripInstance(const std::string& id);

@@ -1,3 +1,8 @@
+/*
+	The ServerMessage structure is the data model for a server response.
+	It is used by the Session to handle server responses.
+*/
+
 #ifndef MESSAGE_HPP
 # define MESSAGE_HPP
 

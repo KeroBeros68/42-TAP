@@ -1,3 +1,8 @@
+/*
+	The GameState is a data structure representing the State of the Game
+	(Current room, connection state, players, etc.).
+*/
+
 #ifndef GAME_STATE_HPP
 # define GAME_STATE_HPP
 
