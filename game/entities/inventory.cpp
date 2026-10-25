@@ -31,6 +31,10 @@ std::vector<std::string> Inventory::ids() const {
 	return lookup::sortedIds(_items);
 }
 
+std::vector<std::string> Inventory::definitionIds() const {
+	return lookup::definitionIds(_items);
+}
+
 const std::unordered_map<std::string, Item>& Inventory::items() const {
 	return _items;
 }
@@ -68,7 +72,8 @@ TransferResult transfer(Inventory& from, Inventory& to, const std::string& query
 		return {TransferStatus::DestinationFull, ""};
 
 	const std::string id = found->id();
+	const std::string definition_id = found->definition().id();
 	std::optional<Item> item = from.remove(id);
 	to.add(*item);
-	return {TransferStatus::Moved, id};
+	return {TransferStatus::Moved, id, definition_id};
 }

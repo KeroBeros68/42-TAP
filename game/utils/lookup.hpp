@@ -77,6 +77,22 @@ namespace lookup {
 	}
 
 	/**
+	 * Lists the ids of the definitions of some objects, in alphabetical order (an id appears as many times as there are objects of it).
+	 *
+	 * @param objects the objects, by instance id
+	 * @return        the ids of their definitions
+	 */
+	template <typename T>
+	std::vector<std::string> definitionIds(const std::unordered_map<std::string, T>& objects) {
+		std::vector<std::string> ids;
+		ids.reserve(objects.size());
+		for (const auto& [id, object] : objects)
+			ids.push_back(object.definition().id());
+		std::sort(ids.begin(), ids.end());
+		return ids;
+	}
+
+	/**
 	 * Finds the object that a query designates, in any case and without the spaces around it.
 	 *
 	 * @param objects the objects, by instance id

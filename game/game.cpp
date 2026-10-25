@@ -89,7 +89,8 @@ void Game::emitPlayerCount() {
 }
 
 void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) {
-	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + id));
+	const std::string definition_id = id.substr(0, id.find(INSTANCE_SEPARATOR));
+	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + definition_id));
 }
 
 //############################ QUESTS ##########################
@@ -331,7 +332,7 @@ std::optional<std::vector<std::string>> Game::showInventories(long long player_i
 	ConstPresence here = locate(player_id, "inventory");
 	if (!here)
 		return std::nullopt;
-	return here.player->inventory().ids();
+	return here.player->inventory().definitionIds();
 }
 
 TransferResult Game::takeItem(long long player_id, const std::string& target) {

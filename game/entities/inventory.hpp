@@ -29,6 +29,7 @@ enum class TransferStatus { Moved, NotFound, DestinationFull };
 struct TransferResult {
 	TransferStatus	status;
 	std::string		id;
+	std::string		definition_id = "";
 };
 
 //##############################################################################
@@ -73,6 +74,9 @@ class Inventory {
 		/** Lists the instance ids of the items, in alphabetical order. */
 		std::vector<std::string> ids() const;
 
+		/** Lists the ids of the definitions of the items, in alphabetical order (twice if there are two of them). */
+		std::vector<std::string> definitionIds() const;
+
 		/** Returns all the items, by instance id. */
 		const std::unordered_map<std::string, Item>& items() const;
 
@@ -108,7 +112,7 @@ class Inventory {
  * @param from  inventory that gives the item
  * @param to    inventory that receives it
  * @param query designates the item, as for Inventory::findItem
- * @return      the status of the move, and the id of the item (empty if nothing moved)
+ * @return      the status of the move, and the id of the item and of its definition (empty if nothing moved)
  */
 TransferResult transfer(Inventory& from, Inventory& to, const std::string& query);
 

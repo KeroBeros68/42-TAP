@@ -113,6 +113,9 @@ class Room {
 		/** Lists the ids of the npcs that are in the room, in alphabetical order. */
 		std::vector<std::string> npcs() const;
 
+		/** Lists the ids of the definitions of the npcs that are in the room, in alphabetical order. */
+		std::vector<std::string> npcDefinitionIds() const;
+
 		/** Returns the npcs that are in the room, by id. */
 		const std::unordered_map<std::string, Npc>& aliveNpcs() const;
 
@@ -149,6 +152,9 @@ class Room {
 		//########################### ITEMS ############################
 		/** Lists the ids of the items on the floor, in alphabetical order. */
 		std::vector<std::string> items() const;
+
+		/** Lists the ids of the definitions of the items on the floor, in alphabetical order. */
+		std::vector<std::string> itemDefinitionIds() const;
 
 		/** Returns the floor of the room, to change it. */
 		Inventory& inventory();

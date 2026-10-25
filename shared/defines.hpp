@@ -86,7 +86,8 @@
 # define FIELD_PROGRESS		"progress"					// progress of a quest, like "1/3"
 # define FIELD_TEXT_DONE	"text_done"					// what the npc says when a quest is handed in
 # define FIELD_REWARD		"reward"					// what a quest gives at the end
-# define FIELD_HEAL			"heal"						// hit points given by a reward
+# define FIELD_REWARD_ITEMS	"reward_items"				// ids of the items given by a quest
+# define FIELD_REWARD_HEAL	"reward_heal"				// hit points given by a quest
 # define FIELD_ESCAPED		"escaped"					// the player ran away from the fight
 # define FIELD_ENEMY		"enemy"						// id of the enemy of the fight
 # define FIELD_TARGET		"target"					// who suffered the turn

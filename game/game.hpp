@@ -145,7 +145,7 @@ class Game : private CombatHost {
 		 *
 		 * @param room the room where something came back
 		 * @param kind EVT_SPAWN_NPC or EVT_SPAWN_ITEM
-		 * @param id   id of the object
+		 * @param id   id of the object (the event carries the id of its definition)
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
 
@@ -289,7 +289,7 @@ class Game : private CombatHost {
 		 * Lists the items that a player carries.
 		 *
 		 * @param player_id id of the player
-		 * @return          the instance ids of his items, in alphabetical order (nothing if he is unknown)
+		 * @return          the ids of the definitions of his items, in alphabetical order (nothing if he is unknown)
 		 */
 		std::optional<std::vector<std::string>> showInventories(long long player_id) const;
 

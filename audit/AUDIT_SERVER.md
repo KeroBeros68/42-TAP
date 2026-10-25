@@ -3,10 +3,10 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-25 (seconde version) — régénéré après `907be23` (compilation parallèle, dépendances `-MMD`), `562f65f` (cible `lint`) et le merge `880a07e` (Makefile racine : `run-server`, `run-client`, `run-client-gui`, `all` sans lancement). **L'historique a été réécrit par les merges : les hachages de commits cités plus bas pour les mises à jour précédentes (`17d05bc`, `9e462bf`…) ne correspondent plus aux commits actuels** (`git log` fait foi). L'arbre de travail est propre. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-25 (troisième version) — régénéré après `6590162` (recettes en double du Makefile supprimées : **commité**) et **le travail non commité** qui traite l'interchangeabilité avec la RFC : ids de **définition** sur le fil, `reward` de `QUEST` en texte, erreurs de `GROUP` distinctes, `WHO` documenté (`game/`, `server/protocol/`, `shared/protocol/errors.hpp`, README : état de l'arbre de travail — il compile et passe les tests ci-dessous). Les hachages cités pour les mises à jour précédentes ne correspondent plus aux commits actuels (historique réécrit par les merges : `git log` fait foi). Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : `make lint` exécuté (28 fichiers, 0 erreur, 29 s) ; **clone propre du dépôt puis `make`** (téléchargement de nlohmann/json avec contrôle SHA-256, compilation parallèle, 45 s, `server` et `clientCLI` produits, rien n'est lancé) ; `make -n server|cli|gui` pour lire les recettes réellement exécutées. Le comportement du serveur n'a pas changé depuis l'audit précédent (seuls des `static_cast` ont été ajoutés pour `-Wconversion` : `config.cpp`, `server.cpp`, `signalFd.cpp`, `combat.cpp`, `stats.hpp`) et n'a pas été rejoué. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`). Scénarios de cette mise à jour : `LOOK`, `TAKE`, `INVENTORY`, `DROP` par id de définition ou par nom, `QUEST` / `QUESTS`, `GROUP` (invité absent, non membre, joueur inconnu, soi-même, sous-commande inconnue) ; `make -n server|cli|gui` pour lire les recettes du Makefile. Le reste du serveur n'a pas changé de comportement depuis l'audit précédent et n'a pas été rejoué. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
@@ -26,6 +26,8 @@ Mesuré en conditions réelles :
 - ✅ **Configuration sans recompilation** — nouveau : `SERVER_PORT`, `SERVER_IP` (clients), `LOG_LEVEL` lus dans l'environnement ou dans `.env` (`shared/system/loadenv.*`, `.env.example` versionné, `.env` ignoré par git). Vérifié : `SERVER_PORT=18080` en variable ; `LOG_LEVEL=warn` supprime bien toutes les lignes INFO (0 sur le log) ; un `.env` à la racine (`SERVER_PORT = "18081"`, avec espaces, guillemets et commentaire) est trouvé depuis `server/` et appliqué ; une valeur invalide (`SERVER_PORT=abc`, `99999`, `LOG_LEVEL=zzz`) retombe silencieusement sur le défaut. La variable d'environnement passe avant le fichier.
 - ✅ **Événements `EVT`, combat au tour par tour avec initiative, `DEFEND`/`FLEE`, combat multijoueur, respawn annoncé** (acquis de la mise à jour précédente, code inchangé hors renommages).
 - ✅ **README v2** (460 lignes, +255) : sections Combat System (règles, formule, initiative, commandes, diffusion, justification), World Design (format, carte ASCII, rôles, items, validation), Configuration, tableau des 8 écarts à la RFC, tableau des événements. Il corrige tout ce que l'audit précédent relevait (casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411).
+- ✅ **Interchangeabilité avec la RFC — nouveau (non commité), vérifié** (§II « CLI and GUI clients must be interchangeable between groups ») : (a) **`LOOK`, `TAKE`, `DROP`, `INVENTORY` et `EVT … SPAWN` n'utilisent plus que l'id de définition** : `"items":["item.fountain","item.herbs"]`, `"npcs":["npc.guard"]`, `OK taken=item.herbs`, `OK dropped=item.herbs`, `OK ["item.herbs"]` — exactement les exemples de la RFC §5.4 ; deux objets identiques apparaissent deux fois, et `TAKE item.herbs`, `TAKE herbs` ou `TAKE healing herbs` fonctionnent (vérifié). Seuls les événements de combat gardent l'id d'instance (documenté, écart n°6). (b) **`QUEST` renvoie `reward` en texte** comme la RFC (`"reward":"item.charm"`, `"item.bread,heal=20"`), avec `reward_items` et `reward_heal` en plus pour les clients riches ; `status` vaut toujours `active`. (c) **Erreurs de `GROUP` distinctes** : `404 PLAYER_NOT_FOUND`, `412 NO_INVITATION`, `413 NOT_GROUP_LEADER`, `414 GROUP_FULL`, l'auto-invitation en `402` (vérifié : `JOIN` sans invitation → 412, `INVITE nobody` → 404, `INVITE` par un non-membre → 401, auto-invitation → 402, sous-commande inconnue → 400 ; 413 et 414 non exercés, *lecture de code*). (d) **`WHO` : le choix RFC contre l'exemple du sujet est maintenant argumenté** dans le README (écart n°9).
+- ✅ **Makefile racine : recettes en double supprimées (`6590162`)** : `make -n server|cli|gui` ne montre plus qu'une seule exécution (`server` → construit puis ouvre une fenêtre serveur ; `cli` → idem pour le client ; `gui` → construit puis lance `42TAP` une fois).
 - ✅ **Système de quêtes — nouveau (`9e462bf`, `664b515`), vérifié** (§V.1 « design quest progression, completion validation, reward »). `QUEST <pnj>` donne la quête que ce PNJ propose (`status: active`) ou, à son PNJ de rendu, la valide ; `QUESTS` liste les quêtes avec leur progression. Trois types : `deliver` (apporter un objet à un autre PNJ), `fetch` (rapporter un objet), `defeat` (tuer N ennemis). Vérifié : *Medicine for the Chapel* — `QUEST guard` (`active`), seconde demande → `ERR 406 NO_QUEST_AVAILABLE`, `QUESTS` passe de `0/1` à `1/1` après `TAKE herbs`, `QUEST priestess` → `completed` + `text_done`, l'herbe est retirée de l'inventaire et `item.charm#4` y apparaît, relancer → `406` ; *Cellar Pests* — `defeat` de 3 rats, `QUESTS` indique `3/3`, rendu au tavernier → `completed`, récompense (pain + 20 PV). Validation au démarrage (PNJ, cible, récompenses existent, `count ≥ 1`, `heal ≥ 0`), refus de rendre une quête si la récompense ne rentre pas dans l'inventaire (`403`, rien n'est pris), une quête ne se fait qu'une fois, journalisation `quest started/progress/completed`. **README « Quest System » rédigé** (format, progression, validation, récompenses, liste) et écart n°8 documenté (réponse de `QUEST` avec `reward` en objet et `progress`).
 - ✅ **`USE <objet>` — nouveau, hors RFC, vérifié** : consomme un objet doté d'un `effect` (`healing`, pain 15 PV, herbes 30 PV) et répond `OK healed=<PV>` ; `USE charm` → `ERR 407 ITEM_NOT_USABLE`, objet absent → `404 ITEM_NOT_IN_INVENTORY`, sans argument → `400`, refusé en combat (`409`). Les herbes soignent enfin.
 - ✅ **Il ne reste plus aucun stub** (`cmdStub` supprimé).
@@ -43,7 +45,7 @@ Mesuré en conditions réelles :
 | Commandes insensibles à la casse (RFC §4.2) | ✅ |
 | Chargement monde JSON + validation des références | ✅ (salles, PNJ, items, spawns, effets, quêtes) |
 | Monde : ≥ 8 salles avec boucle, ≥ 3 rôles PNJ, ≥ 4 items, ≥ 2 quêtes | ✅ données (15 salles, 2 boucles, 16 PNJ, 8 items) — quêtes non exploitées |
-| Items : instances uniques, prise/dépôt, id ou nom, multi-mots, inventaire visible | ✅ ; ⚠️ ids `#N` hors RFC (documenté) |
+| Items : instances uniques, prise/dépôt, id ou nom, multi-mots, inventaire visible | ✅ ; ids de définition comme la RFC (ids `#N` seulement dans les événements de combat) |
 | Respawn PNJ / items | ✅ annoncé par `EVT` |
 | Combat : 100 HP, dégâts, `STATUS`, respawn joueur, tour par tour, initiative, `DEFEND`/`FLEE`, diffusion | ✅ |
 | Quêtes (conception, validation, récompenses) | ✅ 3 quêtes jouables |
@@ -54,7 +56,7 @@ Mesuré en conditions réelles :
 | Logging : événements de quêtes | ❌ (pas de quêtes) |
 | Fragmentation / coalescing TCP (RFC §9.2) | ✅ |
 | Limite de longueur de ligne (RFC §9.4) | ⚠️ partielle |
-| Lint / install / run-server / run-client / run-client-gui / clean (§VII.1) | ✅ toutes les cibles existent ; ⚠️ recettes en double sur `server`, `client`, `gui` (voir Makefile ❌ 1) |
+| Lint / install / run-server / run-client / run-client-gui / clean (§VII.1) | ✅ toutes les cibles existent et ne s'exécutent plus en double |
 | README (§VI) | ⚠️ 6 sections remplies sur 12 ; 1 affirmation périmée (15 PNJ) |
 
 ---
@@ -93,11 +95,11 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **Extensions hors RFC en plus** : `USE`, `ERR 407 ITEM_NOT_USABLE`, `OK healed=<n>` ; la réponse de `QUEST` diffère de l'exemple de la RFC (`reward` est un objet `{items, heal}` et non une chaîne, `status` vaut `active` et non `available`, champs `progress` et `text_done`) — l'écart n°8 du README le documente, mais un client strict qui lit `reward` comme une chaîne échouera.
-2. **`GROUP` : les erreurs de groupe sont écrasées en `ERR 400`** (`cmdGroup`, `default:`) — non-chef qui invite (`NOT_LEADER`), groupe plein, invitation inexistante, invitation à soi-même, joueur inconnu : tout donne `400 BAD_REQUEST`, indiscernable d'une faute de syntaxe. La RFC n'a que `401`/`402` pour les groupes, mais un client ne sait pas pourquoi `GROUP JOIN` échoue (vérifié : `JOIN` sans invitation → `400`). À documenter comme écart, ou ajouter des codes dédiés.
+1. **Extensions hors RFC** : `USE` (`ERR 407`, `OK healed=<n>`), `DEFEND`/`FLEE`, erreurs `409`-`414`, `429`, `500`, `503`, événements `COMBAT`/`SPAWN`/`EFFECT`, champs ajoutés à `ATTACK`/`STATUS`/`QUEST` — toutes documentées, additives, mais un client strict (autre groupe) doit ignorer les champs et événements inconnus ; `QUEST` répond toujours `status: active` là où la RFC montre `available`.
+2. **`PLAYER_NOT_FOUND` réutilise le code `404`** (comme `ITEM_NOT_FOUND`, `NPC_NOT_FOUND`) : un client qui ne distingue que le code ne sait pas de quoi il s'agit sans lire le nom ; et les codes `412`-`414` s'intercalent dans la famille « quête » (406) sans lien avec la RFC.
 3. **`CHAT` : le texte est journalisé en `DEBUG`** (`chat text`), donc visible dans les logs de développement ; et le premier espace seul sépare le scope du message (`chat room  é ü` envoie `" é ü"` avec un espace en tête).
-4. **🔴 `WHO` : le sujet et la RFC divergent, et le choix n'est pas documenté** — le sujet (§V.5) montre `OK { "room": ["alice","bob"], "server": 5 }`, la RFC (§5.2.2) montre `OK players=<count>`. Le serveur suit la RFC, ce qui est défendable (la RFC prime), mais un GUI qui suivrait l'exemple du sujet n'y trouverait ni la liste de la salle ni le total. À mentionner dans les écarts/choix du README.
-5. **Ids d'instance `#N` sur le fil et grammaire des `EVT … COMBAT ROUND` ambiguë** (`item.herbs#3`) — documenté (écart n°6) mais hors RFC §5.4.1 ; `INVENTORY` et les `EVT … COMBAT` les propagent aussi. Le format `… npc.wolf#11 npc.wolf#11 1 attack cara miss` répète acteur et ennemi et mélange nombre et mots dans le dernier champ ; le README donne le tableau, pas de grammaire ABNF.
+4. **`WHO` suit la RFC** (`OK players=<n>`) alors que l'exemple du sujet montre `OK { "room": [...], "server": 5 }` : choix défendable et désormais documenté (écart n°9), mais un GUI écrit d'après l'exemple du sujet n'y trouvera ni la liste de la salle ni un objet JSON.
+5. **Grammaire des `EVT … COMBAT ROUND` ambiguë** : `… npc.wolf#11 npc.wolf#11 1 attack cara miss` répète acteur et ennemi et mélange nombre et mots dans le dernier champ ; les événements de combat sont les seuls messages qui exposent encore l'id d'instance (`npc.wolf#11`), qu'un client ne peut pas relier aux `"npcs":["npc.wolf"]` de `LOOK` quand plusieurs loups sont présents. Le README donne le tableau, pas de grammaire ABNF.
 
 > Point mineur : aucune validation des arguments inutiles (`INVENTORY x`, `LOOK foo`, `QUIT bar` acceptés) ; `MOVE` sans argument → `301` plutôt que `400`.
 
@@ -195,8 +197,8 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **🔴 Résidus du merge : recettes en double dans le `Makefile` racine** (lignes ~192-212) — `server: run-server`, `cli client: run-client`, `gui: run-client-gui` coexistent avec les anciennes règles `server: build` / `make -C ./server run`, `client:` / `make -C clients/cli` et `gui:` / `make -C clients/gui run`. Conséquence vérifiée par `make -n` : **`make server` construit le serveur ET le client CLI, ouvre le serveur dans une nouvelle fenêtre, puis lance un second serveur dans le terminal courant** (le deuxième échoue au `bind`) ; `make client` ouvre une fenêtre CLI puis lance aussi le CLI dans le terminal courant ; `make gui` lance la fenêtre graphique deux fois de suite. À corriger en supprimant les anciens blocs.
-2. **Pas de cible `test`** alors que le moteur de combat est conçu pour être testé ; `cppcheck` et `clang-tidy` ne tournent pas sur cette machine (installés ? non), donc `lint` n'a vérifié que le compilateur et les espaces.
+1. **`cppcheck` et `clang-tidy` ne tournent pas sur cette machine** (`make lint` les ignore avec un message) : seule la compilation stricte et les espaces en fin de ligne ont été vérifiés ; sur la machine de correction, un `cppcheck` installé peut ajouter des erreurs que vous n'avez pas vues.
+2. **Pas de cible `test`** alors que le moteur de combat est conçu pour être testé.
 3. **`clients/gui/Makefile` écrit `$EXECUTABLE_NAME` au lieu de `$(EXECUTABLE_NAME)`** (make lit la variable `E`) : le GUI se reconstruit à chaque fois ; sans effet visible mais piège (et le GUI n'est pas dans `build`/`lint`, qui l'excluent faute de Qt).
 4. **`make server` dans `server/` (`all`) relance `run`** via `$(MAKE) run` après la compilation : appelé directement il construit puis lance le serveur au premier plan (la racine, elle, n'appelle que `server`).
 5. **Téléchargement réseau au premier `make`** (internet + `curl`/`wget`), `PROJECT_ROOT` absolu compilé dans le binaire, `.vscode/c_cpp_properties.json` versionné.
@@ -226,6 +228,13 @@ Mesuré en conditions réelles :
 ## Corrigés depuis l'audit initial
 
 Audits précédents (2026-10-02 → 2026-10-19) : `CONNECT`, hook de déconnexion, monde, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances, `locate()`, noms UTF-8, casse, respawn, README v1 et écarts, refactors, événements `EVT`, combat tour par tour, `DEFEND`/`FLEE`, diffusion du combat, raté visible, respawn annoncé, documentation du code.
+
+Depuis le 2026-10-25 (dernier audit) :
+- **Recettes en double du Makefile racine** (`make server` lançait deux serveurs) → supprimées (`6590162`). Vérifié par `make -n`.
+- **Ids d'instance `#N` sur le fil** → ids de définition partout sauf événements de combat (non commité). Vérifié.
+- **`reward` de `QUEST` en objet** → texte comme la RFC + `reward_items` / `reward_heal`. Vérifié.
+- **Erreurs de `GROUP` toutes en `400`** → `404`/`412`/`413`/`414`/`402`. Vérifiées (412, 404, 401, 402).
+- **`WHO` : choix non expliqué** → écart n°9 du README.
 
 Depuis le 2026-10-23 (soir) :
 - **`QUEST`/`QUESTS` stubs, `quests.json` non lu** → système de quêtes complet (3 types, validation, récompenses, README). Vérifié : livraison et défaite de bout en bout.
@@ -263,10 +272,10 @@ Depuis la mise à jour du matin du 2026-10-19 :
 
 ## Priorités (ordre suggéré)
 
-1. **Supprimer les recettes en double du `Makefile` racine** (`server: build`, `client:`, `gui:` d'avant le merge) : aujourd'hui `make server` lance deux serveurs.
-2. **README** : corriger « 15 NPC » → 16, écrire **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice », mettre à jour le tableau des cibles.
-3. **Interchangeabilité (§II)** : décider du sort des ids `#N` et du format de la réponse de `QUEST`, trancher `WHO` (RFC ou exemple du sujet), distinguer les erreurs de `GROUP` (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) au lieu de tout renvoyer en `400`.
-4. **Robustesse** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, relever la limite par adresse du loopback par défaut, règle de sortie pour un joueur AFK.
-5. **Détails de jeu** : `USE` à pleine santé, désignation partielle d'un PNJ (`tavern keeper`), origine des objets de quête, événements d'avancement des quêtes.
+1. **Commiter le travail en cours** (ids de définition, `reward` en texte, erreurs de `GROUP`) : il n'existe aujourd'hui que dans l'arbre de travail, donc ni relu ni protégé — et il change ce que voient les clients (le GUI, qui lit `LOOK`, doit être rebuild et retesté contre ces ids).
+2. **Retester le GUI et le CLI contre le serveur modifié** : les ids sont passés de `item.herbs#3` à `item.herbs` ; tout client (ou script) qui découpait sur `#` ou comparait des ids d'instance doit être vérifié.
+3. **Robustesse** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, relever la limite par adresse du loopback par défaut, règle de sortie pour un joueur AFK.
+4. **Détails de jeu** : `USE` à pleine santé (consomme l'objet pour `healed=0`), désignation partielle d'un PNJ (`tavern keeper`), origine des objets de quête, événements d'avancement des quêtes, ids d'instance restants dans les événements de combat.
+5. **README** (hors périmètre de cette liste) : « 15 NPC » → 16 ; sections Testing, Group Contributions, Resources, Instructions ; choix d'interface du CLI.
 6. **Logger** : rotation ou taille maximale du fichier.
 7. **Tests automatisés** (combat avec `roll` injecté, quêtes, groupes) et cible `make test`.
