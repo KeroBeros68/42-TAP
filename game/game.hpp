@@ -21,6 +21,7 @@
 # include "entities/player.hpp"
 # include "events/event_bus.hpp"
 # include "group/group_manager.hpp"
+# include "quests/quest_manager.hpp"
 # include "world/presence.hpp"
 # include "world/respawn_queue.hpp"
 # include "world/world.hpp"
@@ -40,6 +41,8 @@ enum class ChatScope { GLOBAL, ROOM, GROUP };
 
 enum class ChatStatus { SENT, NOT_IN_GROUP, UNKNOWN_PLAYER };
 
+enum class UseStatus { USED, NOT_FOUND, NOT_USABLE, UNKNOWN_PLAYER };
+
 enum class GroupAction { CREATE, INVITE, JOIN, LEAVE };
 
 struct GroupReply {
@@ -48,9 +51,28 @@ struct GroupReply {
 	bool unknown_player = false;
 };
 
+enum class QuestStatus { STARTED, IN_PROGRESS, COMPLETED, NONE, NPC_NOT_FOUND, INVENTORY_FULL, UNKNOWN_PLAYER };
+
 //##############################################################################
 //#                                  STRUCTS                                   #
 //##############################################################################
+
+struct UseResult {
+	UseStatus	status = UseStatus::NOT_FOUND;
+	std::string	id{};
+	int			healed = 0;
+};
+
+struct QuestView {
+	const QuestDef*	def = nullptr;
+	QuestState		state = QuestState::ACTIVE;
+	int				current = 0;
+};
+
+struct QuestReply {
+	QuestStatus	status = QuestStatus::NONE;
+	QuestView	view{};
+};
 
 struct LookData {
 	const Room* room;
@@ -70,6 +92,7 @@ class Game : private CombatHost {
 		CombatManager _combat;
 		RespawnQueue _respawns;
 		GroupManager _groups;
+		QuestManager _quests;
 		std::unordered_map<std::string, std::chrono::steady_clock::time_point> _effect_due;
 
 		//########################## PRESENCE ##########################
@@ -126,6 +149,26 @@ class Game : private CombatHost {
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
 
+		//############################ QUESTS ##########################
+		/**
+		 * Counts what a player did for a quest: the items he carries (to bring) or the enemies he defeated.
+		 *
+		 * @param player the player
+		 * @param quest  his progress
+		 * @return       the number counted, at most the number asked
+		 */
+		int questCurrent(const Player& player, const QuestProgress& quest) const;
+
+		/**
+		 * Finishes a quest: the items are taken, the reward is given and the quest is marked as completed.
+		 * Nothing changes if the reward does not fit in the inventory.
+		 *
+		 * @param player the player
+		 * @param quest  his progress, which must be done
+		 * @return       COMPLETED, or INVENTORY_FULL
+		 */
+		QuestStatus completeQuest(Player& player, QuestProgress& quest);
+
 		//########################## EFFECTS ###########################
 		/**
 		 * Gives hit points to a player, up to his maximum. A player in a fight or dead is not healed.
@@ -171,7 +214,7 @@ class Game : private CombatHost {
 
 		//########################## RESPAWN ###########################
 		/** @copydoc CombatHost::enemyDied */
-		void enemyDied(Room& room, Npc* npc, const std::string& killer) override;
+		void enemyDied(Room& room, Npc* npc, const std::string& killer, const std::vector<long long>& participants) override;
 
 		/** @copydoc CombatHost::respawnRoom */
 		const std::string& respawnRoom() const override;
@@ -269,6 +312,16 @@ class Game : private CombatHost {
 		TransferResult dropItem(long long player_id, const std::string& target);
 
 		/**
+		 * Uses an item of the inventory of a player: the item is consumed and its effect is applied.
+		 *
+		 * @param player_id id of the player
+		 * @param target    designates the item, as for Inventory::findItem
+		 * @return          USED with the id of the item and the hit points he got; NOT_FOUND if he does not have it;
+		 *                  NOT_USABLE if it has no effect (it is kept); UNKNOWN_PLAYER
+		 */
+		UseResult useItem(long long player_id, const std::string& target);
+
+		/**
 		 * Makes a player talk to an npc of his room.
 		 *
 		 * @param player_id id of the player
@@ -343,6 +396,25 @@ class Game : private CombatHost {
 		 * @return          DONE, or NOT_IN_GROUP
 		 */
 		GroupReply groupLeave(long long player_id);
+
+		//############################ QUESTS ##########################
+		/**
+		 * Talks to an npc about quests: gives him the result of a quest in progress, or takes the quest he offers.
+		 *
+		 * @param player_id id of the player
+		 * @param target    designates the npc, as for Room::findNpc
+		 * @return          STARTED, IN_PROGRESS (the objective is not reached), COMPLETED, NONE (nothing to give or take),
+		 *                  NPC_NOT_FOUND, INVENTORY_FULL (the reward does not fit), or UNKNOWN_PLAYER; with the quest concerned
+		 */
+		QuestReply quest(long long player_id, const std::string& target);
+
+		/**
+		 * Lists the quests of a player, in progress and finished.
+		 *
+		 * @param player_id id of the player
+		 * @return          the quests (nothing if he is unknown)
+		 */
+		std::optional<std::vector<QuestView>> quests(long long player_id) const;
 
 		//############################ CHAT ############################
 		/**

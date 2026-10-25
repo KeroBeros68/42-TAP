@@ -80,6 +80,31 @@ static Response cmdMove(Game& game, User& user, const std::string& direction) {
 }
 
 /**
+ * USE: uses an item of the inventory: it is consumed and gives its effect (hit points back).
+ * It is refused during a fight.
+ *
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target designates the item
+ * @return       OK healed=<hit points>, or BAD_REQUEST (no target) / IN_COMBAT / ITEM_NOT_IN_INVENTORY / ITEM_NOT_USABLE
+ */
+static Response cmdUse(Game& game, User& user, const std::string& target) {
+	if (target.empty())
+		return Response::failure(TapError::BAD_REQUEST);
+	if (game.inCombat(user.id()))
+		return Response::failure(TapError::IN_COMBAT);
+
+	const UseResult used = game.useItem(user.id(), target);
+	switch (used.status) {
+		case UseStatus::USED:			return Response::success(TapOk::HEALED, std::to_string(used.healed));
+		case UseStatus::NOT_FOUND:		return Response::failure(TapError::ITEM_NOT_IN_INVENTORY);
+		case UseStatus::NOT_USABLE:		return Response::failure(TapError::ITEM_NOT_USABLE);
+		case UseStatus::UNKNOWN_PLAYER:	break;
+	}
+	return Response::failure(TapError::BAD_REQUEST);
+}
+
+/**
  * TALK: makes the player talk to an npc of his room.
  * It is refused during a fight.
  *
@@ -299,16 +324,45 @@ static Response cmdGroup(Game& game, User& user, const std::string& args) {
 }
 
 /**
- * Answers for a command that is not implemented yet.
+ * QUEST: talks to an npc about quests. He takes the result of a quest in progress, or gives the quest he offers.
+ * It is refused during a fight.
  *
- * @param cmd  the command
- * @param user the user of the connection
- * @param args its arguments
- * @return     OK and a placeholder message
+ * @param game   the game
+ * @param user   the user of the connection
+ * @param target designates the npc
+ * @return       OK and the quest, or BAD_REQUEST (no target) / IN_COMBAT / NPC_NOT_FOUND / NO_QUEST_AVAILABLE / INVENTORY_FULL
  */
-static Response cmdStub(const std::string& cmd, User& user, const std::string& args) {
-	LOG_DEBUG("command not implemented", {"client", user.id()}, {"cmd", cmd}, {"args", args});
-	return Response::success(TapOk::DATA, "Message received");
+static Response cmdQuest(Game& game, User& user, const std::string& target) {
+	if (target.empty())
+		return Response::failure(TapError::BAD_REQUEST);
+	if (game.inCombat(user.id()))
+		return Response::failure(TapError::IN_COMBAT);
+
+	const QuestReply reply = game.quest(user.id(), target);
+	switch (reply.status) {
+		case QuestStatus::STARTED:
+		case QuestStatus::IN_PROGRESS:
+		case QuestStatus::COMPLETED:		return Response::success(TapOk::DATA, serializeQuest(reply));
+		case QuestStatus::NONE:				return Response::failure(TapError::NO_QUEST_AVAILABLE);
+		case QuestStatus::NPC_NOT_FOUND:	return Response::failure(TapError::NPC_NOT_FOUND);
+		case QuestStatus::INVENTORY_FULL:	return Response::failure(TapError::INVENTORY_FULL);
+		case QuestStatus::UNKNOWN_PLAYER:	break;
+	}
+	return Response::failure(TapError::BAD_REQUEST);
+}
+
+/**
+ * QUESTS: lists the quests of the player, in progress and finished. It is allowed during a fight.
+ *
+ * @param game the game
+ * @param user the user of the connection
+ * @return     OK and a JSON array of the quests, or BAD_REQUEST
+ */
+static Response cmdQuests(Game& game, User& user) {
+	const std::optional<std::vector<QuestView>> quests = game.quests(user.id());
+	if (!quests)
+		return Response::failure(TapError::BAD_REQUEST);
+	return Response::success(TapOk::DATA, serializeQuests(*quests));
 }
 
 //##############################################################################
@@ -337,6 +391,9 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_TAKE, [&game](User& user, const std::string& target) {
 		return cmdTake(game, user, target);
 	});
+	server.defineAction(CMD_USE, [&game](User& user, const std::string& target) {
+		return cmdUse(game, user, target);
+	});
 	server.defineAction(CMD_DROP, [&game](User& user, const std::string& target) {
 		return cmdDrop(game, user, target);
 	});
@@ -356,6 +413,12 @@ void registerCommands(Server& server, Game& game) {
 	server.defineAction(CMD_CHAT, [&game](User& user, const std::string& args) {
 		return cmdChat(game, user, args);
 	});
+	server.defineAction(CMD_QUEST, [&game](User& user, const std::string& target) {
+		return cmdQuest(game, user, target);
+	});
+	server.defineAction(CMD_QUESTS, [&game](User& user, const std::string&) {
+		return cmdQuests(game, user);
+	});
 	server.defineAction(CMD_GROUP, [&game](User& user, const std::string& args) {
 		return cmdGroup(game, user, args);
 	});
@@ -363,12 +426,4 @@ void registerCommands(Server& server, Game& game) {
 		return cmdStatus(game, user);
 	});
 
-	const std::string stubs[] = {
-		CMD_QUEST, CMD_QUESTS
-	};
-	for (const std::string& cmd : stubs) {
-		server.defineAction(cmd, [cmd](User& user, const std::string& args) {
-			return cmdStub(cmd, user, args);
-		});
-	}
 }

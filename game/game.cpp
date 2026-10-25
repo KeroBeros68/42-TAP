@@ -2,6 +2,7 @@
 //#                                STD INCLUDES                                #
 //##############################################################################
 
+# include <algorithm>
 # include <iostream>
 # include <utility>
 
@@ -91,6 +92,47 @@ void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) 
 	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + id));
 }
 
+//############################ QUESTS ##########################
+
+int Game::questCurrent(const Player& player, const QuestProgress& quest) const {
+	const QuestDef& def = quest.definition();
+	if (quest.state() == QuestState::COMPLETED)
+		return def.count();
+	if (def.type() == QuestType::DEFEAT)
+		return quest.kills();
+
+	int carried = 0;
+	for (const auto& [id, item] : player.inventory().items()) {
+		if (item.definition().id() == def.target())
+			++carried;
+	}
+	return std::min(carried, def.count());
+}
+
+QuestStatus Game::completeQuest(Player& player, QuestProgress& quest) {
+	const QuestDef& def = quest.definition();
+	Inventory trial = player.inventory();
+	if (def.type() != QuestType::DEFEAT) {
+		int to_take = def.count();
+		for (const std::string& id : player.inventory().ids()) {
+			const Item* item = player.inventory().findItem(id);
+			if (to_take > 0 && item->definition().id() == def.target()) {
+				trial.remove(id);
+				--to_take;
+			}
+		}
+	}
+	for (const std::string& reward : def.reward().items) {
+		if (!trial.add(_world.item_database.instantiate(reward)))
+			return QuestStatus::INVENTORY_FULL;
+	}
+
+	player.inventory() = trial;
+	player.stats().heal(def.reward().heal);
+	quest.complete();
+	return QuestStatus::COMPLETED;
+}
+
 //########################## EFFECTS ###########################
 
 int Game::regen(long long player_id, int amount) {
@@ -150,8 +192,12 @@ GroupResult Game::leaveGroup(long long player_id) {
 
 //########################## RESPAWN ###########################
 
-void Game::enemyDied(Room& room, Npc* npc, const std::string& killer) {
+void Game::enemyDied(Room& room, Npc* npc, const std::string& killer, const std::vector<long long>& participants) {
 	const std::string npc_id = npc->id();
+	for (long long player_id : participants) {
+		for (const QuestProgress* quest : _quests.recordKill(player_id, npc->definition().id()))
+			LOG_INFO("quest progress", {"client", player_id}, {"quest", quest->definition().id()}, {"kills", quest->kills()}, {"count", quest->definition().count()});
+	}
 	const std::vector<std::string> dropped = npc->dropLoot(room.inventory(), _world.item_database);
 	std::string loot;
 	for (const std::string& item : dropped)
@@ -198,6 +244,7 @@ void Game::removePlayer(long long id) {
 	}
 	_combat.abandon(id);
 	leaveGroup(id);
+	_quests.remove(id);
 	LOG_INFO("player left room", {"client", id}, {"player", player->second.name()}, {"room", player->second.currentMap()});
 	_players.erase(player);
 	emitPlayerCount();
@@ -325,6 +372,31 @@ TransferResult Game::dropItem(long long player_id, const std::string& target) {
 	return result;
 }
 
+UseResult Game::useItem(long long player_id, const std::string& target) {
+	Presence here = locate(player_id, "use");
+	if (!here)
+		return {UseStatus::UNKNOWN_PLAYER, "", 0};
+
+	const Item* found = here.player->inventory().findItem(target);
+	if (!found) {
+		LOG_DEBUG("no such item to use", LOG_HERE(here), {"target", target});
+		return {UseStatus::NOT_FOUND, "", 0};
+	}
+	const std::optional<ItemEffect>& effect = found->definition().effect();
+	if (!effect) {
+		LOG_DEBUG("item has no effect", LOG_HERE(here), {"item", found->id()});
+		return {UseStatus::NOT_USABLE, found->id(), 0};
+	}
+
+	const std::string id = found->id();
+	const int before = here.player->stats().hp;
+	here.player->stats().heal(effect->amount);
+	const int healed = here.player->stats().hp - before;
+	here.player->inventory().remove(id);
+	LOG_INFO("player used an item", LOG_HERE(here), {"item", id}, {"healed", healed});
+	return {UseStatus::USED, id, healed};
+}
+
 std::optional<std::string> Game::talk(long long player_id, const std::string& target) const {
 	ConstPresence here = locate(player_id, "talk");
 	if (!here)
@@ -435,6 +507,56 @@ GroupReply Game::groupLeave(long long player_id) {
 
 	GroupResult result = leaveGroup(player_id);
 	return {result.status, result.group_id, false};
+}
+
+//############################ QUESTS ##########################
+
+QuestReply Game::quest(long long player_id, const std::string& target) {
+	Presence here = locate(player_id, "quest");
+	if (!here)
+		return {QuestStatus::UNKNOWN_PLAYER, {}};
+
+	const Npc* npc = here.room->findNpc(target);
+	if (!npc) {
+		LOG_DEBUG("no such NPC for a quest", LOG_HERE(here), {"target", target});
+		return {QuestStatus::NPC_NOT_FOUND, {}};
+	}
+	const std::string& npc_def = npc->definition().id();
+
+	if (QuestProgress* active = _quests.activeFor(player_id, npc_def)) {
+		QuestView view{&active->definition(), active->state(), questCurrent(*here.player, *active)};
+		if (view.current < active->definition().count())
+			return {QuestStatus::IN_PROGRESS, view};
+
+		const QuestStatus status = completeQuest(*here.player, *active);
+		view.state = active->state();
+		view.current = questCurrent(*here.player, *active);
+		if (status == QuestStatus::COMPLETED)
+			LOG_INFO("quest completed", LOG_HERE(here), {"quest", view.def->id()}, {"npc", npc->id()});
+		else
+			LOG_INFO("quest reward does not fit", LOG_HERE(here), {"quest", view.def->id()});
+		return {status, view};
+	}
+
+	if (const QuestDef* offered = _quests.offeredBy(_world.quest_database, player_id, npc_def)) {
+		QuestProgress& started = _quests.start(player_id, *offered);
+		LOG_INFO("quest started", LOG_HERE(here), {"quest", offered->id()}, {"npc", npc->id()});
+		return {QuestStatus::STARTED, {offered, started.state(), questCurrent(*here.player, started)}};
+	}
+
+	LOG_DEBUG("no quest to give or take", LOG_HERE(here), {"npc", npc->id()});
+	return {QuestStatus::NONE, {}};
+}
+
+std::optional<std::vector<QuestView>> Game::quests(long long player_id) const {
+	ConstPresence here = locate(player_id, "quests");
+	if (!here)
+		return std::nullopt;
+
+	std::vector<QuestView> views;
+	for (const QuestProgress* quest : _quests.list(player_id))
+		views.push_back({&quest->definition(), quest->state(), questCurrent(*here.player, *quest)});
+	return views;
 }
 
 //############################ CHAT ############################

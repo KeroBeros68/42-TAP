@@ -49,27 +49,31 @@ SRCS =	server.cpp \
 	combat.cpp \
 	combat_manager.cpp \
 	group_manager.cpp \
+	quest.cpp \
+	quest_manager.cpp \
 	serializer.cpp \
 	config.cpp
 
 # The game sources live in ../game
-vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared/logging:../shared/system:../shared/text:../game/combat:../game/events:../game/group
+vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared/logging:../shared/system:../shared/text:../game/combat:../game/events:../game/group:../game/quests
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp
 
-INCLUDES = $(wildcard *.hpp) $(wildcard network/*.hpp) $(wildcard protocol/*.hpp) $(wildcard ../shared/*.hpp) $(wildcard ../shared/*/*.hpp) $(wildcard ../game/*.hpp) $(wildcard ../game/*/*.hpp)
 
 # Compilation
 CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++20 -pthread
+CFLAGS = -Wall -Werror -Wextra -std=c++20 -pthread -MMD -MP
+
+# The objects are built in parallel (make JOBS=1 to see the errors one by one)
+JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+MAKEFLAGS += -j$(JOBS)
 
 # Object name
 OBJS = $(addprefix $(OBJ_DIR)/, $(notdir $(SRCS:.cpp=.o)))
 
-#
-TOTAL := $(words $(OBJS))
-CURRENT := 0
+# Dependencies on the headers, written by the compiler (-MMD)
+DEPS = $(OBJS:.o=.d)
 
 # **************************************************************************** #
 #									.PHONY									   #
@@ -92,7 +96,8 @@ help:
 #									Rules									   #
 # **************************************************************************** #
 
-all: $(NAME) run
+all: $(NAME)
+	$(MAKE) --no-print-directory run
 
 $(NAME): $(OBJS)
 	$(ECHO) "$(CYAN)Création de l'exécutable $(NAME)...$(RESET) "
@@ -103,13 +108,11 @@ $(NAME): $(OBJS)
 		$(CC) $(CFLAGS) -o $@ $(OBJS); \
 	fi
 
-$(OBJ_DIR)/%.o: %.cpp $(INCLUDES) | $(OBJ_DIR)
-	$(eval CURRENT=$(shell $(ECHO) $$(($(CURRENT)+1))))
-	printf "$(CYAN)[%2d/%2d]$(RESET) %-30s " $(CURRENT) $(TOTAL) $(notdir $<)
+$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
 	if $(CC) $(CFLAGS) -c $< -o $@ 2>/dev/null; then \
-		$(ECHO) "$(GREEN)✓$(RESET)"; \
+		$(ECHO) "$(CYAN)Compilation$(RESET) $(notdir $<) $(GREEN)✓$(RESET)"; \
 	else \
-		$(ECHO) "$(RED)✗$(RESET)"; \
+		$(ECHO) "$(CYAN)Compilation$(RESET) $(notdir $<) $(RED)✗$(RESET)"; \
 		$(CC) $(CFLAGS) -c $< -o $@; \
 	fi
 
@@ -158,4 +161,8 @@ fclean: clean
 		$(ECHO) "$(YELLOW)⚠ Déjà supprimée$(RESET)"; \
 	fi
 
-re: fclean all
+re:
+	$(MAKE) --no-print-directory fclean
+	$(MAKE) --no-print-directory all
+
+-include $(DEPS)

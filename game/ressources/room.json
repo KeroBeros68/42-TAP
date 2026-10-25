@@ -12,7 +12,7 @@
 				"west": "loc.plain2"
 			},
 			"items": [
-				{ "item": "item.herbs", "count": 1 },
+				{ "item": "item.herbs", "count": 1, "respawn_seconds": 60 },
 				{ "item": "item.fountain", "count": 1 }
 			],
 			"spawns": [
@@ -39,9 +39,7 @@
 			"exits": {
 				"west": "loc.village"
 			},
-			"items": [
-				{ "item": "item.bread", "count": 1 }
-			],
+			"items": [],
 			"spawns": [
 				{ "npc": "npc.tavern_keeper", "count": 1 },
 				{ "npc": "npc.bard", "count": 1 }
@@ -150,7 +148,7 @@
 				"west": "loc.orc_village"
 			},
 			"items": [
-				{ "item": "item.silver_bell", "count": 1 }
+				{ "item": "item.silver_bell", "count": 1, "respawn_seconds": 60 }
 			],
 			"spawns": [
 				{ "npc": "npc.goblin", "count": 2, "respawn_seconds": 60 },

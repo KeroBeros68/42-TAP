@@ -3,12 +3,14 @@
 		"item.herbs": {
 			"name": "Healing Herbs",
 			"description": "A bundle of silvery-green leaves that smell of mint and morning dew. The village healers swear by them.",
-			"obtainable": true
+			"obtainable": true,
+			"effect": { "type": "healing", "amount": 30 }
 		},
 		"item.bread": {
 			"name": "Loaf of Bread",
 			"description": "A round loaf with a golden crust, still faintly warm. Bronn's own recipe, and the closest thing to a feast on the road.",
-			"obtainable": true
+			"obtainable": true,
+			"effect": { "type": "healing", "amount": 15 }
 		},
 		"item.silver_bell": {
 			"name": "Silver Bell",

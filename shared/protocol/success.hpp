@@ -27,7 +27,8 @@ enum class TapOk {
 	PLAYERS,
 	GROUP,
 	TAKEN,
-	DROPPED
+	DROPPED,
+	HEALED
 };
 
 //##############################################################################
@@ -47,6 +48,7 @@ inline const char* tapOkPrefix(TapOk r) {
 		case TapOk::GROUP:		return "group=";
 		case TapOk::TAKEN:		return "taken=";
 		case TapOk::DROPPED:	return "dropped=";
+		case TapOk::HEALED:		return "healed=";
 	}
 	return "";
 }

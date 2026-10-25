@@ -46,8 +46,7 @@ The project is still in progress. At the time of writing:
 - ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
 - ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
 - ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
-- ❌ `QUEST` and `QUESTS` are not implemented yet.
-- ⚠️ The quests are described in `game/ressources/quests.json` but are not used by the server yet.
+- ✅ `QUEST` and `QUESTS` are implemented (see [Quest System](#-quest-system)): the three quests of `game/ressources/quests.json` can be played.
 - ⚠️ The GUI client is not connected to the server yet.
 
 This section will be updated as the missing parts are completed.
@@ -81,7 +80,8 @@ The only third-party library is [nlohmann/json](https://github.com/nlohmann/json
 ### 🖥️ Server
 
 ```sh
-make -C server        # build ./server/server, then start it
+make run-server       # build ./server/server, then start it in a new terminal window (alias: make server)
+make -C server        # build it and start it in the current terminal
 ./server/server       # start it again later
 ```
 
@@ -92,7 +92,8 @@ If you move the project folder after a build, run `make -C server re`: the absol
 ### ⌨️ CLI client
 
 ```sh
-make client           # build ./clients/cli/clientCLI and start it in the current terminal
+make run-client       # build ./clients/cli/clientCLI and start it in a new terminal window (alias: make cli)
+make -C clients/cli   # build it and start it in the current terminal
 ```
 
 The client connects to `127.0.0.1:8080` by default (`SERVER_IP` in `clients/defines.hpp`, `SERVER_PORT` in `shared/defines.hpp`). To use another address or port, see *Configuration* below. Start the server first.
@@ -122,7 +123,7 @@ Copy `.env.example` to `.env` at the root of the project to set them (the file i
 ### 🪟 GUI client
 
 ```sh
-make gui              # configure with CMake, build with Qt 5, start ./clients/gui/42TAP
+make run-client-gui   # configure with CMake, build with Qt 5, start ./clients/gui/42TAP (alias: make gui)
 ```
 
 The address and the port of the server are typed in the connection window.
@@ -130,8 +131,8 @@ The address and the port of the server are typed in the connection window.
 ### 🚀 Everything at once
 
 ```sh
-make                  # same as "make run" after "make install-deps"
-make run              # build the server and the CLI client, open each one in its own terminal window
+make                  # install the dependencies and build the server and the CLI client (nothing is started)
+make run              # build, then open the server and the CLI client, each one in its own terminal window
 ```
 
 ### 🧹 Other targets
@@ -140,14 +141,23 @@ make run              # build the server and the CLI client, open each one in it
 | --- | --- |
 | `make install-deps` | Download and verify the third-party JSON library |
 | `make build` | Build the server and the CLI client without starting them |
+| `make build-gui` | Build the GUI client (needs CMake and Qt 5) |
 | `make run` | Build, then start the server and the CLI client in two terminal windows |
-| `make client` | Build and start the CLI client in the current terminal |
-| `make gui` | Build and start the GUI client |
+| `make run-server`, `make run-client`, `make run-client-gui` | Build and start one component (the first two in a new terminal window); the aliases are `server`, `cli` / `client` and `gui` |
+| `make lint` | Static checks, see below |
 | `make clean` | Remove object files and the GUI `build/` folder |
 | `make fclean` | `clean`, plus remove the executables |
 | `make re` | `fclean`, then `all` |
 
-<!-- TODO (subject VII.1): the build tool must also provide the targets run-server, run-client, run-client-gui and lint. Missing today; add them to the root Makefile, then update this table. -->
+**Lint.** `make lint` needs nothing but the compiler. It checks, without building anything:
+
+1. every source of the server, the shared code, the game and the CLI client (the Qt GUI is left out, it needs the Qt headers) with strict warnings, all treated as errors: `-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2`. They are stricter than the build flags and catch hidden conversions and shadowed names;
+2. that no line of the C++ sources ends with a space or a tab;
+3. `cppcheck` and `clang-tidy`, only if they are installed (otherwise they are skipped with a message).
+
+The command stops with an error status if one check fails.
+
+**Speed.** The server and the CLI client compile their files in parallel (one job per core; `make JOBS=1` to see the errors one by one) and only recompile what depends on a header that changed (the compiler writes the dependencies, `-MMD -MP`).
 
 ## 🏗️ Architecture <!-- [S] -->
 
@@ -250,12 +260,14 @@ The server follows **RFC 42TAP** (`docs/protocol-rfc.html`, protocol version 1):
 | `MOVE <direction>` | `OK room=<id>` / `ERR 301 NO_EXIT` | done (refused during a fight) |
 | `TAKE <item>` | `OK taken=<id>` / `ERR 404 ITEM_NOT_FOUND` | done (refused during a fight) |
 | `DROP <item>` | `OK dropped=<id>` / `ERR 404 ITEM_NOT_IN_INVENTORY` | done |
+| `USE <item>` | `OK healed=<hit points>` / `ERR 404 ITEM_NOT_IN_INVENTORY` / `ERR 407 ITEM_NOT_USABLE` | done (refused during a fight), **not in the RFC** |
 | `TALK <npc>` | `OK <dialogue>` / `ERR 404 NPC_NOT_FOUND` | done (refused during a fight) |
 | `ATTACK <npc>` | `OK {"attacker_hp","target_hp","damage","status","round","escaped","turns"}` / `ERR 404` / `ERR 405 NPC_NOT_HOSTILE` | done |
 | `STATUS` | `OK {"hp","max_hp","status"}` plus the state of the fight when there is one | done |
 | `QUIT` | `OK bye`, then the connection is closed | done |
 | `DEFEND`, `FLEE` | same reply as `ATTACK` | done, **not in the RFC** (our combat commands) |
-| `QUEST`, `QUESTS` | registered, but answer a placeholder `OK Message received` | **not implemented yet** |
+| `QUEST <npc>` | `OK {"quest_id","name","status","description","progress","reward"}` plus `"text_done"` when the quest is handed in / `ERR 404 NPC_NOT_FOUND` / `ERR 406 NO_QUEST_AVAILABLE` / `ERR 403 INVENTORY_FULL` | done (refused during a fight) |
+| `QUESTS` | `OK [{"quest_id","name","status","progress"}]` | done |
 
 ### 📣 Implemented events
 
@@ -291,7 +303,8 @@ The subject asks us to document every deviation and to justify it.
 | 5 | **Richer replies for `ATTACK` and `STATUS`**: the fields of the RFC (`attacker_hp`, `target_hp`, `damage`, `status`; `hp`, `max_hp`, `status`) are always there and in the same place, with extra fields added (`round`, `escaped`, `turns`; `enemy`, `turn`, `your_turn`, `turn_seconds_left`). | A turn-based fight plays several turns for one command (yours, then the enemy's), and the client needs to know them. A client of another group that only knows the RFC fields still works, because extra JSON fields can be ignored. |
 | 6 | **Instance ids are visible on the wire**: `LOOK` returns `"items":["item.herbs#3"]`, `"npcs":["npc.guard#10"]`, and `TAKE` answers `OK taken=item.herbs#3` (the RFC examples show `item.herbs`). | The subject requires items to be unique instances (no duplication). Two herbs in the same room need two different ids, so the instance counter is part of the id. The definition id (`item.herbs`), the name (`Healing Herbs`) and a word of the name are still accepted in commands, so a client that does not know about `#N` keeps working (`TAKE herbs`). A client must treat ids as opaque strings. |
 | 7 | **Player names** are limited to 32 bytes, must be valid UTF-8 without control characters, and cannot contain a space. | The RFC only requires uniqueness (§3.3) and correct handling of Unicode (§9.2). Without a limit and without spaces, a name cannot break the parsing of the lines that contain it, such as `EVT ROOM PRESENCE ENTER <name>`. |
-| 8 | **Placeholder answers** `OK Message received` for the 2 commands not yet implemented (`QUEST`, `QUESTS`). | Temporary state of the development, not a choice. These lines will disappear when the commands are done. |
+| 8 | **`QUEST` is also the way to hand a quest in**, and its answer has a `reward` object and a `progress` field. | The RFC leaves the quest design to us (§6.1.2) and its `QUEST` example answers with `quest_id`, `description`, `reward` and `status`. We keep these fields (the reward is an object `{"items":[...],"heal":N}` instead of a text) and add `name`, `progress` and, once the quest is handed in, `text_done`; extra JSON fields can be ignored by a client that does not know them. |
+| 9 | **Extra command `USE <item>`** and extra error `ERR 407 ITEM_NOT_USABLE`. An item with an `effect` in `items.json` (healing herbs, bread) is consumed and gives its hit points back, up to the maximum; the answer tells how many were really given. | The RFC has no way to use an item, but items with an effect would be useless without it. The subject allows additional commands. |
 
 ### 🚨 Error handling
 
@@ -352,10 +365,50 @@ Every step of a fight is sent as an `EVT ROOM COMBAT ...` event to the other pla
 ## 📜 Quest System <!-- [S] -->
 
 ### Quest data format
+
+The quests are described in `game/ressources/quests.json` and checked at startup (the server refuses to start if they are not valid):
+
+```json
+"quest.cellar_pests": {
+    "name": "Cellar Pests",
+    "type": "defeat",
+    "giver": "npc.tavern_keeper",
+    "turn_in": "npc.tavern_keeper",
+    "target": "npc.rats",
+    "count": 3,
+    "reward": { "items": [ "item.bread" ], "heal": 20 },
+    "text_start": "...",
+    "text_done": "..."
+}
+```
+
+`giver` gives the quest and `turn_in` takes the result (they can be the same npc). `type` is `deliver`, `fetch` or `defeat`; `target` is an item that can be taken (`deliver`, `fetch`) or an enemy (`defeat`), and `count` how many. The server checks that the npcs, the target and the reward items exist, that `count` is at least 1 and that `heal` is not negative.
+
+In the code, a quest is a `QuestDef` (a `Definition`, like npcs and items, stored in a `Database`), and what a player did is a `QuestProgress`, kept by the `QuestManager` of the `Game`.
+
 ### Progression mechanics
+
+- `QUEST <npc>` is the only command needed. Said to a `giver` who has a quest the player never had, it gives the quest (`status: active`). Said to the `turn_in` of a quest in progress, it hands it in.
+- `deliver` and `fetch` work the same way: bring `count` items `target` to the `turn_in` npc. Nothing is recorded while the player plays: the progress is the number of such items he **carries** when he asks (`QUESTS` shows `1/3`). If he drops them, they do not count any more.
+- `defeat`: every enemy of the definition `target` that dies counts for **all the players of the fight** who have the quest in progress. Only the enemies defeated after the quest was given count.
+- A quest can be done once; asking again gives `ERR 406 NO_QUEST_AVAILABLE`. The quests of a player are forgotten when he disconnects (nothing is saved).
+- `QUEST` is refused during a fight (`ERR 409`); `QUESTS` is allowed.
+
 ### Completion validation
+
+The hand-in is **manual**: the player goes to the `turn_in` npc and says `QUEST <npc>`. If the objective is not reached, the answer is the same quest with its progress, and nothing changes. Otherwise the server checks that the reward fits in the inventory (10 items at most, after the items to bring are taken); if it does not, the answer is `ERR 403 INVENTORY_FULL` and **nothing is taken or given**, so the player can free some room and ask again.
+
 ### Rewards
+
+When a quest is handed in, the items to bring are taken (`deliver`, `fetch`), the reward items are created in the inventory of the player, and `heal` hit points are given (up to his maximum). The quest is then `completed`. Quest events are logged (`quest started`, `quest progress`, `quest completed`).
+
 ### Quest list
+
+| Quest | Type | Given by | Handed in to | Objective | Reward |
+|-------|------|----------|--------------|-----------|--------|
+| Medicine for the Chapel | `deliver` | Guard Hector (square) | the priestess (chapel) | bring 1 Healing Herbs, found in the square | Blue Ribbon Charm |
+| Cellar Pests | `defeat` | Tavern Keeper Bronn (tavern) | Tavern Keeper Bronn | defeat 3 rats, in the plain | Loaf of Bread, 20 HP |
+| The Silent Bell | `fetch` | the Dead Acrobat (circus) | the Dead Acrobat | bring 1 Silver Bell, found in the goblin camp | 50 HP |
 
 ## 🗺️ World Design <!-- [S] -->
 
@@ -421,9 +474,9 @@ There are 8 item definitions, 7 of them obtainable (the subject asks for at leas
 
 | Item | Where | Use |
 | --- | --- | --- |
-| Healing Herbs | `square` | object of the quest *Medicine for the Chapel* |
-| Loaf of Bread | `tavern` | reward of a quest |
-| Silver Bell | `goblin_camp` | object of the quest *The Silent Bell* |
+| Healing Herbs | `square` (comes back after 60 s) | object of the quest *Medicine for the Chapel*, with a healing effect (30 HP) |
+| Loaf of Bread | reward only | reward of the quest *Cellar Pests*, with a healing effect (15 HP) |
+| Silver Bell | `goblin_camp` (comes back after 60 s) | object of the quest *The Silent Bell* |
 | Blue Ribbon Charm | reward only | reward of a quest |
 | Spider Silk, Great Deer Antler, Crown of Nails | loot of the Spider, the Great Deer and the Orc Lord | trophies |
 | Stone Fountain | `square` | decoration, **not obtainable** (`TAKE` is refused) |

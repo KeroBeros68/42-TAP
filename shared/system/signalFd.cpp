@@ -39,5 +39,5 @@ int SignalFd::fd() const {
 int SignalFd::read() {
 	struct signalfd_siginfo si;
 	ssize_t n = ::read(_fd, &si, sizeof(si));
-	return (n == sizeof(si)) ? (int)si.ssi_signo : SIGNAL_NONE;
+	return (n == sizeof(si)) ? static_cast<int>(si.ssi_signo) : SIGNAL_NONE;
 }

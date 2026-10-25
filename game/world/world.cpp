@@ -72,6 +72,36 @@ static void validateSpawns(const RoomMap& rooms, const std::string& kind, Spawns
 }
 
 /**
+ * Checks that a quest uses npcs and items that exist: the giver and the one who receives are npcs, the target is
+ * an item that can be taken (to bring) or an enemy (to defeat), and the reward items exist.
+ *
+ * @param quests the quests
+ * @param npcs   the npc definitions
+ * @param items  the item definitions
+ */
+static void validateQuests(const QuestDb& quests, const NpcDb& npcs, const ItemDb& items) {
+	for (const auto& [id, quest] : quests.all()) {
+		for (const std::string& npc : {quest.giver(), quest.turnIn()}) {
+			if (npcs.all().find(npc) == npcs.all().end())
+				throw std::runtime_error(ERR_QUEST_FILE + id + ": unknown npc '" + npc + "'");
+		}
+		if (quest.type() == QuestType::DEFEAT) {
+			auto enemy = npcs.all().find(quest.target());
+			if (enemy == npcs.all().end() || enemy->second.role() != NPC_ROLE_ENEMY)
+				throw std::runtime_error(ERR_QUEST_FILE + id + ": target '" + quest.target() + "' is not an enemy");
+		} else {
+			auto item = items.all().find(quest.target());
+			if (item == items.all().end() || !item->second.isObtainable())
+				throw std::runtime_error(ERR_QUEST_FILE + id + ": target '" + quest.target() + "' is not an item that can be taken");
+		}
+		for (const std::string& reward : quest.reward().items) {
+			if (items.all().find(reward) == items.all().end())
+				throw std::runtime_error(ERR_QUEST_FILE + id + ": unknown reward item '" + reward + "'");
+		}
+	}
+}
+
+/**
  * Checks that an id is the one of a room.
  *
  * @param rooms all the rooms
@@ -119,6 +149,8 @@ World::World() {loadWorld();}
 void World::loadWorld() {
 	parseNpcs(DATA_DIR + NPC_FILE, npc_database);
 	parseItems(DATA_DIR + ITEM_FILE, item_database);
+	parseQuests(DATA_DIR + QUEST_FILE, quest_database);
+	validateQuests(quest_database, npc_database, item_database);
 	parseRooms(DATA_DIR + ROOM_FILE, rooms, start_room, respawn_room, respawn_life);
 	validateExits(rooms);
 	validateSpawns(rooms, "NPC", npcSpawnsOf, npc_database.all());
@@ -129,5 +161,5 @@ void World::loadWorld() {
 		[](Room& room, const Item& item) { room.inventory().add(item); });
 	validateRoomId(rooms, start_room, "start_room");
 	validateRoomId(rooms, respawn_room, "respawn room");
-	LOG_INFO("world loaded", {"npcs", npc_database.all().size()}, {"items", item_database.all().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
+	LOG_INFO("world loaded", {"npcs", npc_database.all().size()}, {"items", item_database.all().size()}, {"quests", quest_database.all().size()}, {"spawned_npcs", spawned_npc}, {"spawned_items", spawned_item}, {"rooms", rooms.size()}, {"start_room", start_room}, {"respawn_room", respawn_room});
 }
