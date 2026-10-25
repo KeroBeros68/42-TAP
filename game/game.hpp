@@ -188,6 +188,14 @@ class Game : private CombatHost {
 		void emitRegen(long long player_id, int gained);
 
 		/**
+		 * Queues an INVENTORY CHANGED event for the player whose inventory changed (he has to ask INVENTORY again).
+		 *
+		 * @param player_id id of the player
+		 * @param reason    EVT_INVENTORY_QUEST or EVT_INVENTORY_USE
+		 */
+		void emitInventoryChanged(long long player_id, const char* reason);
+
+		/**
 		 * Applies the effects of the rooms whose time came: each player in such a room is healed.
 		 *
 		 * @param now the current time

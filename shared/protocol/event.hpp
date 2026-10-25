@@ -52,6 +52,12 @@
 # define EVT_EFFECT			"EFFECT"	// type of the events about the effect of a room on a player
 # define EVT_EFFECT_HEALING	"healing"	// the room gave hit points back
 
+// -- Inventory events ---------------------------------------------------------
+# define EVT_INVENTORY			"INVENTORY"	// category of the events for one player whose inventory changed without TAKE or DROP
+# define EVT_INVENTORY_CHANGED	"CHANGED"	// type: the inventory changed, the client should ask INVENTORY again
+# define EVT_INVENTORY_QUEST	"quest"		// reason: items were taken or given by a quest that was handed in
+# define EVT_INVENTORY_USE		"use"		// reason: an item was used up
+
 // -- Group events -------------------------------------------------------------
 # define EVT_GROUP			"GROUP"		// category of the events for the players of a group
 # define EVT_GROUP_INVITE	"INVITE"	// a player invites you

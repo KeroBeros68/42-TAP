@@ -44,7 +44,7 @@ Because the protocol is the only contract between server and clients, our client
 The project is still in progress. At the time of writing:
 
 - ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
-- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
+- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT INVENTORY`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
 - ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
 - ✅ `QUEST` and `QUESTS` are implemented (see [Quest System](#-quest-system)): the three quests of `game/ressources/quests.json` can be played.
 - ⚠️ The GUI client is not connected to the server yet.
@@ -285,6 +285,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
 | `EVT ROOM SPAWN <npc\|item> <definition id>` | an enemy or an item came back |
 | `EVT ROOM EFFECT healing <hp>` | sent only to the player healed by his room, with the hit points he got (not sent at full health) |
+| `EVT INVENTORY CHANGED <quest\|use>` | sent only to the player whose inventory changed without a `TAKE` or `DROP`: a quest he handed in took or gave items, or `USE` consumed one. The client should send `INVENTORY` again (a quest that gives hit points also sends `EVT ROOM EFFECT healing <hp>`) |
 
 The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
 

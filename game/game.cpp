@@ -128,9 +128,13 @@ QuestStatus Game::completeQuest(Player& player, QuestProgress& quest) {
 			return QuestStatus::INVENTORY_FULL;
 	}
 
+	const int hp_before = player.stats().hp;
 	player.inventory() = trial;
 	player.stats().heal(def.reward().heal);
 	quest.complete();
+	emitInventoryChanged(player.id(), EVT_INVENTORY_QUEST);
+	if (player.stats().hp > hp_before)
+		emitRegen(player.id(), player.stats().hp - hp_before);
 	return QuestStatus::COMPLETED;
 }
 
@@ -148,6 +152,10 @@ int Game::regen(long long player_id, int amount) {
 
 void Game::emitRegen(long long player_id, int gained) {
 	_events.send({player_id}, eventLine(EVT_ROOM, std::string(EVT_EFFECT) + CMD_SEPARATOR + EVT_EFFECT_HEALING + CMD_SEPARATOR + std::to_string(gained)));
+}
+
+void Game::emitInventoryChanged(long long player_id, const char* reason) {
+	_events.send({player_id}, eventLine(EVT_INVENTORY, std::string(EVT_INVENTORY_CHANGED) + CMD_SEPARATOR + reason));
 }
 
 void Game::applyRoomEffects(std::chrono::steady_clock::time_point now) {
@@ -395,6 +403,7 @@ UseResult Game::useItem(long long player_id, const std::string& target) {
 	const int healed = here.player->stats().hp - before;
 	here.player->inventory().remove(id);
 	LOG_INFO("player used an item", LOG_HERE(here), {"item", id}, {"healed", healed});
+	emitInventoryChanged(player_id, EVT_INVENTORY_USE);
 	return {UseStatus::USED, id, healed};
 }
 
