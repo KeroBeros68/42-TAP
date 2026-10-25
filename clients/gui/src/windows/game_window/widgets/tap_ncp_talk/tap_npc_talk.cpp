@@ -13,11 +13,13 @@ TAPNPCTalkView::TAPNPCTalkView(Session &session)
     this->_layout.addLayout(&this->_layout_items);
 
     this->_validate_button.setText("TALK");
+    this->_quest_button.setText("QUEST");
     this->_attack_button.setText("ATTACK");
     this->_defend_button.setText("DEFEND");
     this->_flee_button.setText("FLEE");
     this->_layout.addStretch();
     this->_layout.addWidget(&this->_validate_button);
+    this->_layout.addWidget(&this->_quest_button);
     // Combat actions side by side, under ATTACK
     this->_combat_buttons_layout.addWidget(&this->_attack_button);
     this->_combat_buttons_layout.addWidget(&this->_defend_button);
@@ -29,6 +31,13 @@ TAPNPCTalkView::TAPNPCTalkView(Session &session)
         [this] {
             if (this->get_selected_npc_id() == "") {return ;}
             this->_session.send("TALK", this->get_selected_npc_id());
+    });
+    this->connect(&this->_quest_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_npc_id() == "") {return ;}
+            this->_session.send("QUEST", this->get_selected_npc_id());
     });
     this->connect(&this->_attack_button,
         &QPushButton::clicked,
@@ -86,6 +95,7 @@ void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
     if (data.size() == 0) {
         this->_no_items_label.show();
         this->_validate_button.hide();
+        this->_quest_button.hide();
         this->_attack_button.hide();
         this->_defend_button.hide();
         this->_flee_button.hide();
@@ -93,6 +103,7 @@ void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
     else {
         this->_no_items_label.hide();
         this->_validate_button.show();
+        this->_quest_button.show();
         this->_attack_button.show();
         this->_defend_button.show();
         this->_flee_button.show();
