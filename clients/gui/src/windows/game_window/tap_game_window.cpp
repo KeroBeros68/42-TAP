@@ -8,7 +8,8 @@
 // constructor
 TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     : exit_view(session), ground_items_view(session), inventory_view(session),
-    npc_talk_view(session), action_buttons(session),
+    npc_talk_view(session), action_buttons(session), group_view(session),
+    chat_tabs(session),
     _error_window(error_window), _session(session)
 {
     // Set window properties, clamped to the screen's available geometry
@@ -20,10 +21,11 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->setLayout(&this->_window_layout);
 
     // Add widgets to the window layout
-    //  The player count bar spans the full window width,
+    //  The player count bar and the player info bar span the full window width,
     //  everything except the action buttons goes in the content column,
     //  the action buttons column spans the remaining height on the right
     this->_window_layout.addWidget(&player_count_bar);
+    this->_window_layout.addWidget(&player_info_bar);
 
     this->_content_layout.addWidget(&room_view);
     this->_content_layout.addWidget(&exit_view);
@@ -33,6 +35,7 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_content_layout.addLayout(&this->_items_row_layout);
     this->_content_layout.addWidget(&this->npc_talk_view);
     this->_content_layout.addWidget(&this->quests_view);
+    this->_content_layout.addWidget(&this->group_view);
     this->_content_layout.addWidget(&this->chat_tabs);
     this->_content_layout.addStretch();
 
@@ -87,7 +90,7 @@ void TAPGameWindow::update_gui(Section section)
         case Section::Combat:       this->update_status_section(); break; // same labels
         case Section::Counters:     this->update_counters_section(); break;
         case Section::Chat:         this->update_chat_section(); break;
-        case Section::Group:        break; // no group widget yet
+        case Section::Group:        this->update_group_section(); break;
         case Section::Quests:       this->update_quests_section(); break;
         case Section::Log:          this->update_log_section(); break;
     }
@@ -116,11 +119,19 @@ void TAPGameWindow::update_inventory_section()
     this->inventory_view.update_inventory(this->named(this->_session.state().inventory));
 }
 
-// No health bar widget exists yet. When one is added, this is where
-// state.hp, state.max_hp and state.combat are handed to it.
+// Our own hit points, status and name. STATUS is the only source of the hit
+// points; a combat answer asks for STATUS again, so both paths end up here.
 void TAPGameWindow::update_status_section()
 {
+    this->update_player_info_bar();
     this->update_counters_section();
+}
+
+void TAPGameWindow::update_player_info_bar()
+{
+    const GameState &state = this->_session.state();
+    this->player_info_bar.update_player_info(state.me, state.hp, state.max_hp,
+        state.status);
 }
 
 void TAPGameWindow::update_counters_section()
@@ -143,6 +154,14 @@ void TAPGameWindow::update_quests_section()
         });
     }
     this->quests_view.update_quests(quests);
+}
+
+// The group we are in, and the invitation we received, both read from the state
+void TAPGameWindow::update_group_section()
+{
+    const GameState &state = this->_session.state();
+    this->group_view.update_group(state.group.has_value(), state.group.value_or(""),
+        state.pending_invite.value_or(""));
 }
 
 void TAPGameWindow::update_chat_section(){

@@ -44,6 +44,7 @@ add_executable(${PROJECT_NAME}
 
     # Game widgets
     src/windows/game_window/widgets/tap_player_count_bar/tap_player_count_bar.cpp
+    src/windows/game_window/widgets/tap_player_info_bar/tap_player_info_bar.cpp
     src/windows/game_window/widgets/tap_room_view/tap_room_view.cpp
     src/windows/game_window/widgets/tap_exit_view/tap_exit_view.cpp
     src/windows/game_window/widgets/tap_exit_view/exit_buttons/tap_exit_buttons.cpp
@@ -51,6 +52,7 @@ add_executable(${PROJECT_NAME}
     src/windows/game_window/widgets/tap_inventory_view/tap_inventory_view.cpp
     src/windows/game_window/widgets/tap_ncp_talk/tap_npc_talk.cpp
     src/windows/game_window/widgets/tap_quests_view/tap_quests_view.cpp
+    src/windows/game_window/widgets/tap_group_view/tap_group_view.cpp
     src/windows/game_window/widgets/tap_action_buttons/tap_action_buttons.cpp
     src/windows/game_window/widgets/tap_log_view/tap_log_view.cpp
     src/windows/game_window/widgets/tap_chat_tabs/tap_chat_tabs.cpp

@@ -1,7 +1,7 @@
 #include "tap_chat_widget.hpp"
-#include <iostream>
 
-TAPChatWidget::TAPChatWidget()
+TAPChatWidget::TAPChatWidget(Session &session, const std::string &scope)
+	: _session(session), _scope(scope)
 {
     // Connect button
 	this->_send_button.setText("Send");
@@ -10,7 +10,9 @@ TAPChatWidget::TAPChatWidget()
         this,
         [this] {
 			if (_textarea.text().size() == 0) {return ;}
-            std::cout << "[WIP] Sending message..." << std::endl;
+			// "CHAT <scope> <message>": the server answers OK, and sends the
+			// message back to us as an EVT, which is what fills the history
+			this->_session.send("CHAT", this->_scope + " " + _textarea.text().toStdString());
 			_textarea.setText("");
     });
 

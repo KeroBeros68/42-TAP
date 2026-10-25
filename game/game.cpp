@@ -93,6 +93,13 @@ void Game::emitSpawn(const Room& room, const char* kind, const std::string& id) 
 	_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_SPAWN) + CMD_SEPARATOR + kind + CMD_SEPARATOR + definition_id));
 }
 
+void Game::emitItem(const Room& room, long long except_id, const char* action,
+	const std::string& name, const std::string& definition_id) {
+	const std::string data = std::string(EVT_ITEM) + CMD_SEPARATOR + action
+		+ CMD_SEPARATOR + name + CMD_SEPARATOR + definition_id;
+	_events.toOthers(room, except_id, eventLine(EVT_ROOM, data));
+}
+
 //############################ QUESTS ##########################
 
 int Game::questCurrent(const Player& player, const QuestProgress& quest) const {
@@ -356,11 +363,12 @@ TransferResult Game::takeItem(long long player_id, const std::string& target) {
 
 	const Respawn respawn = Respawn::of(RespawnKind::Item, *found);
 
-	TransferResult result = transfer(here.room->inventory(), here.player->inventory(), found->id());
+	const TransferResult result = transfer(here.room->inventory(), here.player->inventory(), found->id());
 	if (result.status == TransferStatus::DestinationFull)
 		LOG_INFO("inventory full", LOG_HERE(here), {"target", target});
 	else if (result.status == TransferStatus::Moved) {
 		LOG_INFO("player took an item", LOG_HERE(here), {"item", result.id});
+		emitItem(*here.room, player_id, EVT_ITEM_TAKEN, here.player->name(), result.definition_id);
 		if (_respawns.schedule(respawn))
 			if (Item* taken = here.player->inventory().findItem(result.id))
 				taken->clearOrigin();
@@ -376,8 +384,10 @@ TransferResult Game::dropItem(long long player_id, const std::string& target) {
 	TransferResult result = transfer(here.player->inventory(), here.room->inventory(), target);
 	if (result.status == TransferStatus::NotFound)
 		LOG_DEBUG("no such item to drop", LOG_HERE(here), {"target", target});
-	else if (result.status == TransferStatus::Moved)
+	else if (result.status == TransferStatus::Moved) {
 		LOG_INFO("player dropped an item", LOG_HERE(here), {"item", result.id});
+		emitItem(*here.room, player_id, EVT_ITEM_DROPPED, here.player->name(), result.definition_id);
+	}
 	return result;
 }
 

@@ -3,6 +3,7 @@
 
 #include "src/custom_ui_elements/custom_ui_elements.hpp"
 #include "tap_chat_widget/tap_chat_widget.hpp"
+#include "../../../../../../state/session.hpp"
 #include <map>
 #include <string>
 #include <vector>
@@ -18,7 +19,7 @@ class TAPChatTabs : public TAPGameSectionWidget
         TAPChatWidget       _group_chat_widget;
 
     public:
-        TAPChatTabs();
+        explicit TAPChatTabs(Session &session);
 
         // Replace the history of each scope by the one given.
         // Each message has an "author" and a "content" key.

@@ -18,8 +18,10 @@ TAPNPCTalkView::TAPNPCTalkView(Session &session)
     this->_defend_button.setText("DEFEND");
     this->_flee_button.setText("FLEE");
     this->_layout.addStretch();
-    this->_layout.addWidget(&this->_validate_button);
-    this->_layout.addWidget(&this->_quest_button);
+    // TALK and QUEST side by side
+    this->_talk_quest_layout.addWidget(&this->_validate_button);
+    this->_talk_quest_layout.addWidget(&this->_quest_button);
+    this->_layout.addLayout(&this->_talk_quest_layout);
     // Combat actions side by side, under ATTACK
     this->_combat_buttons_layout.addWidget(&this->_attack_button);
     this->_combat_buttons_layout.addWidget(&this->_defend_button);

@@ -22,6 +22,13 @@
 # define TAP_LABEL_PROPERTIES "color: #f5f6fa;"
 # define TAP_GAME_SECTION_NAME_PROPERTIES "font-size: 20px;"
 
+// Player info bar properties
+# define PLAYER_HP_BAR_PROPERTIES "QProgressBar { background-color: #2f3640; color: #f5f6fa; border-radius: 5px; text-align: center; } QProgressBar::chunk { background-color: #8c7ae6; border-radius: 5px; }"
+# define PLAYER_HP_BAR_MAX_WIDTH 320
+# define DEFAULT_PLAYER_NAME_MESSAGE "Player : "
+# define DEFAULT_PLAYER_HP_UNKNOWN_MESSAGE "HP : ?"
+# define DEFAULT_PLAYER_STATUS_UNKNOWN_MESSAGE "(unknown)"
+
 // Game window properties
 # define GAME_WINDOW_TITLE "42 TAP"
 # define DEFAULT_PLAYER_IN_ROOM_MESSAGE "Players in room : "

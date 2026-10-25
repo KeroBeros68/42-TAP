@@ -284,6 +284,8 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT TIMEOUT <player> <enemy>` | a turn was played for a player who was too slow |
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
 | `EVT ROOM SPAWN <npc\|item> <definition id>` | an enemy or an item came back |
+| `EVT ROOM ITEM TAKEN <player> <definition id>` | a player of the room took an item from the floor |
+| `EVT ROOM ITEM DROPPED <player> <definition id>` | a player of the room dropped an item on the floor |
 | `EVT ROOM EFFECT healing <hp>` | sent only to the player healed by his room, with the hit points he got (not sent at full health) |
 | `EVT INVENTORY CHANGED <quest\|use>` | sent only to the player whose inventory changed without a `TAKE` or `DROP`: a quest he handed in took or gave items, or `USE` consumed one. The client should send `INVENTORY` again (a quest that gives hit points also sends `EVT ROOM EFFECT healing <hp>`) |
 

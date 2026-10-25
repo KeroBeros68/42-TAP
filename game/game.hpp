@@ -149,6 +149,19 @@ class Game : private CombatHost {
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
 
+		/**
+		 * Queues an ITEM event for the other players of a room, whose floor changed.
+		 * The player who acted does not receive it: his answer already tells him.
+		 *
+		 * @param room          the room whose floor changed
+		 * @param except_id     id of the player who took or dropped (he is skipped)
+		 * @param action        EVT_ITEM_TAKEN or EVT_ITEM_DROPPED
+		 * @param name          name of the player who took or dropped
+		 * @param definition_id id of the definition of the item (the event never carries an instance id)
+		 */
+		void emitItem(const Room& room, long long except_id, const char* action,
+			const std::string& name, const std::string& definition_id);
+
 		//############################ QUESTS ##########################
 		/**
 		 * Counts what a player did for a quest: the items he carries (to bring) or the enemies he defeated.

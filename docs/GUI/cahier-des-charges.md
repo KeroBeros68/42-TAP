@@ -150,7 +150,11 @@ Zone distincte du chat, qui reçoit :
 
 #### 2.3.7 Panneau de combat
 
-- ❌ Barre de vie du joueur (`hp` / `max_hp`), alimentée par `STATUS`.
+- ✅ Barre de vie du joueur (`hp` / `max_hp`), alimentée par `STATUS` : widget
+  `TAPPlayerInfoBar`, sous la barre de compteurs, sur toute la largeur de la fenêtre.
+  Il affiche le nom du joueur, son statut (`healthy` / `wounded` / `combat` / `dead`, tel que
+  le serveur l'envoie) et une barre `hp / max_hp`. Aucune valeur n'est calculée localement :
+  tant que `STATUS` n'a pas répondu, la barre affiche `HP : ?`.
 - ❌ Déclenchement via `ATTACK <npc>`.
 - ❌ Exploitation de la réponse d'attaque :
   `OK {"attacker_hp":…, "target_hp":…, "damage":…, "status":"combat"}` → mise à jour des deux
@@ -236,7 +240,7 @@ reste utile quand aucune cible n'est sélectionnable.
 | ❌ | `INVENTORY` | Panneau inventaire |
 | ❌ | `TALK <npc>` | Dialogue NPC |
 | ❌ | `ATTACK <npc>` | Panneau combat |
-| ❌ | `STATUS` | Barre de vie |
+| ✅ | `STATUS` | Barre de vie |
 | ❌ | `QUEST <npc>` | Fenêtre de quête NPC |
 | ❌ | `QUESTS` | Journal de quêtes |
 | ❌ | `QUIT` | Fermeture de fenêtre |
@@ -317,6 +321,7 @@ message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT 
 | ✅ | Fenêtre de jeu — squelette | `src/windows/game_window/` | 720×1080, empile les 6 sections + stretch |
 | 🟠 | Fenêtre de jeu — fonctionnalités | `src/windows/game_window/` | Widgets UI en place, aucun branchement réseau (voir § 2.3) |
 | ✅ | Barre de compteurs — UI | `.../widgets/tap_player_count_bar/` | 2 labels + setters |
+| ✅ | Barre d'infos joueur — UI et données | `.../widgets/tap_player_info_bar/` | Nom, statut et barre `hp / max_hp`, alimentés par `STATUS` |
 | ❌ | Barre de compteurs — données | `.../widgets/tap_player_count_bar/` | Valeurs codées en dur dans `main.cpp` (42 / 21) |
 | ✅ | Vue de la pièce — nom + description | `.../widgets/tap_room_view/` | 2 labels + setters |
 | ❌ | Vue de la pièce — joueurs | `.../widgets/tap_room_view/` | Absent |

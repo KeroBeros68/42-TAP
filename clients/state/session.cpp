@@ -791,6 +791,23 @@ void	Session::handleRoomEvent(const std::string& data)
 		return;
 	}
 
+	if (sub == EVT_ITEM)
+	{
+		// "ITEM TAKEN bob item.herbs" or "ITEM DROPPED bob item.herbs":
+		// the floor changed. We do not patch the list ourselves: it may be
+		// stale already and two players can act in the same tick, so ask.
+		std::string after_action;
+		const std::string action = takeWord(rest, after_action);
+		std::string item;
+		const std::string player = takeWord(after_action, item);
+		if (action == EVT_ITEM_TAKEN || action == EVT_ITEM_DROPPED)
+			log(player + (action == EVT_ITEM_TAKEN ? " took " : " dropped ") + _catalog.name(item));
+		else
+			log("EVT ROOM ITEM " + rest);
+		send("LOOK");
+		return;
+	}
+
 	log("EVT ROOM " + data);
 }
 

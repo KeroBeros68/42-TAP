@@ -14,6 +14,7 @@ class TAPNPCTalkView : public TAPGameSectionWidget
         TAPRoomNameLabel _section_title;
         TAPButton _validate_button;
         TAPButton _quest_button;
+        QHBoxLayout _talk_quest_layout; // TALK and QUEST side by side
         TAPButton _attack_button;
         QHBoxLayout _combat_buttons_layout;
         TAPButton _defend_button;

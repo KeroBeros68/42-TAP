@@ -18,12 +18,14 @@ class TAPGameWindow : public TAPBaseWindow
         QHBoxLayout         _items_row_layout; // Ground items and inventory side by side
         QVBoxLayout         _actions_side_layout; // Action buttons column on the right
         TAPPlayerCountBar   player_count_bar;
+        TAPPlayerInfoBar    player_info_bar;
         TAPRoomView         room_view;
         TAPExitView         exit_view;
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;
         TAPNPCTalkView      npc_talk_view;
         TAPQuestsView       quests_view;
+        TAPGroupView        group_view;
         TAPActionButtons    action_buttons;
         TAPLogView          log_view;
         TAPChatTabs         chat_tabs;
@@ -40,9 +42,11 @@ class TAPGameWindow : public TAPBaseWindow
         void update_room_section();
         void update_inventory_section();
         void update_status_section();
+        void update_player_info_bar();
         void update_counters_section();
         void update_chat_section();
         void update_quests_section();
+        void update_group_section();
         void update_log_section();
 
     public:

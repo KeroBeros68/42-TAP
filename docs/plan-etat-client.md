@@ -222,11 +222,12 @@ Tolérance, pour les serveurs des autres groupes :
 | `EVT GROUP JOIN <p>` / `LEAVE <p>` | journal, liste des membres si vous l'affichez |
 | `EVT ROOM COMBAT START/JOIN/ROUND/TURN/TIMEOUT/END …` | `combat` (`TURN` avec notre nom → `my_turn`, `seconds_left`), et le détail dans le journal |
 | `EVT ROOM SPAWN <npc\|item> <id>` | envoie `LOOK` |
+| `EVT ROOM ITEM TAKEN <joueur> <id>` / `DROPPED <joueur> <id>` | envoie `LOOK`, et une ligne dans le journal |
 | tout autre `EVT` | journal uniquement |
 
 Les messages de chat ne vont **jamais** dans le journal technique (sujet §V.4 : « Separates the chat view … from the log view »).
 
-Aucun événement ne signale le `TAKE` ou le `DROP` d'un autre joueur. La liste `items` peut donc être périmée : elle est corrigée par le `LOOK` qui suit un `ERR 404`, ou par un `LOOK` périodique (toutes les 10 s, par exemple) si vous le jugez utile.
+Un `TAKE` ou un `DROP` d'un **autre** joueur est annoncé par `EVT ROOM ITEM`. Le joueur qui agit ne le reçoit pas : son client applique le `OK taken=` / `OK dropped=` de façon optimiste, puis resynchronise par `LOOK` + `INVENTORY`. La liste `items` reste donc corrigée par le `LOOK` qui suit l'événement, comme pour `SPAWN`.
 
 Les formats complets de nos événements de combat sont dans `README.md`, section « Implemented events ».
 

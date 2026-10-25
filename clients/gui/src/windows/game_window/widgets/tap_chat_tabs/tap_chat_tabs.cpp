@@ -1,6 +1,9 @@
 #include "tap_chat_tabs.hpp"
 
-TAPChatTabs::TAPChatTabs()
+TAPChatTabs::TAPChatTabs(Session &session)
+    : _global_chat_widget(session, CHAT_SCOPE_GLOBAL),
+    _room_chat_widget(session, CHAT_SCOPE_ROOM),
+    _group_chat_widget(session, CHAT_SCOPE_GROUP)
 {
     this->_section_name.setText("CHATROOMS");
     this->_layout.addWidget(&this->_section_name, 0, Qt::AlignCenter);

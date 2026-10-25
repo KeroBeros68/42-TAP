@@ -5,6 +5,7 @@
 # include <QWidget>
 
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
+# include "../../../../../../../state/session.hpp"
 
 class TAPChatWidget : public QWidget
 {
@@ -19,8 +20,11 @@ class TAPChatWidget : public QWidget
 		QVBoxLayout										_layout; // chat widget's whole layout
 		QHBoxLayout										_send_message_area; // horizontal widget for the send area/button
 
+		Session		&_session;
+		std::string	_scope; // CHAT_SCOPE_GLOBAL, CHAT_SCOPE_ROOM or CHAT_SCOPE_GROUP
+
 	public:
-		TAPChatWidget();
+		TAPChatWidget(Session &session, const std::string &scope);
 		~TAPChatWidget();
 
 		// Replace the whole history by the one given, and rebuild the labels.
