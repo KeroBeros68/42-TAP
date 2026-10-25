@@ -35,7 +35,7 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: clean fclean re bonus run build client gui help install-deps
+.PHONY: all clean fclean re bonus run build build-gui server cli client gui run-server run-client run-client-gui help install-deps
 
 .DEFAULT_GOAL := all
 
@@ -47,12 +47,22 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 help:
 	$(ECHO) "$(YELLOW)Available commands:$(RESET)"
 	$(ECHO) ""
+	$(ECHO) "  $(CYAN)make$(RESET) / $(CYAN)make all$(RESET)    install the dependencies and build the server and the CLI client (nothing is started)"
+	$(ECHO) "  $(CYAN)make build$(RESET)          build the server and the CLI client"
+	$(ECHO) "  $(CYAN)make build-gui$(RESET)      build the GUI client (needs CMake and Qt 5)"
+	$(ECHO) "  $(CYAN)make server$(RESET)         build and start the server in a new terminal window (alias: run-server)"
+	$(ECHO) "  $(CYAN)make cli$(RESET)            build and start the CLI client in a new terminal window (aliases: client, run-client)"
+	$(ECHO) "  $(CYAN)make gui$(RESET)            build and start the GUI client                 (alias: run-client-gui)"
+	$(ECHO) "  $(CYAN)make run$(RESET)            build, then start the server and the CLI client in two terminal windows"
+	$(ECHO) "  $(CYAN)make install-deps$(RESET)   download and verify the JSON library"
+	$(ECHO) "  $(CYAN)make clean$(RESET) / $(CYAN)fclean$(RESET) / $(CYAN)re$(RESET)   remove the objects / also the executables / rebuild everything"
 
 # **************************************************************************** #
 #									Rules									   #
 # **************************************************************************** #
 
-all: install-deps run
+# Builds everything but does not start anything
+all: install-deps build
 
 # Download the dependencies (nlohmann/json), checked against a pinned SHA-256
 install-deps: $(JSON_FILE)
@@ -77,41 +87,69 @@ $(JSON_FILE):
 	mv "$$tmp" "$@"
 	$(ECHO) "$(GREEN)✓ $(JSON_FILE)$(RESET)"
 
-build:
+# Build the server and the CLI client (the GUI needs Qt: see build-gui)
+build: install-deps
 	make -C server server
 	make -C clients/cli clientCLI
 
-# Start the server and the CLI client, each in its own terminal window
-run: build
-	term=""
-	for t in gnome-terminal konsole xfce4-terminal kitty alacritty xterm x-terminal-emulator; do
-		if command -v $$t >/dev/null 2>&1; then term=$$t; break; fi
-	done
-	if [ -z "$$term" ]; then
-		$(ECHO) "$(RED)✗ Aucun terminal trouvé (gnome-terminal, konsole, xfce4-terminal, kitty, alacritty, xterm).$(RESET)"
+# Build the GUI client
+build-gui:
+	if ! command -v cmake >/dev/null 2>&1; then
+		$(ECHO) "$(RED)✗ cmake est requis pour le client GUI (et Qt 5).$(RESET)"
 		exit 1
 	fi
-	launch() {
-		title="$$1"; cmd="$$2"
-		full="$$cmd; echo; read -rp 'Appuyez sur Entrée pour fermer...'"
-		case "$$term" in
-			gnome-terminal) gnome-terminal --title="$$title" -- bash -c "$$full" ;;
-			konsole)        konsole -p tabtitle="$$title" -e bash -c "$$full" & ;;
-			xfce4-terminal) xfce4-terminal --title="$$title" -e "bash -c \"$$full\"" & ;;
-			*)              "$$term" -e bash -c "$$full" & ;;
-		esac
-	}
+	make -C clients/gui all
+
+# Shell code that finds a terminal emulator and defines launch "<title>" "<command>", which runs a command in a new window
+define TERM_SETUP
+term=""
+for t in gnome-terminal konsole xfce4-terminal kitty alacritty xterm x-terminal-emulator; do
+	if command -v $$t >/dev/null 2>&1; then term=$$t; break; fi
+done
+if [ -z "$$term" ]; then
+	$(ECHO) "$(RED)✗ Aucun terminal trouvé (gnome-terminal, konsole, xfce4-terminal, kitty, alacritty, xterm).$(RESET)"
+	exit 1
+fi
+launch() {
+	title="$$1"; cmd="$$2"
+	full="$$cmd; echo; read -rp 'Appuyez sur Entrée pour fermer...'"
+	case "$$term" in
+		gnome-terminal) gnome-terminal --title="$$title" -- bash -c "$$full" ;;
+		konsole)        konsole -p tabtitle="$$title" -e bash -c "$$full" & ;;
+		xfce4-terminal) xfce4-terminal --title="$$title" -e "bash -c \"$$full\"" & ;;
+		*)              "$$term" -e bash -c "$$full" & ;;
+	esac
+}
+endef
+
+# Build the server, then start it in a new terminal window (it finds the .env file from server/)
+run-server: install-deps
+	make -C server server
+	$(TERM_SETUP)
+	launch "TAP server" "make -C '$(CURDIR)/server' run"
+
+# Build the CLI client, then start it in a new terminal window (it finds the .env file from clients/cli/)
+run-client: install-deps
+	make -C clients/cli clientCLI
+	$(TERM_SETUP)
+	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
+
+# Build and start the GUI client
+run-client-gui: build-gui
+	cd clients/gui && ./42TAP
+
+# Short names of the three targets above
+server: run-server
+cli client: run-client
+gui: run-client-gui
+
+# Start the server and the CLI client, each in its own terminal window
+run: build
+	$(TERM_SETUP)
 	$(ECHO) "$(CYAN)Lancement du serveur et du client ($$term)...$(RESET)"
 	launch "TAP server" "make -C '$(CURDIR)/server' run"
 	sleep 1
 	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
-
-# Build and run the CLI client alone, in the current terminal
-client:
-	make -C clients/cli
-
-gui:
-	make -C clients/gui run
 
 bonus: re
 
