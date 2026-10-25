@@ -48,7 +48,8 @@ std::string serializeInventory(const std::vector<std::string>& ids);
  * Writes the response of QUEST.
  *
  * @param reply the quest concerned, and what happened (STARTED, IN_PROGRESS or COMPLETED)
- * @return      a JSON object with the quest, its status, its description, the progress and the reward, and what the npc says at the end when it is completed
+ * @return      a JSON object with the quest, its status, its description, the progress, the reward as a text (like the RFC) and as
+ *              the fields reward_items and reward_heal, and what the npc says at the end when it is completed
  */
 std::string serializeQuest(const QuestReply& reply);
 

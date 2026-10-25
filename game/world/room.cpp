@@ -59,6 +59,10 @@ std::vector<std::string> Room::npcs() const {
 	return lookup::sortedIds(_alive_npcs);
 }
 
+std::vector<std::string> Room::npcDefinitionIds() const {
+	return lookup::definitionIds(_alive_npcs);
+}
+
 const std::unordered_map<std::string, Npc>& Room::aliveNpcs() const {
 	return _alive_npcs;
 }
@@ -83,6 +87,10 @@ void Room::removeNpc(Npc* npc) {
 
 std::vector<std::string> Room::items() const {
 	return _inventory.ids();
+}
+
+std::vector<std::string> Room::itemDefinitionIds() const {
+	return _inventory.definitionIds();
 }
 
 Inventory& Room::inventory() {

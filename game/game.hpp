@@ -145,7 +145,7 @@ class Game : private CombatHost {
 		 *
 		 * @param room the room where something came back
 		 * @param kind EVT_SPAWN_NPC or EVT_SPAWN_ITEM
-		 * @param id   id of the object
+		 * @param id   id of the object (the event carries the id of its definition)
 		 */
 		void emitSpawn(const Room& room, const char* kind, const std::string& id);
 
@@ -186,6 +186,14 @@ class Game : private CombatHost {
 		 * @param gained    the hit points he got
 		 */
 		void emitRegen(long long player_id, int gained);
+
+		/**
+		 * Queues an INVENTORY CHANGED event for the player whose inventory changed (he has to ask INVENTORY again).
+		 *
+		 * @param player_id id of the player
+		 * @param reason    EVT_INVENTORY_QUEST or EVT_INVENTORY_USE
+		 */
+		void emitInventoryChanged(long long player_id, const char* reason);
 
 		/**
 		 * Applies the effects of the rooms whose time came: each player in such a room is healed.
@@ -289,7 +297,7 @@ class Game : private CombatHost {
 		 * Lists the items that a player carries.
 		 *
 		 * @param player_id id of the player
-		 * @return          the instance ids of his items, in alphabetical order (nothing if he is unknown)
+		 * @return          the ids of the definitions of his items, in alphabetical order (nothing if he is unknown)
 		 */
 		std::optional<std::vector<std::string>> showInventories(long long player_id) const;
 

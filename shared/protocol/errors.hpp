@@ -28,12 +28,16 @@
 	X(ITEM_NOT_FOUND,			404) /* the item is not in the room */ \
 	X(ITEM_NOT_IN_INVENTORY,	404) /* the item is not in the inventory */ \
 	X(NPC_NOT_FOUND,			404) /* the npc is not in the room */ \
+	X(PLAYER_NOT_FOUND,			404) /* GROUP INVITE or JOIN with a name nobody has (not in the RFC) */ \
 	X(NPC_NOT_HOSTILE,			405) /* ATTACK on an npc that is not an enemy */ \
 	X(NO_QUEST_AVAILABLE,		406) /* the npc has no quest to give */ \
 	X(ITEM_NOT_USABLE,			407) /* USE on an item that has no effect (not in the RFC) */ \
 	X(IN_COMBAT,				409) /* MOVE, TAKE or TALK during a fight, or another target for ATTACK (not in the RFC) */ \
 	X(NOT_IN_COMBAT,			410) /* DEFEND or FLEE with no fight (not in the RFC) */ \
 	X(NOT_YOUR_TURN,			411) /* it is the turn of someone else (not in the RFC) */ \
+	X(NO_INVITATION,			412) /* GROUP JOIN without an invitation of this group (not in the RFC) */ \
+	X(NOT_GROUP_LEADER,			413) /* GROUP INVITE by a member who is not the leader (not in the RFC) */ \
+	X(GROUP_FULL,				414) /* GROUP INVITE or JOIN in a group that has the most players (not in the RFC) */ \
 	X(RATE_LIMITED,				429) /* too many commands in a short time: slow down (not in the RFC) */ \
 	X(INTERNAL_ERROR,			500) /* the server failed while handling the command (not in the RFC) */ \
 	X(SERVER_BUSY,				503) /* the connection is refused: too many clients or connections too fast (not in the RFC) */ \

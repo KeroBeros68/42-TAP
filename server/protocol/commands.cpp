@@ -139,7 +139,7 @@ static Response cmdTake(Game& game, User& user, const std::string& target) {
 		return Response::failure(TapError::INVENTORY_FULL);
 	if (taken.status == TransferStatus::NotFound)
 		return Response::failure(TapError::ITEM_NOT_FOUND);
-	return Response::success(TapOk::TAKEN, taken.id);
+	return Response::success(TapOk::TAKEN, taken.definition_id);
 }
 
 /**
@@ -154,7 +154,7 @@ static Response cmdDrop(Game& game, User& user, const std::string& target) {
 	const TransferResult dropped = game.dropItem(user.id(), target);
 	if (dropped.status != TransferStatus::Moved)
 		return Response::failure(TapError::ITEM_NOT_IN_INVENTORY);
-	return Response::success(TapOk::DROPPED, dropped.id);
+	return Response::success(TapOk::DROPPED, dropped.definition_id);
 }
 
 /**
@@ -289,7 +289,8 @@ static Response cmdChat(Game& game, User& user, const std::string& args) {
  * @param game the game
  * @param user the user of the connection
  * @param args the sub-command (CREATE, INVITE, JOIN or LEAVE, in any case), then its argument
- * @return     OK (with group=<id> for CREATE and JOIN), or NOT_IN_GROUP / ALREADY_IN_GROUP / BAD_REQUEST
+ * @return     OK (with group=<id> for CREATE and JOIN), or NOT_IN_GROUP / ALREADY_IN_GROUP / PLAYER_NOT_FOUND / NO_INVITATION /
+ *             NOT_GROUP_LEADER / GROUP_FULL / BAD_REQUEST (unknown sub-command or missing argument)
  */
 static Response cmdGroup(Game& game, User& user, const std::string& args) {
 	std::string word, target;
@@ -313,12 +314,15 @@ static Response cmdGroup(Game& game, User& user, const std::string& args) {
 		return Response::failure(TapError::BAD_REQUEST);
 
 	if (reply.unknown_player)
-		return Response::failure(TapError::BAD_REQUEST);
+		return Response::failure(TapError::PLAYER_NOT_FOUND);
 	switch (reply.status) {
 		case GroupStatus::DONE:				break;
 		case GroupStatus::NOT_IN_GROUP:		return Response::failure(TapError::NOT_IN_GROUP);
-		case GroupStatus::ALREADY_IN_GROUP:	return Response::failure(TapError::ALREADY_IN_GROUP);
-		default:							return Response::failure(TapError::BAD_REQUEST);
+		case GroupStatus::ALREADY_IN_GROUP:
+		case GroupStatus::SELF:				return Response::failure(TapError::ALREADY_IN_GROUP);
+		case GroupStatus::NOT_LEADER:		return Response::failure(TapError::NOT_GROUP_LEADER);
+		case GroupStatus::GROUP_FULL:		return Response::failure(TapError::GROUP_FULL);
+		case GroupStatus::NO_INVITATION:	return Response::failure(TapError::NO_INVITATION);
 	}
 	return with_id ? Response::success(TapOk::GROUP, reply.group_id) : Response::success();
 }

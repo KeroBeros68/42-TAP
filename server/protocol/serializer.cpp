@@ -35,8 +35,8 @@ std::string serializeLook(const LookData& look) {
 	for (const auto& [direction, target] : room.exits())
 		payload[FIELD_ROOM][FIELD_EXITS][direction] = target;
 	payload[FIELD_PLAYERS] = look.players;
-	payload[FIELD_ITEMS] = room.items();
-	payload[FIELD_NPCS] = room.npcs();
+	payload[FIELD_ITEMS] = room.itemDefinitionIds();
+	payload[FIELD_NPCS] = room.npcDefinitionIds();
 	return dump(payload);
 }
 
@@ -79,6 +79,21 @@ static std::string questProgress(const QuestView& view) {
 	return std::to_string(view.current) + "/" + std::to_string(view.def->count());
 }
 
+/**
+ * Writes a reward as one text, like the RFC does: the ids of the items, then the hit points, separated by commas.
+ *
+ * @param reward the reward
+ * @return       like "item.bread,heal=20" (an empty text if there is nothing)
+ */
+static std::string questRewardText(const QuestReward& reward) {
+	std::string text;
+	for (const std::string& item : reward.items)
+		text += (text.empty() ? "" : ",") + item;
+	if (reward.heal > 0)
+		text += std::string(text.empty() ? "" : ",") + "heal=" + std::to_string(reward.heal);
+	return text;
+}
+
 std::string serializeQuest(const QuestReply& reply) {
 	const QuestDef& def = *reply.view.def;
 	ordered_json payload;
@@ -87,8 +102,9 @@ std::string serializeQuest(const QuestReply& reply) {
 	payload[FIELD_STATUS] = questStatusName(reply.view.state);
 	payload[FIELD_DESCRIPTION] = def.textStart();
 	payload[FIELD_PROGRESS] = questProgress(reply.view);
-	payload[FIELD_REWARD][FIELD_ITEMS] = def.reward().items;
-	payload[FIELD_REWARD][FIELD_HEAL] = def.reward().heal;
+	payload[FIELD_REWARD] = questRewardText(def.reward());
+	payload[FIELD_REWARD_ITEMS] = def.reward().items;
+	payload[FIELD_REWARD_HEAL] = def.reward().heal;
 	if (reply.status == QuestStatus::COMPLETED)
 		payload[FIELD_TEXT_DONE] = def.textDone();
 	return dump(payload);
