@@ -27,6 +27,14 @@ JSON_URL     = https://github.com/nlohmann/json/releases/download/v$(JSON_VERSIO
 JSON_SHA256  = aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63
 JSON_FILE    = third_party/json.hpp
 
+# Sources checked by "make lint" (the Qt GUI needs the Qt headers, so it is not included)
+LINT_SRCS  := $(shell find server game shared clients/client.cpp clients/cli -name '*.cpp' -not -path '*/Obj/*')
+LINT_DIRS  = server game shared clients/client.cpp clients/client.hpp clients/cli
+LINT_FLAGS = -std=c++20 -fsyntax-only -Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion -Wold-style-cast \
+	-Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2 \
+	'-DPROJECT_ROOT="$(CURDIR)"'
+JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+
 # sha256sum on Linux, shasum on macOS
 SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo shasum -a 256)
 
@@ -35,7 +43,7 @@ SHA256 := $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo
 #									.PHONY									   #
 # **************************************************************************** #
 
-.PHONY: all clean fclean re bonus run build build-gui server cli client gui run-server run-client run-client-gui help install-deps
+.PHONY: all clean fclean re bonus run build build-gui server cli client gui run-server run-client run-client-gui help install-deps lint
 
 .DEFAULT_GOAL := all
 
@@ -54,12 +62,53 @@ help:
 	$(ECHO) "  $(CYAN)make cli$(RESET)            build and start the CLI client in a new terminal window (aliases: client, run-client)"
 	$(ECHO) "  $(CYAN)make gui$(RESET)            build and start the GUI client                 (alias: run-client-gui)"
 	$(ECHO) "  $(CYAN)make run$(RESET)            build, then start the server and the CLI client in two terminal windows"
+	$(ECHO) "  $(CYAN)make lint$(RESET)           strict compilation of all the sources (warnings are errors), check of the whitespace, and cppcheck / clang-tidy if installed"
 	$(ECHO) "  $(CYAN)make install-deps$(RESET)   download and verify the JSON library"
 	$(ECHO) "  $(CYAN)make clean$(RESET) / $(CYAN)fclean$(RESET) / $(CYAN)re$(RESET)   remove the objects / also the executables / rebuild everything"
 
 # **************************************************************************** #
 #									Rules									   #
 # **************************************************************************** #
+
+# Static checks: the strict warnings of the compiler on every source (nothing is built), no whitespace at the end of a line,
+# then cppcheck and clang-tidy when they are installed
+lint: install-deps
+	status=0
+	$(ECHO) "$(CYAN)Lint : compilation stricte (les warnings sont des erreurs)...$(RESET)"
+	if printf '%s\n' $(LINT_SRCS) | xargs -P $(JOBS) -I{} c++ $(LINT_FLAGS) {}; then
+		$(ECHO) "$(GREEN)✓ $(words $(LINT_SRCS)) fichiers$(RESET)"
+	else
+		$(ECHO) "$(RED)✗ warnings du compilateur$(RESET)"
+		status=1
+	fi
+	$(ECHO) "$(CYAN)Lint : espaces en fin de ligne...$(RESET)"
+	if grep -rnE '[[:blank:]]+$$' --include='*.cpp' --include='*.hpp' $(LINT_DIRS); then
+		$(ECHO) "$(RED)✗ espaces en fin de ligne$(RESET)"
+		status=1
+	else
+		$(ECHO) "$(GREEN)✓$(RESET)"
+	fi
+	if command -v cppcheck >/dev/null 2>&1; then
+		$(ECHO) "$(CYAN)Lint : cppcheck...$(RESET)"
+		if cppcheck --enable=warning,performance,portability --error-exitcode=1 --inline-suppr --quiet -I shared -I game $(LINT_SRCS); then
+			$(ECHO) "$(GREEN)✓$(RESET)"
+		else
+			status=1
+		fi
+	else
+		$(ECHO) "$(YELLOW)- cppcheck non installé : ignoré$(RESET)"
+	fi
+	if command -v clang-tidy >/dev/null 2>&1; then
+		$(ECHO) "$(CYAN)Lint : clang-tidy...$(RESET)"
+		if clang-tidy --quiet --warnings-as-errors='*' $(LINT_SRCS) -- -std=c++20 '-DPROJECT_ROOT="$(CURDIR)"'; then
+			$(ECHO) "$(GREEN)✓$(RESET)"
+		else
+			status=1
+		fi
+	else
+		$(ECHO) "$(YELLOW)- clang-tidy non installé : ignoré$(RESET)"
+	fi
+	exit $$status
 
 # Builds everything but does not start anything
 all: install-deps build

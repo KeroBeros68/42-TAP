@@ -79,7 +79,7 @@ static void finish(const Encounter& encounter, const StatsOf& stats_of, Steps& s
 static void enemyTurn(Encounter& encounter, const StatsOf& stats_of, double (*roll)(), Steps& steps) {
 	encounter.turn++;
 	const size_t count = encounter.participants.size();
-	const long long target = encounter.participants[std::min(count - 1, static_cast<size_t>(roll() * count))];
+	const long long target = encounter.participants[std::min(count - 1, static_cast<size_t>(roll() * static_cast<double>(count)))];
 	Stats& player = *stats_of(target);
 	const Strike attack = strike(*stats_of(ENEMY_ID), player, roll, encounter.defending.count(target) ? COMBAT_DEFEND_DIVISOR : 1);
 	steps.turns.push_back({ENEMY_ID, target, encounter.round, {false, CombatAction::ATTACK, attack.missed, attack.damage}});

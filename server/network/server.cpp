@@ -293,7 +293,7 @@ void Server::start(const size_t& port) {
 	sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
-	server_addr.sin_port = htons(port);
+	server_addr.sin_port = htons(static_cast<uint16_t>(port));
 
 	if (bind(_listen_socket, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SYSCALL_ERROR) {
 		LOG_ERROR("failed to bind socket", {"port", port}, {"error", strerror(errno)});

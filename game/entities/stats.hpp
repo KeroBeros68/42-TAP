@@ -50,15 +50,15 @@ struct Stats {
 	/**
 	 * Builds stats with the given values.
 	 *
-	 * @param max_hp  maximum hit points
-	 * @param hp      current hit points
-	 * @param attack  strength of the strikes
-	 * @param defense resistance to the strikes
-	 * @param hit     accuracy
-	 * @param flee    evasion
+	 * @param max_hp_value  maximum hit points
+	 * @param hp_value      current hit points
+	 * @param attack_value  strength of the strikes
+	 * @param defense_value resistance to the strikes
+	 * @param hit_value     accuracy
+	 * @param flee_value    evasion
 	 */
-	Stats(int max_hp, int hp, int attack, int defense, int hit, int flee)
-		: max_hp(max_hp), hp(hp), attack(attack), defense(defense), hit(hit), flee(flee) {}
+	Stats(int max_hp_value, int hp_value, int attack_value, int defense_value, int hit_value, int flee_value)
+		: max_hp(max_hp_value), hp(hp_value), attack(attack_value), defense(defense_value), hit(hit_value), flee(flee_value) {}
 
 	/** Tells whether no hit point is left. */
 	bool isDead() const {

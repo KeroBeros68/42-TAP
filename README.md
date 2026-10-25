@@ -80,7 +80,8 @@ The only third-party library is [nlohmann/json](https://github.com/nlohmann/json
 ### 🖥️ Server
 
 ```sh
-make -C server        # build ./server/server, then start it
+make run-server       # build ./server/server, then start it in a new terminal window (alias: make server)
+make -C server        # build it and start it in the current terminal
 ./server/server       # start it again later
 ```
 
@@ -91,7 +92,8 @@ If you move the project folder after a build, run `make -C server re`: the absol
 ### ⌨️ CLI client
 
 ```sh
-make client           # build ./clients/cli/clientCLI and start it in the current terminal
+make run-client       # build ./clients/cli/clientCLI and start it in a new terminal window (alias: make cli)
+make -C clients/cli   # build it and start it in the current terminal
 ```
 
 The client connects to `127.0.0.1:8080` by default (`SERVER_IP` in `clients/defines.hpp`, `SERVER_PORT` in `shared/defines.hpp`). To use another address or port, see *Configuration* below. Start the server first.
@@ -121,7 +123,7 @@ Copy `.env.example` to `.env` at the root of the project to set them (the file i
 ### 🪟 GUI client
 
 ```sh
-make gui              # configure with CMake, build with Qt 5, start ./clients/gui/42TAP
+make run-client-gui   # configure with CMake, build with Qt 5, start ./clients/gui/42TAP (alias: make gui)
 ```
 
 The address and the port of the server are typed in the connection window.
@@ -129,8 +131,8 @@ The address and the port of the server are typed in the connection window.
 ### 🚀 Everything at once
 
 ```sh
-make                  # same as "make run" after "make install-deps"
-make run              # build the server and the CLI client, open each one in its own terminal window
+make                  # install the dependencies and build the server and the CLI client (nothing is started)
+make run              # build, then open the server and the CLI client, each one in its own terminal window
 ```
 
 ### 🧹 Other targets
@@ -139,14 +141,23 @@ make run              # build the server and the CLI client, open each one in it
 | --- | --- |
 | `make install-deps` | Download and verify the third-party JSON library |
 | `make build` | Build the server and the CLI client without starting them |
+| `make build-gui` | Build the GUI client (needs CMake and Qt 5) |
 | `make run` | Build, then start the server and the CLI client in two terminal windows |
-| `make client` | Build and start the CLI client in the current terminal |
-| `make gui` | Build and start the GUI client |
+| `make run-server`, `make run-client`, `make run-client-gui` | Build and start one component (the first two in a new terminal window); the aliases are `server`, `cli` / `client` and `gui` |
+| `make lint` | Static checks, see below |
 | `make clean` | Remove object files and the GUI `build/` folder |
 | `make fclean` | `clean`, plus remove the executables |
 | `make re` | `fclean`, then `all` |
 
-<!-- TODO (subject VII.1): the build tool must also provide the targets run-server, run-client, run-client-gui and lint. Missing today; add them to the root Makefile, then update this table. -->
+**Lint.** `make lint` needs nothing but the compiler. It checks, without building anything:
+
+1. every source of the server, the shared code, the game and the CLI client (the Qt GUI is left out, it needs the Qt headers) with strict warnings, all treated as errors: `-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2`. They are stricter than the build flags and catch hidden conversions and shadowed names;
+2. that no line of the C++ sources ends with a space or a tab;
+3. `cppcheck` and `clang-tidy`, only if they are installed (otherwise they are skipped with a message).
+
+The command stops with an error status if one check fails.
+
+**Speed.** The server and the CLI client compile their files in parallel (one job per core; `make JOBS=1` to see the errors one by one) and only recompile what depends on a header that changed (the compiler writes the dependencies, `-MMD -MP`).
 
 ## 🏗️ Architecture <!-- [S] -->
 

@@ -16,10 +16,10 @@ void Client::connect() {
 
 	struct sockaddr_in server_addr{};
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(_port);
+	server_addr.sin_port = htons(static_cast<uint16_t>(_port));
 	server_addr.sin_addr.s_addr = inet_addr(_servername.c_str());
 
-	if (::connect(_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SYSCALL_ERROR) {
+	if (::connect(_fd, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) == SYSCALL_ERROR) {
 		disconnect();
 		throw std::runtime_error("Failed to connect to server");
 	}
@@ -100,12 +100,12 @@ bool Client::update(int timeout_ms) {
 	int keyboard_idx = -1;
 	int signal_idx = -1;
 	if (_keyboard) {
-		keyboard_idx = count++;
+		keyboard_idx = static_cast<int>(count++);
 		fds[keyboard_idx].fd = STDIN_FILENO;
 		fds[keyboard_idx].events = POLLIN;
 	}
 	if (_signals) {
-		signal_idx = count++;
+		signal_idx = static_cast<int>(count++);
 		fds[signal_idx].fd = _sigs.fd();
 		fds[signal_idx].events = POLLIN;
 	}

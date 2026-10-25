@@ -46,13 +46,13 @@ void ServConfig::loadServerConfig() {
 	log_level = logLevelFromName(getEnv(ENV_LOG_LEVEL), LogLevel::Debug);
 	log_file = getEnv(ENV_LOG_FILE);
 
-	max_out_buffer = readSetting(ENV_MAX_OUT_BUFFER, MAX_OUT_BUFFER, MIN_OUT_BUFFER, MAX_OUT_BUFFER_LIMIT, ignored);
-	max_read_per_turn = readSetting(ENV_MAX_READ_PER_TURN, MAX_READ_PER_TURN, MIN_READ_PER_TURN, MAX_READ_PER_TURN_LIMIT, ignored);
-	command_window_ms = readSetting(ENV_COMMAND_WINDOW_MS, COMMAND_WINDOW_MS, MIN_WINDOW_MS, MAX_WINDOW_MS, ignored);
-	max_commands_per_window = readSetting(ENV_MAX_COMMANDS_PER_WINDOW, MAX_COMMANDS_PER_WINDOW, MIN_LIMIT, MAX_COUNT, ignored);
-	max_flood_windows = readSetting(ENV_MAX_FLOOD_WINDOWS, MAX_FLOOD_WINDOWS, MIN_COUNT, MAX_COUNT, ignored);
-	max_sessions = readSetting(ENV_MAX_SESSIONS, MAX_SESSIONS, MIN_LIMIT, MAX_COUNT, ignored);
-	max_sessions_per_ip = readSetting(ENV_MAX_SESSIONS_PER_IP, MAX_SESSIONS_PER_IP, MIN_LIMIT, MAX_COUNT, ignored);
-	connect_window_ms = readSetting(ENV_CONNECT_WINDOW_MS, CONNECT_WINDOW_MS, MIN_WINDOW_MS, MAX_WINDOW_MS, ignored);
-	max_connects_per_window = readSetting(ENV_MAX_CONNECTS_PER_WINDOW, MAX_CONNECTS_PER_WINDOW, MIN_LIMIT, MAX_COUNT, ignored);
+	max_out_buffer = static_cast<size_t>(readSetting(ENV_MAX_OUT_BUFFER, MAX_OUT_BUFFER, MIN_OUT_BUFFER, MAX_OUT_BUFFER_LIMIT, ignored));
+	max_read_per_turn = static_cast<size_t>(readSetting(ENV_MAX_READ_PER_TURN, MAX_READ_PER_TURN, MIN_READ_PER_TURN, MAX_READ_PER_TURN_LIMIT, ignored));
+	command_window_ms = static_cast<int>(readSetting(ENV_COMMAND_WINDOW_MS, COMMAND_WINDOW_MS, MIN_WINDOW_MS, MAX_WINDOW_MS, ignored));
+	max_commands_per_window = static_cast<int>(readSetting(ENV_MAX_COMMANDS_PER_WINDOW, MAX_COMMANDS_PER_WINDOW, MIN_LIMIT, MAX_COUNT, ignored));
+	max_flood_windows = static_cast<int>(readSetting(ENV_MAX_FLOOD_WINDOWS, MAX_FLOOD_WINDOWS, MIN_COUNT, MAX_COUNT, ignored));
+	max_sessions = static_cast<size_t>(readSetting(ENV_MAX_SESSIONS, MAX_SESSIONS, MIN_LIMIT, MAX_COUNT, ignored));
+	max_sessions_per_ip = static_cast<size_t>(readSetting(ENV_MAX_SESSIONS_PER_IP, MAX_SESSIONS_PER_IP, MIN_LIMIT, MAX_COUNT, ignored));
+	connect_window_ms = static_cast<int>(readSetting(ENV_CONNECT_WINDOW_MS, CONNECT_WINDOW_MS, MIN_WINDOW_MS, MAX_WINDOW_MS, ignored));
+	max_connects_per_window = static_cast<size_t>(readSetting(ENV_MAX_CONNECTS_PER_WINDOW, MAX_CONNECTS_PER_WINDOW, MIN_LIMIT, MAX_COUNT, ignored));
 }
