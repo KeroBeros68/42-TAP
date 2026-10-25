@@ -69,9 +69,10 @@ class CombatHost {
 		 *
 		 * @param room   the room of the enemy
 		 * @param npc    the enemy, which is not valid afterwards
-		 * @param killer name of the player who killed it, for the log
+		 * @param killer       name of the player who killed it, for the log
+		 * @param participants ids of the players who were in the fight
 		 */
-		virtual void enemyDied(Room& room, Npc* npc, const std::string& killer) = 0;
+		virtual void enemyDied(Room& room, Npc* npc, const std::string& killer, const std::vector<long long>& participants) = 0;
 
 		//########################## RESPAWN ###########################
 		/** Returns the id of the room where a dead player comes back. */

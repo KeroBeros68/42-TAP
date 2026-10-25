@@ -58,6 +58,10 @@
 # define STATUS_COMBAT		"combat"	// status of a player who is in a fight
 # define STATUS_DEAD		"dead"		// status of a player who has no hit points left
 
+// -- Quest statuses -----------------------------------------------------------
+# define QUEST_STATUS_ACTIVE		"active"	// status of a quest in progress
+# define QUEST_STATUS_COMPLETED		"completed"	// status of a quest that is finished
+
 // -- Response fields ----------------------------------------------------------
 # define FIELD_ROOM			"room"						// the room described by LOOK
 # define FIELD_ID			"id"						// id of the room
@@ -78,6 +82,11 @@
 # define FIELD_ACTOR		"actor"						// who played the turn
 # define FIELD_ACTION		"action"					// what the actor did (see ACTION_*)
 # define FIELD_MISSED		"missed"					// the strike missed, or the escape failed
+# define FIELD_QUEST_ID	"quest_id"					// id of a quest
+# define FIELD_PROGRESS		"progress"					// progress of a quest, like "1/3"
+# define FIELD_TEXT_DONE	"text_done"					// what the npc says when a quest is handed in
+# define FIELD_REWARD		"reward"					// what a quest gives at the end
+# define FIELD_HEAL			"heal"						// hit points given by a reward
 # define FIELD_ESCAPED		"escaped"					// the player ran away from the fight
 # define FIELD_ENEMY		"enemy"						// id of the enemy of the fight
 # define FIELD_TARGET		"target"					// who suffered the turn
@@ -106,6 +115,7 @@
 # define CMD_CHAT 			"CHAT"		// talk to the other players
 # define CMD_TAKE 			"TAKE"		// take an item from the floor
 # define CMD_DROP 			"DROP"		// drop an item on the floor
+# define CMD_USE			"USE"		// use an item of the inventory
 # define CMD_INVENTORY 		"INVENTORY"	// list the items of the player
 # define CMD_TALK 			"TALK"		// talk to an npc
 # define CMD_ATTACK 		"ATTACK"	// start a fight, or play an attack

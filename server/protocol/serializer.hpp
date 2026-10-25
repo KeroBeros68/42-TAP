@@ -45,6 +45,22 @@ std::string serializeStatus(const Stats& stats, const std::optional<CombatView>&
 std::string serializeInventory(const std::vector<std::string>& ids);
 
 /**
+ * Writes the response of QUEST.
+ *
+ * @param reply the quest concerned, and what happened (STARTED, IN_PROGRESS or COMPLETED)
+ * @return      a JSON object with the quest, its status, its description, the progress and the reward, and what the npc says at the end when it is completed
+ */
+std::string serializeQuest(const QuestReply& reply);
+
+/**
+ * Writes the response of QUESTS.
+ *
+ * @param quests the quests of the player
+ * @return       a JSON array with, for each quest, its id, name, status and progress
+ */
+std::string serializeQuests(const std::vector<QuestView>& quests);
+
+/**
  * Writes the response of ATTACK, DEFEND and FLEE.
  *
  * @param report what happened

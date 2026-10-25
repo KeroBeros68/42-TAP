@@ -49,11 +49,13 @@ SRCS =	server.cpp \
 	combat.cpp \
 	combat_manager.cpp \
 	group_manager.cpp \
+	quest.cpp \
+	quest_manager.cpp \
 	serializer.cpp \
 	config.cpp
 
 # The game sources live in ../game
-vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared/logging:../shared/system:../shared/text:../game/combat:../game/events:../game/group
+vpath %.cpp network:protocol:../game:../game/world:../game/entities:../shared/logging:../shared/system:../shared/text:../game/combat:../game/events:../game/group:../game/quests
 
 # nlohmann/json is not stored in git: it is downloaded by "make install-deps" (root Makefile)
 JSON = ../third_party/json.hpp

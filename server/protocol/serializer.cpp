@@ -59,6 +59,50 @@ std::string serializeInventory(const std::vector<std::string>& ids) {
 	return dump(ordered_json(ids));
 }
 
+/**
+ * Gives the word of the protocol for the state of a quest.
+ *
+ * @param state the state
+ * @return      QUEST_STATUS_ACTIVE or QUEST_STATUS_COMPLETED
+ */
+static const char* questStatusName(QuestState state) {
+	return state == QuestState::COMPLETED ? QUEST_STATUS_COMPLETED : QUEST_STATUS_ACTIVE;
+}
+
+/**
+ * Writes the progress of a quest, like "1/3".
+ *
+ * @param view the quest
+ * @return     what is done over what is asked
+ */
+static std::string questProgress(const QuestView& view) {
+	return std::to_string(view.current) + "/" + std::to_string(view.def->count());
+}
+
+std::string serializeQuest(const QuestReply& reply) {
+	const QuestDef& def = *reply.view.def;
+	ordered_json payload;
+	payload[FIELD_QUEST_ID] = def.id();
+	payload[FIELD_NAME] = def.name();
+	payload[FIELD_STATUS] = questStatusName(reply.view.state);
+	payload[FIELD_DESCRIPTION] = def.textStart();
+	payload[FIELD_PROGRESS] = questProgress(reply.view);
+	payload[FIELD_REWARD][FIELD_ITEMS] = def.reward().items;
+	payload[FIELD_REWARD][FIELD_HEAL] = def.reward().heal;
+	if (reply.status == QuestStatus::COMPLETED)
+		payload[FIELD_TEXT_DONE] = def.textDone();
+	return dump(payload);
+}
+
+std::string serializeQuests(const std::vector<QuestView>& quests) {
+	ordered_json payload = ordered_json::array();
+	for (const QuestView& view : quests) {
+		payload.push_back({{FIELD_QUEST_ID, view.def->id()}, {FIELD_NAME, view.def->name()},
+			{FIELD_STATUS, questStatusName(view.state)}, {FIELD_PROGRESS, questProgress(view)}});
+	}
+	return dump(payload);
+}
+
 std::string serializeAttack(const CombatReport& report) {
 	ordered_json turns = ordered_json::array();
 	for (const ReportTurn& turn : report.turns) {

@@ -77,6 +77,30 @@ static void readNpc(NpcDb& database, json& data) {
 }
 
 /**
+ * Reads and checks the effect of an item.
+ * Throws std::runtime_error if it is invalid (not an object, unknown type, amount that is not positive).
+ *
+ * @param entry   the effect, as written in the file
+ * @param item_id id of the item, for the errors
+ * @return        the effect
+ */
+static ItemEffect readItemEffect(const json& entry, const std::string& item_id) {
+	if (!entry.is_object())
+		throw std::runtime_error(ERR_ITEM_FILE + item_id + ": the effect must be an object");
+
+	ItemEffect effect;
+	const std::string type = entry.at(JSON_TYPE).get<std::string>();
+	if (type == JSON_HEALING)
+		effect.type = ItemEffectType::HEALING;
+	else
+		throw std::runtime_error(ERR_ITEM_FILE + item_id + ": unknown effect type '" + type + "'");
+	effect.amount = entry.at(JSON_AMOUNT).get<int>();
+	if (effect.amount <= 0)
+		throw std::runtime_error(ERR_ITEM_FILE + item_id + ": effect amount must be positive");
+	return effect;
+}
+
+/**
  * Reads the "items" object of items.json and adds the definitions to the database.
  *
  * @param database receives the definitions
@@ -85,16 +109,83 @@ static void readNpc(NpcDb& database, json& data) {
 static void readItems(ItemDb& database, json& data) {
 	if (data.contains(JSON_ITEMS) && data[JSON_ITEMS].is_object()) {
 		for (const auto& [item_id, item] : data[JSON_ITEMS].items()) {
+			std::optional<ItemEffect> effect;
+			if (item.contains(JSON_EFFECT))
+				effect = readItemEffect(item[JSON_EFFECT], item_id);
+
 			ItemDef def(item_id,
 				item.at(JSON_NAME).get<std::string>(),
 				item.at(JSON_DESCRIPTION).get<std::string>(),
-				item.at(JSON_OBTAINABLE).get<bool>()
+				item.at(JSON_OBTAINABLE).get<bool>(),
+				effect
 			);
 
 			database.add(def);
 		}
 	} else {
 		LOG_WARN("no \"items\" object found in items.json, no item loaded");
+	}
+}
+
+/**
+ * Reads the type of a quest.
+ * Throws std::runtime_error if it is unknown.
+ *
+ * @param text     the type, as written in the file
+ * @param quest_id id of the quest, for the errors
+ * @return         the type
+ */
+static QuestType readQuestType(const std::string& text, const std::string& quest_id) {
+	if (text == QUEST_TYPE_DELIVER)
+		return QuestType::DELIVER;
+	if (text == QUEST_TYPE_DEFEAT)
+		return QuestType::DEFEAT;
+	if (text == QUEST_TYPE_FETCH)
+		return QuestType::FETCH;
+	throw std::runtime_error(ERR_QUEST_FILE + quest_id + ": unknown type '" + text + "'");
+}
+
+/**
+ * Reads the "quests" object of quests.json and adds the definitions to the database.
+ * Throws std::runtime_error if a quest is invalid (unknown type, no giver, turn in or target, count under 1, negative heal).
+ *
+ * @param database receives the definitions
+ * @param data     the content of the file
+ */
+static void readQuests(QuestDb& database, json& data) {
+	if (data.contains(JSON_QUESTS) && data[JSON_QUESTS].is_object()) {
+		for (const auto& [quest_id, quest] : data[JSON_QUESTS].items()) {
+			QuestReward reward;
+			if (quest.contains(JSON_REWARD)) {
+				const json& r = quest[JSON_REWARD];
+				if (r.contains(JSON_ITEMS))
+					reward.items = r[JSON_ITEMS].get<std::vector<std::string>>();
+				reward.heal = r.value(JSON_HEAL, 0);
+			}
+
+			QuestDef def(quest_id,
+				quest.at(JSON_NAME).get<std::string>(),
+				readQuestType(quest.at(JSON_TYPE).get<std::string>(), quest_id),
+				quest.at(JSON_GIVER).get<std::string>(),
+				quest.at(JSON_TURN_IN).get<std::string>(),
+				quest.at(JSON_TARGET).get<std::string>(),
+				quest.at(JSON_COUNT).get<int>(),
+				reward,
+				quest.at(JSON_TEXT_START).get<std::string>(),
+				quest.at(JSON_TEXT_DONE).get<std::string>()
+			);
+
+			if (def.giver().empty() || def.turnIn().empty() || def.target().empty())
+				throw std::runtime_error(ERR_QUEST_FILE + quest_id + ": giver, turn_in and target are required");
+			if (def.count() < 1)
+				throw std::runtime_error(ERR_QUEST_FILE + quest_id + ": count must be at least 1");
+			if (def.reward().heal < 0)
+				throw std::runtime_error(ERR_QUEST_FILE + quest_id + ": heal can not be negative");
+			if (!database.add(def))
+				throw std::runtime_error(ERR_QUEST_FILE + quest_id + ": duplicate id");
+		}
+	} else {
+		LOG_WARN("no \"quests\" object found in quests.json, no quest loaded");
 	}
 }
 
@@ -234,6 +325,12 @@ void parseNpcs(const std::string& path, NpcDb& npcs) {
 void parseItems(const std::string& path, ItemDb& items) {
 	loadJson(path, ERR_ITEM_FILE, [&](json& data) {
 		readItems(items, data);
+	});
+}
+
+void parseQuests(const std::string& path, QuestDb& quests) {
+	loadJson(path, ERR_QUEST_FILE, [&](json& data) {
+		readQuests(quests, data);
 	});
 }
 

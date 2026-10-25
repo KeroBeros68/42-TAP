@@ -14,6 +14,7 @@
 
 # include "../entities/item.hpp"
 # include "../entities/npc.hpp"
+# include "../quests/quest.hpp"
 # include "room.hpp"
 
 //##############################################################################
@@ -50,6 +51,14 @@
 # define JSON_HEALING			"healing"			// type of effect: gives hit points
 # define JSON_AMOUNT			"amount"			// hit points given by an effect, each time
 # define JSON_INTERVAL_SECONDS	"interval_seconds"	// seconds between two times an effect works
+# define JSON_QUESTS			"quests"			// list of the quests of quests.json
+# define JSON_GIVER				"giver"				// npc who gives a quest
+# define JSON_TURN_IN			"turn_in"			// npc who receives the result of a quest
+# define JSON_TARGET			"target"			// item to bring, or enemy to defeat, for a quest
+# define JSON_REWARD			"reward"			// what a quest gives at the end
+# define JSON_HEAL				"heal"				// hit points given by a reward
+# define JSON_TEXT_START		"text_start"		// what the giver says when he gives a quest
+# define JSON_TEXT_DONE			"text_done"			// what the npc says at the end of a quest
 # define JSON_START_ROOM		"start_room"		// room where a new player starts
 # define JSON_RESPAWN			"respawn"			// where and with how many hit points a dead player comes back
 # define JSON_ROOM				"room"				// room of the respawn
@@ -57,6 +66,7 @@
 // -- Data file errors ---------------------------------------------------------
 # define ERR_NPC_FILE			"invalid npc.json: "	// beginning of the errors about npc.json
 # define ERR_ITEM_FILE			"invalid items.json: "	// beginning of the errors about items.json
+# define ERR_QUEST_FILE			"invalid quests.json: "	// beginning of the errors about quests.json
 # define ERR_ROOM_FILE			"invalid room.json: "	// beginning of the errors about room.json
 
 //##############################################################################
@@ -80,6 +90,15 @@ void parseNpcs(const std::string& path, NpcDb& npcs);
  * @param items receives the definitions
  */
 void parseItems(const std::string& path, ItemDb& items);
+
+/**
+ * Reads the definitions of the quests from their file.
+ * Throws std::runtime_error if the file cannot be opened or its content is invalid.
+ *
+ * @param path   path of quests.json
+ * @param quests receives the definitions
+ */
+void parseQuests(const std::string& path, QuestDb& quests);
 
 /**
  * Reads the rooms, the start room and the respawn from their file.

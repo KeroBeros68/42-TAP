@@ -14,6 +14,7 @@
 
 # include "../entities/item.hpp"
 # include "../entities/npc.hpp"
+# include "../quests/quest.hpp"
 # include "room.hpp"
 
 //##############################################################################
@@ -25,6 +26,7 @@
 # define NPC_FILE			"npc.json"			// file of the npcs
 # define ITEM_FILE			"items.json"		// file of the items
 # define ROOM_FILE			"room.json"			// file of the rooms
+# define QUEST_FILE		"quests.json"		// file of the quests
 
 //##############################################################################
 //#                                   WORLD                                    #
@@ -44,6 +46,7 @@ class World {
 		int			respawn_life;
 		NpcDb		npc_database;
 		ItemDb		item_database;
+		QuestDb		quest_database;
 
 		//######################## CONSTRUCTOR #########################
 		/** Loads the world from the data files (std::runtime_error is thrown if they are invalid). */

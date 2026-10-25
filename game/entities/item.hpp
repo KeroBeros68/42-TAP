@@ -5,6 +5,7 @@
 //#                                STD INCLUDES                                #
 //##############################################################################
 
+# include <optional>
 # include <string>
 
 //##############################################################################
@@ -16,6 +17,21 @@
 # include "respawnable.hpp"
 
 //##############################################################################
+//#                                   ENUMS                                    #
+//##############################################################################
+
+enum class ItemEffectType { HEALING };
+
+//##############################################################################
+//#                                  STRUCTS                                   #
+//##############################################################################
+
+struct ItemEffect {
+	ItemEffectType	type = ItemEffectType::HEALING;
+	int				amount = 0;
+};
+
+//##############################################################################
 //#                                  ITEM DEF                                  #
 //##############################################################################
 
@@ -23,6 +39,7 @@ class ItemDef : public Definition {
 	private:
 		//######################### VARIABLES ##########################
 		bool _obtainable;
+		std::optional<ItemEffect> _effect;
 
 	public:
 		//######################## CONSTRUCTOR #########################
@@ -33,12 +50,17 @@ class ItemDef : public Definition {
 		 * @param name        name shown to the players
 		 * @param description description shown to the players
 		 * @param obtainable  true if a player can take the item
+		 * @param effect      what the item does when it is used (none by default)
 		 */
-		ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable);
+		ItemDef(const std::string& id, const std::string& name, const std::string& description, bool obtainable,
+			const std::optional<ItemEffect>& effect = std::nullopt);
 
 		//########################## QUERIES ###########################
 		/** Tells whether a player can take the item (a fountain cannot be taken). */
 		bool isObtainable() const;
+
+		/** Returns what the item does when it is used (nothing if it has no effect). */
+		const std::optional<ItemEffect>& effect() const;
 };
 
 //##############################################################################

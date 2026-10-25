@@ -143,10 +143,11 @@ void CombatManager::settle(Fight& fight, Npc* npc, Room& room, const Steps& step
 			if (turn.actor != ENEMY_ID)
 				killer = fighterName(turn.actor, enemy_id);
 		}
-		for (long long id : fight.encounter.participants)
+		const std::vector<long long> participants = fight.encounter.participants;
+		for (long long id : participants)
 			emitRoomCombat(room, requester_id, {EVT_COMBAT_END, fighterName(id, enemy_id), enemy_id, EVT_VICTORY});
 		dropFight(enemy_id);
-		_host.enemyDied(room, npc, killer);
+		_host.enemyDied(room, npc, killer, participants);
 	} else if (steps.over) {
 		dropFight(enemy_id);
 	} else {
