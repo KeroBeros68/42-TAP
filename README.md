@@ -283,6 +283,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM COMBAT TURN <player> <enemy> <seconds>` | it is the turn of a player, who has this many seconds to play |
 | `EVT ROOM COMBAT TIMEOUT <player> <enemy>` | a turn was played for a player who was too slow |
 | `EVT ROOM COMBAT END <player> <enemy> <victory\|defeat\|escaped>` | a player leaves the fight |
+| `EVT ROOM COMBAT RESOLVED` | the fight is settled for the whole room: the enemy is gone (killed or nobody left to fight). Sent to **every** player of the room, the one who played included, so each client asks `LOOK` again. It names no player and no enemy: it only says the room changed, and it carries no answer to any command |
 | `EVT ROOM SPAWN <npc\|item> <definition id>` | an enemy or an item came back |
 | `EVT ROOM ITEM TAKEN <player> <definition id>` | a player of the room took an item from the floor |
 | `EVT ROOM ITEM DROPPED <player> <definition id>` | a player of the room dropped an item on the floor |
@@ -290,6 +291,8 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT INVENTORY CHANGED <quest\|use>` | sent only to the player whose inventory changed without a `TAKE` or `DROP`: a quest he handed in took or gave items, or `USE` consumed one. The client should send `INVENTORY` again (a quest that gives hit points also sends `EVT ROOM EFFECT healing <hp>`) |
 
 The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
+
+`EVT ROOM COMBAT RESOLVED` is the one exception: it answers no command and describes no action of one player, so it goes to the whole room. Without it the player who killed an enemy would never learn that the enemy left the room and dropped its loot — the `END ... victory` skips him, and the `ATTACK` answer carries no such field.
 
 ### ↔️ Deviations from RFC 42TAP
 

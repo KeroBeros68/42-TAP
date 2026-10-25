@@ -13,16 +13,29 @@ TAPInventoryView::TAPInventoryView(Session &session)
     this->_layout.addWidget(&this->_no_items_label, 0, Qt::AlignCenter);
     this->_layout.addLayout(&this->_layout_items);
 
+    // DROP and USE act on the selected item: side by side, below the list
     this->_validate_button.setText("DROP");
+    this->connect(&this->_validate_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_item_id() == "") {return ;}
+            this->_session.send("DROP", this->get_selected_item_id());
+    });
+
+    this->_use_button.setText("USE");
+    this->connect(&this->_use_button,
+        &QPushButton::clicked,
+        this,
+        [this] {
+            if (this->get_selected_item_id() == "") {return ;}
+            this->_session.send("USE", this->get_selected_item_id());
+    });
+
     this->_layout.addStretch();
-    this->_layout.addWidget(&this->_validate_button);
-        this->connect(&this->_validate_button,
-            &QPushButton::clicked,
-            this,
-            [this] {
-                if (this->get_selected_item_id() == "") {return ;}
-                this->_session.send("DROP", this->get_selected_item_id());
-        });
+    this->_layout_actions.addWidget(&this->_validate_button);
+    this->_layout_actions.addWidget(&this->_use_button);
+    this->_layout.addLayout(&this->_layout_actions);
 
     this->setLayout(&this->_layout);
 
@@ -59,10 +72,12 @@ void TAPInventoryView::update_inventory(std::vector<ListedItem> data)
     if (data.size() == 0) {
         this->_no_items_label.show();
         this->_validate_button.hide();
+        this->_use_button.hide();
     }
     else {
         this->_no_items_label.hide();
         this->_validate_button.show();
+        this->_use_button.show();
     }
 
 }

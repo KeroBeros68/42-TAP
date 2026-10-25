@@ -85,6 +85,12 @@ class Session
 		void	applyMove(const std::string& data);
 		void	applyTake(const std::string& data);
 		void	applyDrop(const std::string& data);
+
+		// USE: "OK healed=<n>". The server names no item here, so the id
+		// comes from the command we sent. The item is consumed, so the
+		// inventory is asked again; the hit points come from the STATUS
+		// that follows, never from the amount added locally.
+		void	applyUse(const std::string& item_id, const std::string& data);
 		void	applyTalk(const std::string& data);
 
 		// QUEST: the server answers the quest itself; then the whole list is

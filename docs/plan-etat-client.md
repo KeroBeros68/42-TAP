@@ -221,6 +221,7 @@ Tolérance, pour les serveurs des autres groupes :
 | `EVT GROUP INVITE <chef>` | `pending_invite` (affichage visible, avec un bouton qui envoie `GROUP JOIN <chef>`) |
 | `EVT GROUP JOIN <p>` / `LEAVE <p>` | journal, liste des membres si vous l'affichez |
 | `EVT ROOM COMBAT START/JOIN/ROUND/TURN/TIMEOUT/END …` | `combat` (`TURN` avec notre nom → `my_turn`, `seconds_left`), et le détail dans le journal |
+| `EVT ROOM COMBAT RESOLVED` | `combat` remis à zéro, puis envoie `LOOK` et `STATUS` : l'ennemi a quitté la salle et son butin est au sol |
 | `EVT ROOM SPAWN <npc\|item> <id>` | envoie `LOOK` |
 | `EVT ROOM ITEM TAKEN <joueur> <id>` / `DROPPED <joueur> <id>` | envoie `LOOK`, et une ligne dans le journal |
 | tout autre `EVT` | journal uniquement |

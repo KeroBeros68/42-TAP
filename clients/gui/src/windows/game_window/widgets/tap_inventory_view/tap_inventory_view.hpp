@@ -11,8 +11,10 @@ class TAPInventoryView : public TAPGameSectionWidget
     private:
         QVBoxLayout _layout;
         QVBoxLayout _layout_items;
+        QHBoxLayout _layout_actions;    // DROP and USE side by side
         TAPRoomNameLabel _section_title;
         TAPButton _validate_button;
+        TAPButton _use_button;
         TAPLabel    _no_items_label;
         // items list : one entry per item, even when two items share an id
         std::vector<ListedItem> _items;

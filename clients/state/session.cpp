@@ -313,6 +313,12 @@ void	Session::handleOk(const Pending& pending, const ServerMessage& message)
 		return;
 	}
 
+	if (pending.command == "USE")
+	{
+		applyUse(pending.args, message.data);
+		return;
+	}
+
 	if (pending.command == "TALK")
 	{
 		applyTalk(message.data);
@@ -697,6 +703,27 @@ void	Session::applyDrop(const std::string& data)
 	send("INVENTORY");
 }
 
+void	Session::applyUse(const std::string& item_id, const std::string& data)
+{
+	// "OK healed=<n>": the item is gone from the inventory, and the hit
+	// points went up. We do not add the amount ourselves: STATUS is the only
+	// source of truth for hp, so it is asked again, like TAKE and DROP do.
+	const size_t separator = data.find('=');
+	if (separator == std::string::npos)
+	{
+		log("USE: unreadable answer: " + data);
+		return;
+	}
+
+	// TAKE and DROP are announced by the server on the room channel; USE is
+	// not, so the journal line is ours to write. The name is the catalog's.
+	log("you used " + _catalog.name(item_id)
+		+ " (+" + data.substr(separator + 1) + " hp)");
+
+	send("INVENTORY");
+	send("STATUS");
+}
+
 void	Session::handleErr(const Pending& pending, const ServerMessage& message)
 {
 	// The code and the name are both kept: 404 means three different things
@@ -728,6 +755,14 @@ void	Session::handleEvent(const ServerMessage& message)
 	else if (message.category == EVT_ROOM)
 	{
 		handleRoomEvent(message.data);
+		return;
+	}
+	else if (message.category == EVT_INVENTORY)
+	{
+		// "EVT INVENTORY CHANGED <reason>": the inventory moved without a
+		// TAKE or a DROP from us (an item was used up, a quest gave one).
+		// We do not guess what changed: ask for the inventory again.
+		send("INVENTORY");
 		return;
 	}
 	else if (message.category == EVT_GLOBAL)
@@ -882,6 +917,25 @@ void	Session::applyChat(std::vector<ChatLine>& history, const std::string& data)
 void	Session::applyCombatEvent(const std::vector<std::string>& words)
 {
 	// words: {"COMBAT", <type>, <player>, <enemy>, ...}
+	if (words.size() < 2)
+	{
+		log("EVT ROOM COMBAT: malformed event");
+		return;
+	}
+
+	// "COMBAT RESOLVED": the fight is over for the whole room. It names no
+	// player and no enemy, so it is handled before the common fields below.
+	// The enemy left the room and its loot is on the floor: we do not guess,
+	// we ask for the room again.
+	if (words[1] == EVT_COMBAT_RESOLVED)
+	{
+		_state.combat = GameState::Combat();
+		changed(Section::Combat);
+		send("LOOK");
+		send("STATUS");
+		return;
+	}
+
 	if (words.size() < 4)
 	{
 		log("EVT ROOM COMBAT: malformed event");

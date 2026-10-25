@@ -102,6 +102,19 @@ class CombatManager {
 		 */
 		void emitRoomCombat(const Room& room, long long except_id, const std::vector<std::string>& words);
 
+		/**
+		 * Queues "EVT ROOM COMBAT RESOLVED" for every player of a room, the one
+		 * who played included: the fight is over, the room no longer holds the
+		 * enemy, and every client has to ask for the room again.
+		 *
+		 * The other COMBAT events skip the player who has his answer; this one
+		 * skips nobody, and it carries no player and no enemy: it only says
+		 * "the room changed".
+		 *
+		 * @param room the room of the fight
+		 */
+		void emitCombatResolved(const Room& room);
+
 		//########################### TURNS ############################
 		/**
 		 * Plays an action of a player who is already in a fight.

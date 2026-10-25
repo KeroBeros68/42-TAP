@@ -77,6 +77,10 @@ void CombatManager::emitRoomCombat(const Room& room, long long except_id, const 
 	_host.events().toOthers(room, except_id, eventLine(EVT_ROOM, words(all)));
 }
 
+void CombatManager::emitCombatResolved(const Room& room) {
+	_host.events().toRoom(room, eventLine(EVT_ROOM, std::string(EVT_COMBAT) + CMD_SEPARATOR + EVT_COMBAT_RESOLVED));
+}
+
 //########################### TURNS ############################
 
 CombatReport CombatManager::continueFight(long long player_id, CombatAction action, const char* name) {
@@ -148,8 +152,13 @@ void CombatManager::settle(Fight& fight, Npc* npc, Room& room, const Steps& step
 			emitRoomCombat(room, requester_id, {EVT_COMBAT_END, fighterName(id, enemy_id), enemy_id, EVT_VICTORY});
 		dropFight(enemy_id);
 		_host.enemyDied(room, npc, killer, participants);
+		// Last, once the enemy is out of the room and its loot is on the floor:
+		// the room changed for everybody, the killer included, so this one goes
+		// to the whole room (the END above skip the killer, who has his answer).
+		emitCombatResolved(room);
 	} else if (steps.over) {
 		dropFight(enemy_id);
+		emitCombatResolved(room);
 	} else {
 		announceTurn(fight, room);
 	}

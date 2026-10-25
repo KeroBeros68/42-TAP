@@ -33,6 +33,7 @@
 # define EVT_COMBAT_TURN	"TURN"		// a player has to play
 # define EVT_COMBAT_JOIN	"JOIN"		// a player joins a fight
 # define EVT_COMBAT_TIMEOUT	"TIMEOUT"	// a turn is played for a player who was too slow
+# define EVT_COMBAT_RESOLVED	"RESOLVED"	// the fight is settled for everybody: sent to the whole room, the player who played included
 # define EVT_VICTORY		"victory"	// result: the enemy was killed
 # define EVT_DEFEAT			"defeat"	// result: the player died
 # define EVT_ESCAPED		"escaped"	// result: the player ran away
