@@ -3,10 +3,10 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-25 — régénéré après `0363f87` (avertissements de configuration, `ERR 429`/`503`, `0` pour désactiver une limite : commités) et les commits `9e462bf` / `664b515` (**système de quêtes** et commande `USE`). L'arbre de travail est propre. Mises à jour précédentes : 2026-10-23 (deux), 2026-10-21, 2026-10-20, 2026-10-19. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-25 (seconde version) — régénéré après `907be23` (compilation parallèle, dépendances `-MMD`), `562f65f` (cible `lint`) et le merge `880a07e` (Makefile racine : `run-server`, `run-client`, `run-client-gui`, `all` sans lancement). **L'historique a été réécrit par les merges : les hachages de commits cités plus bas pour les mises à jour précédentes (`17d05bc`, `9e462bf`…) ne correspondent plus aux commits actuels** (`git log` fait foi). L'arbre de travail est propre. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`). Scénarios de cette mise à jour : quête de livraison complète (`QUEST` → `TAKE` → `QUESTS` → rendu à la prêtresse), quête `defeat` (3 rats, rendu au tavernier), relance d'une quête terminée, `USE` (charme, objet absent, sans argument, pain à pleine santé), `QUEST` sans cible / PNJ inconnu. Le reste du serveur n'a pas changé de comportement depuis le 2026-10-23 et n'a pas été rejoué. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : `make lint` exécuté (28 fichiers, 0 erreur, 29 s) ; **clone propre du dépôt puis `make`** (téléchargement de nlohmann/json avec contrôle SHA-256, compilation parallèle, 45 s, `server` et `clientCLI` produits, rien n'est lancé) ; `make -n server|cli|gui` pour lire les recettes réellement exécutées. Le comportement du serveur n'a pas changé depuis l'audit précédent (seuls des `static_cast` ont été ajoutés pour `-Wconversion` : `config.cpp`, `server.cpp`, `signalFd.cpp`, `combat.cpp`, `stats.hpp`) et n'a pas été rejoué. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
@@ -31,7 +31,7 @@ Mesuré en conditions réelles :
 - ✅ **Il ne reste plus aucun stub** (`cmdStub` supprimé).
 - 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO`/`ERR 500`, les limites anti-abus, `LOG_FILE`, `EVT ROOM EFFECT` et Server Logging, mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script).
 - 🔴 **Cinq sections du README restent vides** : Instructions, Quest System, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`). « Server Logging » est désormais rempli.
-- 🔴 **`log.txt` (131 lignes d'une session de développement, port 4563) est versionné** par le commit `740e0d4` et non ignoré par `.gitignore` : fichier généré à ne pas livrer (et à ajouter à l'ignore, ou à remplacer par `LOG_FILE=server.log` ignoré).
+- ✅ **`log.txt` n'est plus versionné** (retiré lors de la réorganisation de l'historique).
 
 ### Tableau de conformité §V.1 / §IV (serveur)
 
@@ -54,7 +54,7 @@ Mesuré en conditions réelles :
 | Logging : événements de quêtes | ❌ (pas de quêtes) |
 | Fragmentation / coalescing TCP (RFC §9.2) | ✅ |
 | Limite de longueur de ligne (RFC §9.4) | ⚠️ partielle |
-| Lint / install / run-server / clean (§VII.1) | ⚠️ `install-deps` ; `lint`, `run-server`, `run-client`, `run-client-gui` absents |
+| Lint / install / run-server / run-client / run-client-gui / clean (§VII.1) | ✅ toutes les cibles existent ; ⚠️ recettes en double sur `server`, `client`, `gui` (voir Makefile ❌ 1) |
 | README (§VI) | ⚠️ 6 sections remplies sur 12 ; 1 affirmation périmée (15 PNJ) |
 
 ---
@@ -187,19 +187,19 @@ Mesuré en conditions réelles :
 
 ### ✅ Bon
 
-1. **`install-deps`** : nlohmann/json avec SHA-256 épinglé, documenté.
-2. **`SRCS`/`vpath`/`INCLUDES` à jour** après la réorganisation de `shared/` (`loadenv.cpp` ajouté) ; build propre, **zéro warning**, `-Wall -Wextra -Werror -std=c++20`.
-3. **`INCLUDES` par `wildcard`** (y compris `../shared/*/*.hpp`).
-4. **Binaires et `.env` ignorés par git**, `.env.example` versionné ; `clean/fclean/re` propagés.
-5. **README documente cibles et configuration** (tableau des variables, priorité shell > fichier).
+1. **Toutes les cibles du §VII.1 existent** : `install-deps`, `run-server`, `run-client`, `run-client-gui` (alias `server`, `cli`/`client`, `gui`), `lint`, `clean`/`fclean`/`re`. `make` (= `all`) installe les dépendances et **construit sans rien lancer** (vérifié sur un clone propre : 45 s). `make help` liste enfin les commandes.
+2. **`make lint` sérieux** : compilation `-fsyntax-only` de 28 fichiers avec `-Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2`, contrôle des espaces en fin de ligne, puis `cppcheck` / `clang-tidy` s'ils sont installés (message « ignoré » sinon). Vérifié : 0 erreur. Les `static_cast` ajoutés dans `config.cpp`, `server.cpp`, `signalFd.cpp`, `stats.hpp`, `combat.cpp` viennent de cette exigence.
+3. **Compilation parallèle** (`JOBS` = nombre de coeurs, `make JOBS=1` pour lire les erreurs une à une) et **dépendances d'en-têtes par `-MMD -MP`** : plus de liste `INCLUDES` à maintenir, un en-tête modifié recompile exactement ce qui en dépend.
+4. **`install-deps`** : nlohmann/json avec SHA-256 épinglé ; **build depuis un clone propre vérifié** (le téléchargement fonctionne, les deux binaires sortent).
+5. **`run-server`/`run-client` ouvrent un terminal** et lancent le programme depuis son dossier (`server/`, `clients/cli/`), où `.env` est retrouvé ; binaires et `.env` ignorés par git.
 
 ### ❌ Mauvais
 
-1. **Cibles §VII.1 manquantes : `lint`, `run-server`, `run-client`, `run-client-gui`** (le README le reconnaît en `TODO`).
-2. **Pas de cible `test`** alors que le moteur de combat est conçu pour être testé.
-3. **`all: $(NAME) run`** — `make` build **et lance** le serveur au premier plan ; incompatible avec une CI.
-4. **Cible `help` toujours vide.**
-5. **Téléchargement réseau au premier `make`**, `PROJECT_ROOT` absolu compilé, `.vscode/c_cpp_properties.json` versionné.
+1. **🔴 Résidus du merge : recettes en double dans le `Makefile` racine** (lignes ~192-212) — `server: run-server`, `cli client: run-client`, `gui: run-client-gui` coexistent avec les anciennes règles `server: build` / `make -C ./server run`, `client:` / `make -C clients/cli` et `gui:` / `make -C clients/gui run`. Conséquence vérifiée par `make -n` : **`make server` construit le serveur ET le client CLI, ouvre le serveur dans une nouvelle fenêtre, puis lance un second serveur dans le terminal courant** (le deuxième échoue au `bind`) ; `make client` ouvre une fenêtre CLI puis lance aussi le CLI dans le terminal courant ; `make gui` lance la fenêtre graphique deux fois de suite. À corriger en supprimant les anciens blocs.
+2. **Pas de cible `test`** alors que le moteur de combat est conçu pour être testé ; `cppcheck` et `clang-tidy` ne tournent pas sur cette machine (installés ? non), donc `lint` n'a vérifié que le compilateur et les espaces.
+3. **`clients/gui/Makefile` écrit `$EXECUTABLE_NAME` au lieu de `$(EXECUTABLE_NAME)`** (make lit la variable `E`) : le GUI se reconstruit à chaque fois ; sans effet visible mais piège (et le GUI n'est pas dans `build`/`lint`, qui l'excluent faute de Qt).
+4. **`make server` dans `server/` (`all`) relance `run`** via `$(MAKE) run` après la compilation : appelé directement il construit puis lance le serveur au premier plan (la racine, elle, n'appelle que `server`).
+5. **Téléchargement réseau au premier `make`** (internet + `curl`/`wget`), `PROJECT_ROOT` absolu compilé dans le binaire, `.vscode/c_cpp_properties.json` versionné.
 
 ---
 
@@ -263,10 +263,10 @@ Depuis la mise à jour du matin du 2026-10-19 :
 
 ## Priorités (ordre suggéré)
 
-1. **README** : corriger « 15 NPC » → 16  écrire **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
-2. **Distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
-3. **Quêtes** : événements d'avancement, prérequis, enregistrement des objets ramassés ; documenter `USE` et la réponse de `QUEST` dans la section Protocol (déjà fait pour `QUEST`).
-4. **Règle de sortie pour un joueur AFK**, refus de `USE` à pleine santé ; **retirer `log.txt` du dépôt** et l'ajouter au `.gitignore`.
-5. **Robustesse restante** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, cohérence des codes d'erreur (flood, refus).
-6. **Logger** : avertir quand une variable d'environnement est invalide ; rotation ou taille maximale du fichier.
-7. **Tests automatisés** du moteur de combat (`roll` injecté) et cibles Makefile §VII.1 (`lint`, `run-server`, `run-client`, `run-client-gui`, `test`).
+1. **Supprimer les recettes en double du `Makefile` racine** (`server: build`, `client:`, `gui:` d'avant le merge) : aujourd'hui `make server` lance deux serveurs.
+2. **README** : corriger « 15 NPC » → 16, écrire **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice », mettre à jour le tableau des cibles.
+3. **Interchangeabilité (§II)** : décider du sort des ids `#N` et du format de la réponse de `QUEST`, trancher `WHO` (RFC ou exemple du sujet), distinguer les erreurs de `GROUP` (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) au lieu de tout renvoyer en `400`.
+4. **Robustesse** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, relever la limite par adresse du loopback par défaut, règle de sortie pour un joueur AFK.
+5. **Détails de jeu** : `USE` à pleine santé, désignation partielle d'un PNJ (`tavern keeper`), origine des objets de quête, événements d'avancement des quêtes.
+6. **Logger** : rotation ou taille maximale du fichier.
+7. **Tests automatisés** (combat avec `roll` injecté, quêtes, groupes) et cible `make test`.

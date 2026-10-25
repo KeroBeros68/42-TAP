@@ -201,16 +201,6 @@ run: build
 	sleep 1
 	launch "TAP client" "make -C '$(CURDIR)/clients/cli' run"
 
-server: build
-	make -C ./server run
-
-# Build and run the CLI client alone, in the current terminal
-client:
-	make -C clients/cli
-
-gui:
-	make -C clients/gui run
-
 bonus: re
 
 clean:
