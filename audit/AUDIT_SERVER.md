@@ -3,14 +3,14 @@
 > Audit de conformité de la partie serveur réalisée à ce jour, par rapport au sujet officiel (`docs/TAP-subject-1.4.md`, v1.4) et à la RFC 42TAP (`docs/protocol-rfc.html`).
 >
 > **Date de l'audit** : 2026-10-02
-> **Dernière mise à jour** : 2026-10-23 (seconde version) — régénéré après `26d9ae5` (`ServConfig`, commité) **et le travail non commité** qui le complète : avertissements sur les réglages invalides, `0` pour désactiver une limite, nouveaux codes `429 RATE_LIMITED` et `503 SERVER_BUSY` (`server.cpp`, `config.*`, `loadenv.*`, `errors.hpp`, README : état de l'arbre de travail — il compile et passe les tests ci-dessous). Mises à jour précédentes : 2026-10-23 (matin), 2026-10-21, 2026-10-20, 2026-10-19. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
+> **Dernière mise à jour** : 2026-10-25 — régénéré après `0363f87` (avertissements de configuration, `ERR 429`/`503`, `0` pour désactiver une limite : commités) et les commits `9e462bf` / `664b515` (**système de quêtes** et commande `USE`). L'arbre de travail est propre. Mises à jour précédentes : 2026-10-23 (deux), 2026-10-21, 2026-10-20, 2026-10-19. Les points corrigés sont retirés ; voir « Corrigés depuis l'audit initial » en fin de document.
 > **Périmètre** : `server/` (`network/`, `protocol/`, `main.cpp`) + `game/` (`game.cpp`, `combat/`, `events/`, `world/`, `entities/`, `utils/lookup.hpp`) + `shared/` + `Makefile` racine et `server/Makefile` + `game/ressources/*.json` + `.env.example` + `README.md` (comme documentation de conformité).
 > **Méthode** : 5 points positifs max et 5 points négatifs max par fichier, chacun justifié par référence au sujet / à la RFC, ou par le comportement réel du code. Même méthodologie que `AUDIT_SANDBOX.md` (projet agent_smith).
-> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`). Scénarios de cette mise à jour : 7 clients simultanés (les refusés reçoivent-ils un message ?), rafale de 30 commandes, `MAX_COMMANDS_PER_WINDOW=0` + `MAX_SESSIONS_PER_IP=0` avec 200 commandes et 8 clients locaux, réglages invalides (`abc`, `0`, `5`), `MAX_OUT_BUFFER=0`. Le reste du serveur n'a pas changé depuis le 2026-10-21 et n'a pas été rejoué. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
+> **Vérification** : build `-Wall -Wextra -Werror -std=c++20` sans warning ; tests réseau réels sur une copie compilée avec `-fsanitize=address,undefined` (`SERVER_PORT=18080`). Scénarios de cette mise à jour : quête de livraison complète (`QUEST` → `TAKE` → `QUESTS` → rendu à la prêtresse), quête `defeat` (3 rats, rendu au tavernier), relance d'une quête terminée, `USE` (charme, objet absent, sans argument, pain à pleine santé), `QUEST` sans cible / PNJ inconnu. Le reste du serveur n'a pas changé de comportement depuis le 2026-10-23 et n'a pas été rejoué. Aucune erreur ASAN/UBSAN. Les points non testés en réel sont marqués *(lecture de code)*.
 
 ---
 
-## 🟢 État général : 13 commandes RFC sur 15, tous les événements de la RFC émis, anti-abus, exceptions, logs en fichier et soin de salle — il ne reste que les quêtes (`QUEST`/`QUESTS`), les tests et la fin du README
+## 🟢 État général : **les 15 commandes de la RFC sont implémentées** (+ `DEFEND`, `FLEE`, `USE`), tous les événements, trois quêtes jouables, anti-abus configurable — il reste les tests automatisés et la fin du README
 
 Mesuré en conditions réelles :
 
@@ -26,7 +26,9 @@ Mesuré en conditions réelles :
 - ✅ **Configuration sans recompilation** — nouveau : `SERVER_PORT`, `SERVER_IP` (clients), `LOG_LEVEL` lus dans l'environnement ou dans `.env` (`shared/system/loadenv.*`, `.env.example` versionné, `.env` ignoré par git). Vérifié : `SERVER_PORT=18080` en variable ; `LOG_LEVEL=warn` supprime bien toutes les lignes INFO (0 sur le log) ; un `.env` à la racine (`SERVER_PORT = "18081"`, avec espaces, guillemets et commentaire) est trouvé depuis `server/` et appliqué ; une valeur invalide (`SERVER_PORT=abc`, `99999`, `LOG_LEVEL=zzz`) retombe silencieusement sur le défaut. La variable d'environnement passe avant le fichier.
 - ✅ **Événements `EVT`, combat au tour par tour avec initiative, `DEFEND`/`FLEE`, combat multijoueur, respawn annoncé** (acquis de la mise à jour précédente, code inchangé hors renommages).
 - ✅ **README v2** (460 lignes, +255) : sections Combat System (règles, formule, initiative, commandes, diffusion, justification), World Design (format, carte ASCII, rôles, items, validation), Configuration, tableau des 8 écarts à la RFC, tableau des événements. Il corrige tout ce que l'audit précédent relevait (casse, `EVT`, `DEFEND`/`FLEE`, erreurs 409-411).
-- 🔴 **2 stubs restent** : `QUEST` et `QUESTS` répondent `OK Message received` ; le système de quêtes (3 quêtes en données, `quests.json` toujours non lu) n'existe pas. C'est désormais le seul grand manque fonctionnel du §V.1.
+- ✅ **Système de quêtes — nouveau (`9e462bf`, `664b515`), vérifié** (§V.1 « design quest progression, completion validation, reward »). `QUEST <pnj>` donne la quête que ce PNJ propose (`status: active`) ou, à son PNJ de rendu, la valide ; `QUESTS` liste les quêtes avec leur progression. Trois types : `deliver` (apporter un objet à un autre PNJ), `fetch` (rapporter un objet), `defeat` (tuer N ennemis). Vérifié : *Medicine for the Chapel* — `QUEST guard` (`active`), seconde demande → `ERR 406 NO_QUEST_AVAILABLE`, `QUESTS` passe de `0/1` à `1/1` après `TAKE herbs`, `QUEST priestess` → `completed` + `text_done`, l'herbe est retirée de l'inventaire et `item.charm#4` y apparaît, relancer → `406` ; *Cellar Pests* — `defeat` de 3 rats, `QUESTS` indique `3/3`, rendu au tavernier → `completed`, récompense (pain + 20 PV). Validation au démarrage (PNJ, cible, récompenses existent, `count ≥ 1`, `heal ≥ 0`), refus de rendre une quête si la récompense ne rentre pas dans l'inventaire (`403`, rien n'est pris), une quête ne se fait qu'une fois, journalisation `quest started/progress/completed`. **README « Quest System » rédigé** (format, progression, validation, récompenses, liste) et écart n°8 documenté (réponse de `QUEST` avec `reward` en objet et `progress`).
+- ✅ **`USE <objet>` — nouveau, hors RFC, vérifié** : consomme un objet doté d'un `effect` (`healing`, pain 15 PV, herbes 30 PV) et répond `OK healed=<PV>` ; `USE charm` → `ERR 407 ITEM_NOT_USABLE`, objet absent → `404 ITEM_NOT_IN_INVENTORY`, sans argument → `400`, refusé en combat (`409`). Les herbes soignent enfin.
+- ✅ **Il ne reste plus aucun stub** (`cmdStub` supprimé).
 - 🔴 **README** : à jour pour `CHAT`/`GROUP`/`INVENTORY`/`WHO`/`ERR 500`, les limites anti-abus, `LOG_FILE`, `EVT ROOM EFFECT` et Server Logging, mais il annonce toujours « 15 NPC definitions » alors que `npc.json` en contient **16** (3 dialogue, 3 quêtes, 10 ennemis — vérifié par script).
 - 🔴 **Cinq sections du README restent vides** : Instructions, Quest System, **Testing**, Group Contributions, Resources (et « Client interface choice » en `TODO`). « Server Logging » est désormais rempli.
 - 🔴 **`log.txt` (131 lignes d'une session de développement, port 4563) est versionné** par le commit `740e0d4` et non ignoré par `.gitignore` : fichier généré à ne pas livrer (et à ajouter à l'ignore, ou à remplacer par `LOG_FILE=server.log` ignoré).
@@ -35,16 +37,16 @@ Mesuré en conditions réelles :
 
 | Exigence | État |
 | --- | --- |
-| Commandes RFC (15) | ⚠️ 13/15 réelles ; 2 stubs (`QUEST`, `QUESTS`) ; +`DEFEND`, `FLEE` |
+| Commandes RFC (15) | ✅ 15/15 ; +`DEFEND`, `FLEE`, `USE` hors RFC |
 | Événements `EVT` ROOM (PRESENCE) / STATS | ✅ |
 | Événements `EVT` CHAT (ROOM / GLOBAL / GROUP) et GROUP (INVITE / JOIN / LEAVE) | ✅ |
 | Commandes insensibles à la casse (RFC §4.2) | ✅ |
-| Chargement monde JSON + validation des références | ✅ ; ❌ `quests.json` jamais lu |
+| Chargement monde JSON + validation des références | ✅ (salles, PNJ, items, spawns, effets, quêtes) |
 | Monde : ≥ 8 salles avec boucle, ≥ 3 rôles PNJ, ≥ 4 items, ≥ 2 quêtes | ✅ données (15 salles, 2 boucles, 16 PNJ, 8 items) — quêtes non exploitées |
 | Items : instances uniques, prise/dépôt, id ou nom, multi-mots, inventaire visible | ✅ ; ⚠️ ids `#N` hors RFC (documenté) |
 | Respawn PNJ / items | ✅ annoncé par `EVT` |
 | Combat : 100 HP, dégâts, `STATUS`, respawn joueur, tour par tour, initiative, `DEFEND`/`FLEE`, diffusion | ✅ |
-| Quêtes (conception, validation, récompenses) | ❌ |
+| Quêtes (conception, validation, récompenses) | ✅ 3 quêtes jouables |
 | Déconnexion : état retiré **avant** le broadcast de départ | ✅ |
 | Logging : connexions/IP, commandes, réponses, monde, combat, JSON, niveaux, timestamps | ✅ ; niveau configurable ✅ |
 | Logging : détection d'abus (flood, connexions rapides) | ✅ |
@@ -91,7 +93,7 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **🔴 2 stubs `OK Message received`** : `QUEST`, `QUESTS`. Un client croit que l'action a réussi.
+1. **Extensions hors RFC en plus** : `USE`, `ERR 407 ITEM_NOT_USABLE`, `OK healed=<n>` ; la réponse de `QUEST` diffère de l'exemple de la RFC (`reward` est un objet `{items, heal}` et non une chaîne, `status` vaut `active` et non `available`, champs `progress` et `text_done`) — l'écart n°8 du README le documente, mais un client strict qui lit `reward` comme une chaîne échouera.
 2. **`GROUP` : les erreurs de groupe sont écrasées en `ERR 400`** (`cmdGroup`, `default:`) — non-chef qui invite (`NOT_LEADER`), groupe plein, invitation inexistante, invitation à soi-même, joueur inconnu : tout donne `400 BAD_REQUEST`, indiscernable d'une faute de syntaxe. La RFC n'a que `401`/`402` pour les groupes, mais un client ne sait pas pourquoi `GROUP JOIN` échoue (vérifié : `JOIN` sans invitation → `400`). À documenter comme écart, ou ajouter des codes dédiés.
 3. **`CHAT` : le texte est journalisé en `DEBUG`** (`chat text`), donc visible dans les logs de développement ; et le premier espace seul sépare le scope du message (`chat room  é ü` envoie `" é ü"` avec un espace en tête).
 4. **🔴 `WHO` : le sujet et la RFC divergent, et le choix n'est pas documenté** — le sujet (§V.5) montre `OK { "room": ["alice","bob"], "server": 5 }`, la RFC (§5.2.2) montre `OK players=<count>`. Le serveur suit la RFC, ce qui est défendable (la RFC prime), mais un GUI qui suivrait l'exemple du sujet n'y trouverait ni la liste de la salle ni le total. À mentionner dans les écarts/choix du README.
@@ -121,6 +123,26 @@ Mesuré en conditions réelles :
 
 ---
 
+## `game/quests/` — `quest.*`, `quest_manager.*` · `server/protocol/` (QUEST, QUESTS, USE)
+
+### ✅ Bon
+
+1. **Même architecture que les PNJ et les items** : `QuestDef` hérite de `Definition` et vit dans une `Database` ; `QuestProgress` (état + compteur de morts) par joueur dans un `QuestManager` sans réseau, que `Game` interroge. Le serveur refuse de démarrer sur une quête invalide.
+2. **Les trois types demandés par le sujet** (« fetch item, defeat NPC, deliver item ») avec un seul modèle de données JSON ; texte de début et de fin dans le fichier, récompense en objets et/ou PV.
+3. **Transaction sûre au rendu** : la quête n'est validée que si l'objectif est atteint **et** si la récompense tient dans l'inventaire (10 objets) ; sinon `ERR 403 INVENTORY_FULL` et **rien n'est pris ni donné**. Les objets de livraison sont retirés puis la récompense créée.
+4. **Crédit de `defeat` pour tous les participants du combat** (`participants` passé à `enemyDied`) : un combat partagé fait avancer la quête de chaque joueur qui l'a en cours — adapté au multijoueur du combat.
+5. **Un seul verbe pour donner et rendre** (`QUEST <pnj>`) et `QUESTS` autorisé en combat ; codes d'erreur précis (`404`, `406`, `403`, `409`), journal `quest started/progress/completed`.
+
+### ❌ Mauvais
+
+1. **Aucune vérification d'origine de l'objet** : `deliver`/`fetch` comptent les objets portés au moment du rendu, pas ceux ramassés pendant la quête ; un objet reçu d'un autre joueur (ou une herbe de la salle qui réapparaît) fait l'affaire, et un objet déposé fait repasser la progression à `0/1`.
+2. **Pas de prérequis ni de chaîne de quêtes** (la RFC §6.1.2 cite « Quest dependencies ») et `offeredBy` donne la première quête non commencée par ordre d'identifiant : si un PNJ en propose plusieurs, l'ordre dépend de l'alphabet des ids.
+3. **Récompense limitée** : objets et PV uniquement (pas d'or, d'équipement ni de statistiques) ; `heal: 0` est un champ par défaut explicite dans le JSON mais un simple `0` ignoré.
+4. **Désignation du PNJ par nom partiel impossible** : `QUEST tavern keeper` → `NPC_NOT_FOUND` (vérifié : le nom complet « Tavern Keeper Bronn », un seul mot du nom comme `bronn`, ou l'id sont acceptés, mais pas une partie de plusieurs mots) — piège pour un utilisateur du CLI, qui n'a aucune aide.
+5. **Aucun événement ni notification de quête** : le joueur n'apprend l'avancement d'un `defeat` qu'en appelant `QUESTS` ; aucun `EVT` « quest progress » ; pas de test automatisé du `QuestManager`.
+
+---
+
 ## `game/combat/` · `game/game.cpp` · `game/events/` · `game/world/` · `game/entities/` · `game/utils/lookup.hpp`
 
 ### ✅ Bon
@@ -133,8 +155,8 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **🔴 `quests.json` n'est toujours pas lu** (aucun `QuestDef`, aucune progression) ; `QUEST`/`QUESTS` stubs ; les 3 PNJ `quest_giver` répondent par un dialogue aléatoire comme les autres. Le README annonce honnêtement que les quêtes sont « described … but not used ».
-2. **Soin limité à un lieu** : seule la chapelle soigne (`effect` dans `room.json`) ; `item.herbs` (objet de la quête « Medicine for the Chapel ») ne soigne toujours pas, il n'existe pas de commande d'utilisation d'objet, et un joueur à 5 PV loin de la chapelle ne peut que s'y rendre — or la chapelle est aussi le point de respawn. Le soin n'a lieu qu'entre deux combats et un PNJ blessé qui n'est pas tué ne guérit pas.
+1. **Quêtes simples, à compléter** : les quêtes `deliver`/`fetch` ne comptent que les objets **portés** au moment du rendu (rien n'est enregistré pendant le jeu) ; un joueur peut donc faire la quête *Medicine* en reprenant l'herbe qui réapparaît chaque minute à la place (aucune vérification que l'objet vient de la salle de départ) ; la progression `defeat` n'est comptée qu'après le début de la quête, ce qui est annoncé. Les quêtes sont **oubliées à la déconnexion** (pas de persistance, conforme au sujet) et un joueur ne peut pas abandonner une quête (pas de `ABANDON_QUEST`, que la RFC cite comme exemple).
+2. **`USE` gaspille l'objet à pleine santé** : vérifié, `USE bread` à 100/100 PV répond `OK healed=0` et **consomme quand même le pain** (aucune confirmation ni refus) ; `USE` n'a pas de fichier d'effets autre que `healing`. Le soin par salle reste limité à la chapelle, qui est aussi le point de respawn.
 3. **Un joueur AFK reste lié au combat indéfiniment** (le timeout joue un `DEFEND` à chaque tour) *(lecture de code)*, aucune règle de sortie après N timeouts ; **une fuite réussie téléporte vers une sortie au hasard**, possiblement dans le combat d'une autre salle.
 4. **Items inépuisables** (réapparition dans la salle d'origine même si l'original est gardé) et **PNJ qui réapparaît dans une salle occupée** sans délai de grâce ; non documenté.
 5. **Aucun test automatisé** malgré le design testable ; la section « Testing » du README est vide. `emitPlayerCount` envoie à tous les joueurs à chaque (dé)connexion (O(N)).
@@ -181,7 +203,7 @@ Mesuré en conditions réelles :
 
 ---
 
-## `README.md` — v2 (520 lignes)
+## `README.md` — v2 (572 lignes)
 
 ### ✅ Bon
 
@@ -193,9 +215,9 @@ Mesuré en conditions réelles :
 
 ### ❌ Mauvais
 
-1. **L'arbre de travail a rattrapé le code** : `INVENTORY`, `WHO`, `CHAT` et `GROUP` sont déclarés implémentés (statut, tableau des commandes, événements `GLOBAL|ROOM CHAT` / `GROUP INVITE|JOIN|LEAVE|CHAT`, écart n°8 réduit à `QUEST`/`QUESTS`). Mais ces modifications du README ne sont **pas commitées** non plus, et il manque la description de la syntaxe `GROUP` dans le tableau des commandes.
+1. **README à jour sur les quêtes, `USE` et la configuration** : le statut déclare `QUEST`/`QUESTS` implémentés, la section « Quest System » est complète (format JSON, progression, validation, récompenses, tableau des 3 quêtes) et l'écart n°8 documente la réponse de `QUEST`.
 2. **🔴 « 15 NPC definitions » (toujours là)** (World Design) : `npc.json` en contient **16** (3 `dialogue_npc`, 3 `quest_giver`, 10 `enemy`) ; le tableau de rôles du README en cite bien 16 noms.
-3. **Sections vides exigées par le sujet** : **Testing**, **Quest System**, **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré. (« Server Logging » est maintenant complet : format, niveaux, destinations, surveillance, abus.)
+3. **Sections vides exigées par le sujet** : **Testing** (Multiplayer, Combat, Quests, Protocol compliance), **Group Contributions**, **Resources**, **Instructions** ; « Client interface choice » (§V.3) en `TODO`. Les commentaires HTML du squelette restent dans le fichier livré. Aucun des 3 jeux d'essai possibles n'y est décrit alors que le serveur peut maintenant être testé de bout en bout.
 4. **Choix `WHO` (RFC) vs exemple du sujet non expliqué** (voir `protocol/` ❌ 2) ; la grammaire des `EVT … COMBAT ROUND` n'est pas spécifiée.
 5. **Section Group Contributions** : trois « Member » prévus alors que seuls deux logins sont cités en tête ; à aligner avec l'historique git avant le rendu.
 
@@ -204,6 +226,12 @@ Mesuré en conditions réelles :
 ## Corrigés depuis l'audit initial
 
 Audits précédents (2026-10-02 → 2026-10-19) : `CONNECT`, hook de déconnexion, monde, `INCLUDES`, `install-deps`, injection JSON, logging, `QUIT`/`TALK`/`TAKE`/`DROP`/`ATTACK`/`STATUS`, instances, `locate()`, noms UTF-8, casse, respawn, README v1 et écarts, refactors, événements `EVT`, combat tour par tour, `DEFEND`/`FLEE`, diffusion du combat, raté visible, respawn annoncé, documentation du code.
+
+Depuis le 2026-10-23 (soir) :
+- **`QUEST`/`QUESTS` stubs, `quests.json` non lu** → système de quêtes complet (3 types, validation, récompenses, README). Vérifié : livraison et défaite de bout en bout.
+- **Herbes sans effet, aucun usage d'objet** → `USE` (soin par objet), `ERR 407`.
+- **Avertissements de configuration, `ERR 429`/`503`, `0` pour désactiver** → commités (`0363f87`).
+- **Plus aucun stub** : les 15 commandes de la RFC répondent.
 
 Depuis le 2026-10-23 (matin) :
 - **Valeurs de configuration rejetées en silence** → `WARN invalid setting ignored`. **Impossible de désactiver une limite** (y compris pour `127.0.0.1`) → `0`. **Client refusé sans explication** → `ERR 503 SERVER_BUSY`. **Flood répondu en `ERR 400`** → `ERR 429 RATE_LIMITED`. Vérifiés (non commités).
@@ -236,9 +264,9 @@ Depuis la mise à jour du matin du 2026-10-19 :
 ## Priorités (ordre suggéré)
 
 1. **README** : corriger « 15 NPC » → 16  écrire **Testing**, **Group Contributions**, **Resources**, **Instructions**, trancher « Client interface choice » ; expliquer le choix de `WHO` (RFC) face à l'exemple du sujet.
-2. **Commiter les avertissements de configuration et les codes `429`/`503`** ; **distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
-3. **Quêtes** : parser `quests.json`, valider les références, `QUEST`/`QUESTS`, récompenses, lien avec les `quest_giver`.
-4. **Usage d'objets** (`item.herbs` soigne) et règle de sortie pour un joueur AFK ; **retirer `log.txt` du dépôt** et l'ajouter au `.gitignore`.
+2. **Distinguer les erreurs de `GROUP`** (`NOT_LEADER`, `GROUP_FULL`, `NO_INVITATION`) plutôt que de tout renvoyer en `400` ; supprimer les stubs `QUEST`/`QUESTS` ou les faire répondre `ERR` en attendant.
+3. **Quêtes** : événements d'avancement, prérequis, enregistrement des objets ramassés ; documenter `USE` et la réponse de `QUEST` dans la section Protocol (déjà fait pour `QUEST`).
+4. **Règle de sortie pour un joueur AFK**, refus de `USE` à pleine santé ; **retirer `log.txt` du dépôt** et l'ajouter au `.gitignore`.
 5. **Robustesse restante** : tests de charge réels (plafond de `_out`, `MAX_READ_PER_TURN`), `EMFILE`, cohérence des codes d'erreur (flood, refus).
 6. **Logger** : avertir quand une variable d'environnement est invalide ; rotation ou taille maximale du fichier.
 7. **Tests automatisés** du moteur de combat (`roll` injecté) et cibles Makefile §VII.1 (`lint`, `run-server`, `run-client`, `run-client-gui`, `test`).
