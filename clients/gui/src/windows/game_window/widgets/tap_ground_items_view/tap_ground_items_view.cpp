@@ -35,7 +35,7 @@ TAPGroundItemsView::TAPGroundItemsView(Session &session)
     // });
 }
 
-void TAPGroundItemsView::update_ground_items(std::map<std::string, std::string> data)
+void TAPGroundItemsView::update_ground_items(std::vector<ListedItem> data)
 {
     // Genocide previous buttons
     for (auto *btn: this->_item_buttons)
@@ -46,9 +46,9 @@ void TAPGroundItemsView::update_ground_items(std::map<std::string, std::string> 
 
     this->_items = data;
 
-    for (auto &[id, name] : data) {
-        auto *btn = new QRadioButton(QString::fromStdString(name), this);
-        btn->setProperty("canonical_id", QString::fromStdString(id));
+    for (auto &item : data) {
+        auto *btn = new QRadioButton(QString::fromStdString(item.name), this);
+        btn->setProperty("canonical_id", QString::fromStdString(item.id));
         btn->setStyleSheet(TAP_LABEL_PROPERTIES);
         this->_layout_items.addWidget(btn);
         this->_item_buttons.push_back(btn);

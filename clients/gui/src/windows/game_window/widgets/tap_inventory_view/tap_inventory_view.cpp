@@ -36,7 +36,7 @@ TAPInventoryView::TAPInventoryView(Session &session)
     // });
 }
 
-void TAPInventoryView::update_inventory(std::map<std::string, std::string> data)
+void TAPInventoryView::update_inventory(std::vector<ListedItem> data)
 {
     // Genocide previous buttons
     for (auto *btn: this->_item_buttons)
@@ -47,9 +47,9 @@ void TAPInventoryView::update_inventory(std::map<std::string, std::string> data)
 
     this->_items = data;
 
-    for (auto &[id, name] : data) {
-        auto *btn = new QRadioButton(QString::fromStdString(name), this);
-        btn->setProperty("canonical_id", QString::fromStdString(id));
+    for (auto &item : data) {
+        auto *btn = new QRadioButton(QString::fromStdString(item.name), this);
+        btn->setProperty("canonical_id", QString::fromStdString(item.id));
         btn->setStyleSheet(TAP_LABEL_PROPERTIES);
         this->_layout_items.addWidget(btn);
         this->_item_buttons.push_back(btn);

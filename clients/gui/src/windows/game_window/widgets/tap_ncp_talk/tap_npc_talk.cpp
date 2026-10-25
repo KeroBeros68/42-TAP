@@ -72,7 +72,7 @@ TAPNPCTalkView::TAPNPCTalkView(Session &session)
     // });
 }
 
-void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
+void TAPNPCTalkView::update_npcs(std::vector<ListedItem> data)
 {
     // Genocide previous buttons
     for (auto *btn: this->_npc_buttons)
@@ -83,9 +83,9 @@ void TAPNPCTalkView::update_npcs(std::map<std::string, std::string> data)
 
     this->_npcs = data;
 
-    for (auto &[id, name] : data) {
-        auto *btn = new QRadioButton(QString::fromStdString(name), this);
-        btn->setProperty("canonical_id", QString::fromStdString(id));
+    for (auto &npc : data) {
+        auto *btn = new QRadioButton(QString::fromStdString(npc.name), this);
+        btn->setProperty("canonical_id", QString::fromStdString(npc.id));
         btn->setStyleSheet(TAP_LABEL_PROPERTIES);
         this->_layout_items.addWidget(btn);
         this->_npc_buttons.push_back(btn);

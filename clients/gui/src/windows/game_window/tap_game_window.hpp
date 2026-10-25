@@ -34,7 +34,7 @@ class TAPGameWindow : public TAPBaseWindow
 
         // One redraw per section, each reading the state it needs.
         // ids -> {id, display name}: the Catalog turns opaque ids into text.
-        std::map<std::string, std::string> named(const std::vector<std::string> &ids) const;
+        std::vector<ListedItem> named(const std::vector<std::string> &ids) const;
         std::vector<std::map<std::string, std::string>> chat_lines(const std::vector<ChatLine> &lines) const;
 
         void update_room_section();
@@ -62,9 +62,9 @@ class TAPGameWindow : public TAPBaseWindow
         void update_room_name(std::string name);
         void update_room_description(std::string description);
         void update_available_exits(std::map<std::string, std::string> data);
-        void update_ground_items(std::map<std::string, std::string> data);
-        void update_inventory(std::map<std::string, std::string> data);
-        void update_npcs(std::map<std::string, std::string> data);
+        void update_ground_items(std::vector<ListedItem> data);
+        void update_inventory(std::vector<ListedItem> data);
+        void update_npcs(std::vector<ListedItem> data);
         void update_quests(std::vector<std::map<std::string, std::string>> data);
         void update_global_messages(const std::vector<std::map<std::string, std::string>> &messages);
         void update_room_messages(const std::vector<std::map<std::string, std::string>> &messages);

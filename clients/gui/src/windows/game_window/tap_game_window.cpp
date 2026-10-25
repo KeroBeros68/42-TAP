@@ -52,14 +52,17 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
 // State -> widgets
 // ============================================================
 
-// Turn a list of ids into {id, display name}.
+// Turn a list of ids into {id, display name}, one entry per id received.
 // The id stays the key: it is what the server expects back in TAKE/DROP/...
 // The name is only what the player reads.
-std::map<std::string, std::string> TAPGameWindow::named(const std::vector<std::string> &ids) const
+// It is a vector and not a map: the server sends the definition id, so two
+// herbs both arrive as "item.herbs" and a map would merge them into one entry.
+std::vector<ListedItem> TAPGameWindow::named(const std::vector<std::string> &ids) const
 {
-    std::map<std::string, std::string> result;
+    std::vector<ListedItem> result;
+    result.reserve(ids.size());
     for (const std::string &id : ids)
-        result[id] = this->_session.catalog().name(id);
+        result.push_back({id, this->_session.catalog().name(id)});
     return result;
 }
 
@@ -179,17 +182,17 @@ void TAPGameWindow::update_available_exits(std::map<std::string, std::string> da
     this->exit_view.update_available_exits(data);
 };
 
-void TAPGameWindow::update_ground_items(std::map<std::string, std::string> data)
+void TAPGameWindow::update_ground_items(std::vector<ListedItem> data)
 {
     this->ground_items_view.update_ground_items(data);
 };
 
-void TAPGameWindow::update_inventory(std::map<std::string, std::string> data)
+void TAPGameWindow::update_inventory(std::vector<ListedItem> data)
 {
     this->inventory_view.update_inventory(data);
 };
 
-void TAPGameWindow::update_npcs(std::map<std::string, std::string> data)
+void TAPGameWindow::update_npcs(std::vector<ListedItem> data)
 {
     this->npc_talk_view.update_npcs(data);
 };

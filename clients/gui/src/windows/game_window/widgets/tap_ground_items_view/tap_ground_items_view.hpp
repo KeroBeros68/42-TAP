@@ -3,6 +3,7 @@
 
 # include "globals.hpp"
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
+# include "../listed_item.hpp"
 # include "../../../../../../state/session.hpp"
 
 class TAPGroundItemsView : public TAPGameSectionWidget
@@ -14,13 +15,13 @@ class TAPGroundItemsView : public TAPGameSectionWidget
         TAPButton _validate_button;
         TAPLabel    _no_items_label;
         // items list : canonical_id, human_readable_name
-        std::map<std::string, std::string> _items;
+        std::vector<ListedItem> _items;
         std::vector<QRadioButton *> _item_buttons;
         Session     &_session;
 
     public:
         explicit TAPGroundItemsView(Session &session);
-        void update_ground_items(std::map<std::string, std::string> data);
+        void update_ground_items(std::vector<ListedItem> data);
         std::string get_selected_item_id(void) const;
 };
 
