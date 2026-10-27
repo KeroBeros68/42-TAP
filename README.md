@@ -276,6 +276,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | Event | Sent when |
 | --- | --- |
 | `EVT ROOM PRESENCE ENTER <player>` / `LEAVE <player>` | a player connects, moves, dies, flees, quits or disconnects |
+| `EVT ROOM DEATH <respawn room id>` | a player died and respawned in that room. Sent **after** the respawn, to **every** player of the room he woke up in, the dead player included: it is the only event that tells a player he died (the `COMBAT END ... defeat` that precedes it skips him). The client asks `LOOK`, `STATUS` and `INVENTORY` again |
 | `EVT STATS players=<n>` | a player connects or disconnects (sent to everybody) |
 | `EVT ROOM COMBAT START <player> <enemy>` | a fight begins |
 | `EVT ROOM COMBAT JOIN <player> <enemy>` | another player joins a fight |
@@ -292,7 +293,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 
 The player who sent a command does not receive the events about his own action (he has the answer); the other players of the room do. `EVT GLOBAL|ROOM CHAT` and `EVT GROUP INVITE|JOIN|LEAVE|CHAT` are sent; chat messages are also sent back to the sender.
 
-`EVT ROOM COMBAT RESOLVED` is the one exception: it answers no command and describes no action of one player, so it goes to the whole room. Without it the player who killed an enemy would never learn that the enemy left the room and dropped its loot — the `END ... victory` skips him, and the `ATTACK` answer carries no such field.
+`EVT ROOM COMBAT RESOLVED` and `EVT ROOM DEATH` are the exceptions: they answer no command and describe no action of one player, so they go to the whole room. Without `RESOLVED` the player who killed an enemy would never learn that the enemy left the room and dropped its loot; without `DEATH` a player would never learn that he died, because the `END ... defeat` skips him and his `ATTACK` answer says nothing about the respawn. Both are sent after the state they describe is final (loot on the floor, respawn done) so that the `LOOK` they trigger finds the room already settled.
 
 ### ↔️ Deviations from RFC 42TAP
 

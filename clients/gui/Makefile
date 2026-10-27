@@ -61,7 +61,7 @@ all:
 		exit 1; \
 	fi
 	$(ECHO) "$(CYAN)Compilation de $(EXECUTABLE_NAME)...$(RESET) "
-	if $(CMAKE) --build ./$(BUILD_DIR); then \
+	if $(CMAKE) --build ./$(BUILD_DIR) --parallel $(shell nproc); then \
 		$(ECHO) "$(GREEN)✓$(RESET)"; \
 	else \
 		$(ECHO) "$(RED)✗$(RESET)"; \

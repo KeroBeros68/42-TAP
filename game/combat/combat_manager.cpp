@@ -203,6 +203,22 @@ void CombatManager::playerDied(long long player_id, const std::string& enemy_id,
 	_host.teleport(player_id, _host.respawnRoom());
 	here.player->stats().revive(_host.respawnLife());
 	LOG_INFO("player respawned", {"client", player_id}, {"player", here.player->name()}, {"room", _host.respawnRoom()}, {"hp", here.player->stats().hp});
+	// Not *here.room: the teleport above moved the player out of it, so the
+	// dead player is no longer among its recipients. The event goes to the
+	// room he woke up in, which is the room the event names.
+	if (Room* respawn = _host.findRoom(_host.respawnRoom()))
+		emitPlayerDied(*respawn);
+}
+
+void CombatManager::emitPlayerDied(const Room& room) {
+	// Sent once the player is back in the respawn room with his new hit points:
+	// the event describes the state after the death, not the death itself.
+	// It goes to the whole room, the dead player included: the COMBAT END above
+	// skips him (his answer to the command that killed him says nothing about
+	// the respawn), and the other players learn that a fight just ended.
+	// It is a ROOM event rather than a COMBAT one: the fight is already over by
+	// the time it is sent, and it names the room the player woke up in.
+	_host.events().toRoom(room, eventLine(EVT_ROOM, std::string(EVT_DEATH) + CMD_SEPARATOR + room.id()));
 }
 
 void CombatManager::playerFled(long long player_id, const std::string& enemy_id, long long requester_id) {

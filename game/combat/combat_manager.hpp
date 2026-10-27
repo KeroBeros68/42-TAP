@@ -115,6 +115,18 @@ class CombatManager {
 		 */
 		void emitCombatResolved(const Room& room);
 
+		/**
+		 * Queues "EVT ROOM DEATH <room id>" for every player of the room a dead
+		 * player respawned in, the dead player included.
+		 *
+		 * It is sent after the respawn, so it describes the room the player woke
+		 * up in, and it is the only event that tells a player he died: the
+		 * COMBAT END that precedes it skips him.
+		 *
+		 * @param room the room the player respawned in
+		 */
+		void emitPlayerDied(const Room& room);
+
 		//########################### TURNS ############################
 		/**
 		 * Plays an action of a player who is already in a fight.

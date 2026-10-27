@@ -23,6 +23,7 @@
 # define EVT_STATS			"STATS"				// category of the events about the server
 # define EVT_PRESENCE_ENTER	"PRESENCE ENTER"	// a player entered the room
 # define EVT_PRESENCE_LEAVE	"PRESENCE LEAVE"	// a player left the room
+# define EVT_DEATH			"DEATH"				// a player died and respawned in another room
 # define EVT_PLAYERS_FIELD	"players="			// beginning of the number of players
 
 // -- Combat events ------------------------------------------------------------

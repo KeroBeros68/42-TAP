@@ -573,8 +573,8 @@ void	Session::applyCombat(const std::string& command, const std::string& data)
 
 void	Session::applyGroup(const std::string& args, const std::string& data)
 {
-	// args is the sub-command: "CREATE", "JOIN <leader>" or "LEAVE".
-	// The first word tells which one we asked.
+	// args is the sub-command: "CREATE", "INVITE <player>", "JOIN <leader>"
+	// or "LEAVE". The first word tells which one we asked.
 	const std::string	sub = args.substr(0, args.find(' '));
 
 	if (sub.empty())
@@ -590,6 +590,17 @@ void	Session::applyGroup(const std::string& args, const std::string& data)
 		_state.group.reset();
 		log("left the group");
 		changed(Section::Group);
+		return;
+	}
+
+	if (sub == "INVITE")
+	{
+		// "OK" alone: the server tells the invited player through an EVT,
+		// and answers us without data. Nothing changes on our side yet,
+		// we are only in a group once CREATE or JOIN says so.
+		// args is "INVITE <player>": keep the part after the sub-command
+		const std::string target = args.substr(sub.size());
+		log("invitation sent to" + target);
 		return;
 	}
 
@@ -817,6 +828,32 @@ void	Session::handleRoomEvent(const std::string& data)
 		return;
 	}
 
+	if (sub == EVT_DEATH)
+	{
+		// "DEATH <room id>": we died and woke up in that room. The event comes
+		// after the respawn, so the room it names is our room now.
+		// Everything the client held about the previous room is wrong, and so
+		// is the inventory if the server took anything: ask for both, plus the
+		// hit points, which went back to the respawn life.
+		_state.combat = GameState::Combat();
+		_state.room.id = rest;
+		_state.room.name.clear();
+		_state.room.description.clear();
+		_state.room.exits.clear();
+		_state.players.clear();
+		_state.items.clear();
+		_state.npcs.clear();
+
+		log("you died; you wake up in " + _catalog.name(rest));
+
+		changed(Section::Room);
+		changed(Section::Combat);
+		send("LOOK");
+		send("STATUS");
+		send("INVENTORY");
+		return;
+	}
+
 	if (sub == EVT_SPAWN)
 	{
 		// "SPAWN npc npc.goblin": something came back into the room.
@@ -840,6 +877,25 @@ void	Session::handleRoomEvent(const std::string& data)
 		else
 			log("EVT ROOM ITEM " + rest);
 		send("LOOK");
+		return;
+	}
+
+	if (sub == EVT_EFFECT)
+	{
+		// "EFFECT healing <hp>": the room gave us hit points back. The event
+		// comes with the amount, but the state never adds it itself: STATUS
+		// is the only source of truth for hp, so it is asked again. Without
+		// this branch the line fell through to the journal and the bar stayed
+		// at the old value until some other command refreshed it.
+		std::string amount;
+		const std::string effect = takeWord(rest, amount);
+		if (effect != EVT_EFFECT_HEALING)
+		{
+			log("EVT ROOM EFFECT " + rest);
+			return;
+		}
+		log("the room healed you (+" + amount + " hp)");
+		send("STATUS");
 		return;
 	}
 

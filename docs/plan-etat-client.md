@@ -222,6 +222,7 @@ Tolérance, pour les serveurs des autres groupes :
 | `EVT GROUP JOIN <p>` / `LEAVE <p>` | journal, liste des membres si vous l'affichez |
 | `EVT ROOM COMBAT START/JOIN/ROUND/TURN/TIMEOUT/END …` | `combat` (`TURN` avec notre nom → `my_turn`, `seconds_left`), et le détail dans le journal |
 | `EVT ROOM COMBAT RESOLVED` | `combat` remis à zéro, puis envoie `LOOK` et `STATUS` : l'ennemi a quitté la salle et son butin est au sol |
+| `EVT ROOM DEATH <salle>` | `combat` remis à zéro, salle remplacée par celle du respawn (`room.id` + contenu vidé), puis envoie `LOOK`, `STATUS` et `INVENTORY`. C'est le seul signal de mort : le `COMBAT END ... defeat` qui précède ne nous est pas adressé |
 | `EVT ROOM SPAWN <npc\|item> <id>` | envoie `LOOK` |
 | `EVT ROOM ITEM TAKEN <joueur> <id>` / `DROPPED <joueur> <id>` | envoie `LOOK`, et une ligne dans le journal |
 | tout autre `EVT` | journal uniquement |

@@ -5,7 +5,7 @@ TAPChatTabs::TAPChatTabs(Session &session)
     _room_chat_widget(session, CHAT_SCOPE_ROOM),
     _group_chat_widget(session, CHAT_SCOPE_GROUP)
 {
-    this->_section_name.setText("CHATROOMS");
+    this->_section_name.setText("CHAT ROOMS");
     this->_layout.addWidget(&this->_section_name, 0, Qt::AlignCenter);
     this->_layout.addWidget(&this->_tabbar_container, 1);
 

@@ -28,12 +28,10 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_window_layout.addWidget(&player_info_bar);
 
     this->_content_layout.addWidget(&room_view);
-    this->_content_layout.addWidget(&exit_view);
     // Ground items and inventory side by side
     this->_items_row_layout.addWidget(&ground_items_view);
     this->_items_row_layout.addWidget(&inventory_view);
     this->_content_layout.addLayout(&this->_items_row_layout);
-    this->_content_layout.addWidget(&this->npc_talk_view);
     this->_content_layout.addWidget(&this->quests_view);
     this->_content_layout.addWidget(&this->group_view);
     this->_content_layout.addWidget(&this->chat_tabs);
@@ -44,6 +42,8 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_window_layout.addLayout(&this->_columns_layout, 1);
 
     this->_actions_side_layout.addWidget(&this->action_buttons);
+    this->_actions_side_layout.addWidget(&exit_view);
+    this->_actions_side_layout.addWidget(&this->npc_talk_view);
     this->_actions_side_layout.addWidget(&this->log_view, 1);
 
     // std::cout is redirected through the log view,
