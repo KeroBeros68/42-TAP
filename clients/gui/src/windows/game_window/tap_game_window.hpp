@@ -20,6 +20,7 @@ class TAPGameWindow : public TAPBaseWindow
         TAPPlayerCountBar   player_count_bar;
         TAPPlayerInfoBar    player_info_bar;
         TAPRoomView         room_view;
+        TAPPlayersView      players_view;
         TAPExitView         exit_view;
         TAPGroundItemsView  ground_items_view;
         TAPInventoryView    inventory_view;

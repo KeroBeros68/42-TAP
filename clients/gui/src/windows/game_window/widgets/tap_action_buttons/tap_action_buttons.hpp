@@ -7,11 +7,15 @@
 # include <QWidget>
 # include <QVBoxLayout>
 
+// One button per action of the subject that takes no argument.
+// Actions with a target live in the widget that owns the target.
+# define ACTION_COUNT	6	// LOOK, INVENTORY, STATUS, QUESTS, WHO, QUIT
+
 class TAPActionButtons : public TAPGameSectionWidget
 {
     private:
         QVBoxLayout _layout;
-        TAPButton   _buttons[12];
+        TAPButton   _buttons[ACTION_COUNT];
         Session     &_session;
 
     public:

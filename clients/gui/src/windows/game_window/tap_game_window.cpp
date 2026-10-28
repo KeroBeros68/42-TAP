@@ -28,6 +28,7 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_window_layout.addWidget(&player_info_bar);
 
     this->_content_layout.addWidget(&room_view);
+    this->_content_layout.addWidget(&players_view);
     // Ground items and inventory side by side
     this->_items_row_layout.addWidget(&ground_items_view);
     this->_items_row_layout.addWidget(&inventory_view);
@@ -41,7 +42,7 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_columns_layout.addLayout(&this->_actions_side_layout, 1);
     this->_window_layout.addLayout(&this->_columns_layout, 1);
 
-    this->_actions_side_layout.addWidget(&this->action_buttons);
+    // this->_actions_side_layout.addWidget(&this->action_buttons);
     this->_actions_side_layout.addWidget(&exit_view);
     this->_actions_side_layout.addWidget(&this->npc_talk_view);
     this->_actions_side_layout.addWidget(&this->log_view, 1);
@@ -112,6 +113,9 @@ void TAPGameWindow::update_room_section()
 
     this->ground_items_view.update_ground_items(this->named(state.items));
     this->npc_talk_view.update_npcs(this->named(state.npcs));
+
+    // Player names come straight from the server: nothing to translate
+    this->players_view.update_players(state.players);
 }
 
 void TAPGameWindow::update_inventory_section()
