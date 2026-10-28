@@ -356,9 +356,13 @@ TransferResult Game::takeItem(long long player_id, const std::string& target) {
 		return {TransferStatus::NotFound, ""};
 
 	const Item* found = here.room->inventory().findItem(target);
-	if (!found || !found->definition().isObtainable()) {
+	if (!found) {
 		LOG_DEBUG("no such item to take", LOG_HERE(here), {"target", target});
 		return {TransferStatus::NotFound, ""};
+	}
+	if (!found->definition().isObtainable()) {
+		LOG_DEBUG("item is not obtainable", LOG_HERE(here), {"target", target});
+		return {TransferStatus::NotTakeable, ""};
 	}
 
 	const Respawn respawn = Respawn::of(RespawnKind::Item, *found);

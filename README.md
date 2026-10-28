@@ -258,7 +258,7 @@ The server follows **RFC 42TAP** (`docs/protocol-rfc.html`, protocol version 1):
 | `CONNECT <name>` | `OK connected` / `ERR 201 NAME_IN_USE` | done |
 | `LOOK` | `OK {room, players, items, npcs}` | done |
 | `MOVE <direction>` | `OK room=<id>` / `ERR 301 NO_EXIT` | done (refused during a fight) |
-| `TAKE <item>` | `OK taken=<id>` / `ERR 404 ITEM_NOT_FOUND` | done (refused during a fight) |
+| `TAKE <item>` | `OK taken=<id>` / `ERR 404 ITEM_NOT_FOUND` / `ERR 408 ITEM_NOT_TAKEABLE` | done (refused during a fight) |
 | `DROP <item>` | `OK dropped=<id>` / `ERR 404 ITEM_NOT_IN_INVENTORY` | done |
 | `USE <item>` | `OK healed=<hit points>` / `ERR 404 ITEM_NOT_IN_INVENTORY` / `ERR 407 ITEM_NOT_USABLE` | done (refused during a fight), **not in the RFC** |
 | `TALK <npc>` | `OK <dialogue>` / `ERR 404 NPC_NOT_FOUND` | done (refused during a fight) |
@@ -314,6 +314,7 @@ The subject asks us to document every deviation and to justify it.
 | 9 | **`WHO` follows the RFC**: `OK players=<count>` of the players of the server. | The subject (page 12) shows `OK { "room": [...], "server": 5 }`, which contradicts RFC §5.2.2 (`OK players=<n>`, "Query total player count"). The clients must follow the RFC, and the same `players=` is in the `STATS` event. The names of the players of the room are in `LOOK`. |
 | 10 | **Extra errors for `GROUP`**: `404 PLAYER_NOT_FOUND` (nobody has this name; same code as `NPC_NOT_FOUND`), `412 NO_INVITATION` (`JOIN` without an invitation), `413 NOT_GROUP_LEADER` (`INVITE` by a member who is not the leader), `414 GROUP_FULL` (4 players at most). Inviting yourself answers `402 ALREADY_IN_GROUP`; `400` is kept for an unknown sub-command or a missing name. | The RFC only has `401` and `402` for groups. A client has to tell these cases apart, and `4xx` is the class of the errors caused by the player. `412` to `414` follow the combat errors (`409` to `411`), the other extra codes of the 4xx class. |
 | 11 | **Extra command `USE <item>`** and extra error `ERR 407 ITEM_NOT_USABLE`. An item with an `effect` in `items.json` (healing herbs, bread) is consumed and gives its hit points back, up to the maximum; the answer tells how many were really given. | The RFC has no way to use an item, but items with an effect would be useless without it. The subject allows additional commands. |
+| 12 | **Extra error `ERR 408 ITEM_NOT_TAKEABLE`**: `TAKE` on an object listed by `LOOK` whose definition has `"obtainable": false` (the Stone Fountain of the square). It stays in `items`, because it is there and the room description mentions it, but it can never enter an inventory. | `LOOK` and `TAKE` must not contradict each other. Without this code, a takeable-looking item answered `404 ITEM_NOT_FOUND`, which in the RFC means "the item is not in this room" — false, and a client following the usual rule (`404` on `TAKE` → `LOOK` again) would refresh in a loop. The code is distinct from `404`, so the client logs it and leaves the room as it is. |
 
 ### 🚨 Error handling
 

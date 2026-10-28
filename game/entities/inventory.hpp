@@ -20,7 +20,7 @@
 //#                                   ENUMS                                    #
 //##############################################################################
 
-enum class TransferStatus { Moved, NotFound, DestinationFull };
+enum class TransferStatus { Moved, NotFound, DestinationFull, NotTakeable };
 
 //##############################################################################
 //#                                  STRUCTS                                   #

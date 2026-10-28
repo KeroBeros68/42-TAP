@@ -129,7 +129,7 @@ static Response cmdTalk(Game& game, User& user, const std::string& target) {
  * @param game   the game
  * @param user   the user of the connection
  * @param target designates the item
- * @return       OK taken=<id>, or IN_COMBAT / INVENTORY_FULL / ITEM_NOT_FOUND
+ * @return       OK taken=<id>, or IN_COMBAT / INVENTORY_FULL / ITEM_NOT_FOUND / ITEM_NOT_TAKEABLE
  */
 static Response cmdTake(Game& game, User& user, const std::string& target) {
 	if (game.inCombat(user.id()))
@@ -139,6 +139,8 @@ static Response cmdTake(Game& game, User& user, const std::string& target) {
 		return Response::failure(TapError::INVENTORY_FULL);
 	if (taken.status == TransferStatus::NotFound)
 		return Response::failure(TapError::ITEM_NOT_FOUND);
+	if (taken.status == TransferStatus::NotTakeable)
+		return Response::failure(TapError::ITEM_NOT_TAKEABLE);
 	return Response::success(TapOk::TAKEN, taken.definition_id);
 }
 

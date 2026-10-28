@@ -32,6 +32,7 @@
 	X(NPC_NOT_HOSTILE,			405) /* ATTACK on an npc that is not an enemy */ \
 	X(NO_QUEST_AVAILABLE,		406) /* the npc has no quest to give */ \
 	X(ITEM_NOT_USABLE,			407) /* USE on an item that has no effect (not in the RFC) */ \
+	X(ITEM_NOT_TAKEABLE,		408) /* TAKE on scenery listed by LOOK: it cannot be taken (not in the RFC) */ \
 	X(IN_COMBAT,				409) /* MOVE, TAKE or TALK during a fight, or another target for ATTACK (not in the RFC) */ \
 	X(NOT_IN_COMBAT,			410) /* DEFEND or FLEE with no fight (not in the RFC) */ \
 	X(NOT_YOUR_TURN,			411) /* it is the turn of someone else (not in the RFC) */ \
