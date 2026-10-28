@@ -2,12 +2,8 @@
 
 # 🗡️ 42-TAP
 
-<!--
-  Skeleton of the README. Every section below is REQUIRED by the subject (chap. VI)
-  or by the RFC rules (chap. IV). Fill the sections in place, keep the titles unchanged.
-  The README must be written in English.
-  Legend: [S] = required by the subject, [+] = optional addition of the team.
--->
+<!-- Section legend: [S] = required by the subject (chapter VI) or by the RFC rules
+     (chapter IV), [+] = addition of the team. -->
 
 ## 📖 Description <!-- [S] -->
 
@@ -39,22 +35,41 @@ Because the protocol is the only contract between server and clients, our client
 - 📝 Structured JSON logging with timestamps, levels, IP addresses, players and commands.
 - 🚪 Clean disconnection (`QUIT`, signals) and graceful handling of malformed commands.
 
-### 🚧 Current status and known limitations
+### 🚧 Current status
 
-The project is still in progress. At the time of writing:
+The project is feature-complete for the mandatory part of the subject:
 
-- ✅ 9 of the 15 RFC commands are implemented: `CONNECT`, `LOOK`, `MOVE`, `QUIT`, `TALK`, `TAKE`, `DROP`, `ATTACK`, `STATUS`; plus two commands of our own for the combat, `DEFEND` and `FLEE`.
-- ✅ Events: `EVT ROOM PRESENCE`, `EVT STATS players=`, and our own `EVT ROOM COMBAT`, `EVT INVENTORY`, `EVT ROOM SPAWN` and `EVT ROOM EFFECT`.
-- ✅ `CHAT`, `INVENTORY`, `WHO` and `GROUP` are implemented (`GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`).
-- ✅ `QUEST` and `QUESTS` are implemented (see [Quest System](#-quest-system)): the three quests of `game/ressources/quests.json` can be played.
-- ⚠️ The GUI client is not connected to the server yet.
+- ✅ **All 15 RFC commands** are implemented: `CONNECT`, `LOOK`, `MOVE`, `CHAT`, `TAKE`, `DROP`, `INVENTORY`, `TALK`, `ATTACK`, `STATUS`, `QUEST`, `QUESTS`, `WHO`, `GROUP`, `QUIT`; plus three commands of our own: `DEFEND`, `FLEE` (combat) and `USE` (consuming an item).
+- ✅ Every RFC event is sent: `EVT ROOM PRESENCE ENTER|LEAVE`, `EVT ROOM|GLOBAL|GROUP CHAT`, `EVT GROUP INVITE|JOIN|LEAVE`, `EVT STATS players=`; plus our own `EVT ROOM COMBAT …`, `EVT ROOM ITEM TAKEN|DROPPED`, `EVT ROOM SPAWN`, `EVT ROOM EFFECT`, `EVT ROOM DEATH`, `EVT INVENTORY CHANGED`.
+- ✅ `GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`.
+- ✅ The three quests of `game/ressources/quests.json` can be played (see [Quest System](#-quest-system)).
+- ✅ **Both clients are connected to the server.** The GUI reads a local copy of the state (`clients/state/`) filled by the answers and the events, and redraws only what changed.
 
-This section will be updated as the missing parts are completed.
+Known limitations at this time (none of them breaks a mandatory requirement):
+
+- The GUI has no dedicated dialogue area: what an NPC says through `TALK` is written in the log view, not next to the NPC list.
+- The GUI asks for objects and NPCs by selecting an entry in a list; it has no free-text field accepting a display name (the server accepts both).
+- The GUI does not react to a lost connection yet: the game window stays open as it is, without a message.
 
 ## 🧭 Instructions <!-- [S] -->
 
 ### Requirements
+
+- A C++20 compiler (`c++`, g++ or clang++), GNU `make`, and `curl` or `wget`.
+- For the GUI only: **CMake** and **Qt 5 Widgets**.
+- Linux or macOS. The server and the clients use `poll(2)` and `signalfd(2)`, so they do not build on Windows.
+
 ### Quick start
+
+```sh
+make install-deps     # download and verify nlohmann/json
+make build            # build the server and the CLI client
+make run-server       # start the server in a new terminal window (port 8080)
+make run-client       # start the CLI client in another terminal window
+make run-client-gui   # build and start the Qt client (needs CMake + Qt 5)
+```
+
+Then type `CONNECT <name>` in the CLI client, or fill the connection window in the GUI. The full build matrix, the configuration variables and the troubleshooting notes are in [Building and Running](#-building-and-running).
 
 ## 🔨 Building and Running <!-- [S] -->
 
@@ -183,9 +198,9 @@ shared/            code used by the server and the clients
 clients/           client.cpp: network engine shared by the clients
   cli/             command-line client
   gui/             Qt client
+  state/           Session + GameState: the local copy of the game, without Qt or sockets
 third_party/       nlohmann/json (downloaded by make install-deps)
-tools/             mapviz: draws the world map as an SVG
-audit/ docs/       internal audits, subject and RFC
+audit/ docs/       internal audits, subject, RFC and design notes
 ```
 
 The code is split in two layers that only meet in `server/protocol/commands.cpp`:
@@ -241,11 +256,19 @@ Why this model: since every command is handled one after the other in a single t
 
 - `clients/client.cpp` is a small network engine shared by the clients: it connects to the server, reads the lines in a buffer and calls the handler registered for the first word of the line (`OK`, `ERR`, `EVT`), the same dispatcher idea as on the server.
 - The **CLI client** waits with `poll` on the server socket, the keyboard and the signals, so it keeps displaying incoming messages and events while the user is typing. On Ctrl+C it sends `QUIT` to the server before leaving.
-- The **GUI client** is built with Qt 5 (`clients/gui/`). It is organised in windows (connection, game, error) built from custom widgets (`TAPLabel`, `TAPLineEdit`, `TAPRoomView`, `TAPPlayerCountBar`...). Its network part is not connected yet.
+- The **GUI client** is built with Qt 5 (`clients/gui/`). It is organised in windows (connection, game, error) built from custom widgets (`TAPLabel`, `TAPLineEdit`, `TAPRoomView`, `TAPPlayerCountBar`...). It does not parse protocol lines: `clients/state/Session` turns the answers and the events into a `GameState`, and the widgets redraw the sections that changed (`Session::onChanged(Section)`). The socket is polled from the Qt event loop by a 50 ms `QTimer` calling `Client::update(0)`, so the window never blocks and the events are displayed while the player is typing.
 
 ### 💬 Client interface choice
 
-<!-- TODO: to decide and document (subject V.3): the CLI either sends the RFC syntax as typed, or translates friendly commands into RFC packets. Today the CLI sends each typed line as is and prints the answers as `[OK]`, `[ERR]` and `[EVT]`. -->
+The subject (V.3) lets us choose between sending the RFC syntax as typed and translating friendly commands into RFC packets. **We chose the first approach: the CLI client sends each line exactly as the player typed it**, and prints the answers as `[OK] …`, `[ERR] …` and `[EVT] …`.
+
+Why:
+
+- The clients must be interchangeable between groups, and the protocol is the only contract. A client that translates commands hides the actual protocol traffic, which makes it impossible to check against the RFC during a peer review, and it silently breaks as soon as another group's server differs on a detail.
+- The server already accepts case-insensitive command names, the definition id, the instance id, the display name and any single word of a multi-word name (`TAKE herbs`, `TAKE healing herbs`, `TAKE item.herbs`). A translation layer would duplicate a tolerance the server already provides.
+- The GUI covers the "friendly interface" need: it builds the protocol lines itself from the widgets, so nothing has to be typed there.
+
+The GUI, for its part, does translate: a click on an exit button becomes `MOVE north`, a selection becomes `TAKE <id>`. This is the same split the subject describes — the CLI exposes the protocol, the GUI hides it.
 
 ## 📡 Protocol Implementation <!-- [S] -->
 
@@ -468,7 +491,7 @@ So a player can walk a full circuit without going back on his steps, and the map
 
 ### 🧙 NPC roles
 
-There are 15 NPC definitions, in three roles (the subject asks for at least three distinct ones):
+There are 16 NPC definitions, in three roles (the subject asks for at least three distinct ones):
 
 | Role | NPCs | Behaviour |
 | --- | --- | --- |
@@ -491,7 +514,7 @@ There are 8 item definitions, 7 of them obtainable (the subject asks for at leas
 | Spider Silk, Great Deer Antler, Crown of Nails | loot of the Spider, the Great Deer and the Orc Lord | trophies |
 | Stone Fountain | `square` | decoration, **not obtainable** (`TAKE` is refused) |
 
-The objects lie on the floor of their room at the start, and the loot of an enemy falls on the floor of the room where it dies. A player carries at most **10** items. Taking an item removes it from the room and dropping it puts it back there, where another player can take it. A spawn can give an object a `respawn_seconds` so that it comes back after being taken; no item of the current world uses it yet.
+The objects lie on the floor of their room at the start, and the loot of an enemy falls on the floor of the room where it dies. A player carries at most **10** items. Taking an item removes it from the room and dropping it puts it back there, where another player can take it. A spawn can give an object a `respawn_seconds` so that it comes back after being taken. The healing herbs of the square and the silver bell of the goblin camp both use it (60 seconds): once taken, they reappear in their room and the players there receive `EVT ROOM SPAWN`.
 
 ### ✅ World validation
 
@@ -568,10 +591,71 @@ Abuse is logged at `WARN` level and limited (thresholds in `server/defines.hpp`)
 
 ## 🧪 Testing <!-- [S] -->
 
+There is no automated test suite in the repository: everything below was checked by hand, over real TCP sessions, from a clean build (`make fclean && make build && make build-gui`). A raw `nc` (or `telnet`) connection is enough to reproduce any of it, since the protocol is one line of text per message.
+
+```sh
+./server/server &                       # listening on 8080 by default
+nc 127.0.0.1 8080                       # a player
+```
+
+Each scenario below lists what to type and what to expect.
+
 ### Multiplayer
+
+Open two `nc` connections and `CONNECT alice` / `CONNECT bob`.
+
+- The second player to arrive makes both receive `EVT STATS players=2`; the first sees `EVT ROOM PRESENCE ENTER bob` if they are in the same room.
+- Move one of them away (`MOVE north`): the other sees `EVT ROOM PRESENCE LEAVE alice` and the counter drops back to `players=1`.
+- `CHAT room hello`: every player of the room, the sender included, receives `EVT ROOM CHAT alice hello`, and nobody outside the room does. `CHAT global hi` reaches every connected player.
+- Items: alice takes the herbs in the square (`TAKE herbs`), moves away, drops them (`DROP herbs`) in the chapel. Bob, who followed her, receives `EVT ROOM ITEM DROPPED alice item.herbs` and his next `LOOK` lists `item.herbs` among the items of the room. An item instance lives in exactly one place: it can never be in two rooms or in two inventories at once.
+- Groups (§`GROUP CREATE|INVITE|JOIN|LEAVE`): alice creates one (`OK group=group.1`), invites bob (`GROUP INVITE bob`), bob receives `EVT GROUP INVITE alice` and joins with `GROUP JOIN alice` (the name of **any member**, not only the leader) → alice receives `EVT GROUP JOIN bob`. `CHAT group hello` reaches the members only. On `QUIT`, the others receive `EVT GROUP LEAVE alice` before `EVT ROOM PRESENCE LEAVE alice`.
+- A second `CONNECT alice` from another socket answers `ERR 201 NAME_IN_USE`.
+
 ### Combat
+
+Walk to a room that holds an enemy (`west`, `north`, `west`, `west` reaches `loc.orc_village` from the square; `north` from the square reaches the forest wolf).
+
+- `ATTACK orc` returns `OK {"attacker_hp":…,"target_hp":…,"damage":…,"status":"combat","round":1,"escaped":false,"turns":[…]}`: the player attacks, then the enemy answers **in the same reply**, inside `turns[]`. A missed attack appears with `"missed":true` and `"damage":0`.
+- Every other player in the room receives, in order, `EVT ROOM COMBAT START alice npc.orc#17`, one `EVT ROOM COMBAT ROUND …` per turn, and `EVT ROOM COMBAT END alice npc.orc#17 victory` when the enemy falls. The attacker also receives `EVT ROOM COMBAT TURN alice npc.orc#17 20`, the turn timer of 20 seconds.
+- `ATTACK` or `DEFEND` on an enemy that is not hostile returns `ERR 405 NPC_NOT_HOSTILE`; attacking again after the fight ended returns `ERR 410 NOT_IN_COMBAT`; `MOVE`, `TAKE` and `TALK` are refused while a fight is running.
+- Killing the enemy gives its loot to the room; the `LOOK` of the winners lists the dropped item.
+- **Death and respawn**: keep `DEFEND`ing an orc without attacking back for around twenty turns until `STATUS` reports `"hp":0,"status":"dead"`. The room receives `EVT ROOM DEATH loc.chapel` and the player is moved to the chapel with 50 hit points (`STATUS` → `{"hp":50,"max_hp":100,"status":"wounded"}`).
+
 ### Quests
+
+There are three quests of the three data types (`deliver`, `fetch`, `defeat`); `QUESTS` lists them with their progress, `QUEST <npc>` talks to a giver or turns a quest in.
+
+- **`deliver`** — *Medicine for the Chapel*: `TALK guard` accepts the quest, `TAKE herbs` in the square, walk to the chapel and `TALK priest` → the herbs leave the inventory, `EVT INVENTORY CHANGED quest` is pushed, the charm is added and `QUEST priest` shows it as completed.
+- **`fetch`** — *The Silent Bell*: `TALK clown`, take `item.silver_bell` from the goblin camp, come back and `TALK clown` → the bell is consumed and the player is healed by 50.
+- **`defeat`** — *Cellar Pests*: `TALK tavern_keeper`, kill three rats on the plain, `QUEST tavern_keeper` → the progress goes from `0/3` to `3/3` on each kill and the quest is handed in at the giver.
+- **Refusals**: turning a quest in without the required item does not consume anything and keeps the progress; a reward that would not fit in the inventory is refused with `ERR 403 INVENTORY_FULL` **without stealing anything from the player**; `QUEST guard` on an NPC that has nothing left to say gives `ERR 406 NO_QUEST_AVAILABLE`.
+
 ### Protocol compliance and edge cases
+
+Each case was checked against the RFC and against the error table of [Protocol Implementation](#-protocol-implementation).
+
+| Case | Command | Expected |
+| --- | --- | --- |
+| Command before connecting | `LOOK` | `ERR 400` (unknown/unauthorised before `CONNECT`) |
+| Unknown command | `FLY` | `ERR 400` |
+| Bad direction | `MOVE up` | `ERR 301 NO_EXIT` |
+| Unknown exit in the data | — | the server **refuses to start** and names the file and the room |
+| Unknown item | `TAKE unicorn` | `ERR 404 ITEM_NOT_FOUND` |
+| Non-takeable item | `TAKE fountain` | `ERR 408 ITEM_NOT_TAKEABLE` (formerly a silent success) |
+| Take/drop an item during a fight | `TAKE herbs` | refused |
+| Name resolution | `TAKE herbs`, `TAKE healing herbs`, `TAKE item.herbs`, `TALK Guard Hector`, `TALK hector` | all accepted |
+| Case of the command | `look`, `Look`, `LOOK` | accepted (§4.2) |
+| Line too long | 2000 bytes on one line | `ERR 400`, then the connection is closed |
+| `\r\n` line ending | any command | the `\r` is removed and the command works |
+| Broken client during a broadcast | kill one `nc` while the other is in a room | the server logs `send failed` as a **WARN** and keeps serving; the survivors are unaffected |
+| Command flooding | 120 `WHO` in a burst | about 19 `OK` then `ERR 429 RATE_LIMITED` for the rest, with `WARN command flooding` in the log |
+| Too many sessions | opening more clients than `MAX_SESSIONS` | the extra connections are refused |
+| Disconnect | Ctrl+D on `nc` | `client disconnected` is logged, the state is removed **before** the other players receive `EVT ROOM PRESENCE LEAVE` |
+| Item respawn | take the herbs and wait 60 s in the room | the herbs come back and `EVT ROOM SPAWN` is sent to the room |
+| Enemy respawn | kill an enemy and wait | it comes back in its room, at full hit points |
+
+The log of a session can be replayed line by line against these expectations: `LOG_LEVEL=debug LOG_FILE=server.log ./server/server` writes one JSON object per event, and every command, response and error code is in it.
+
 ### 🩸 Leaks report <!-- [+] -->
 
 The GUI client ships a memory-check target:
@@ -586,19 +670,57 @@ Current result on Linux/Qt 5.15: **0 errors — no definitely, indirectly or pos
 
 ## 👥 Group Contributions <!-- [S] -->
 
-### Member 1
-### Member 2
-### Member 3
+The project was carried by two learners. The split below follows the code: each area is owned by the member who wrote it and still answers questions about it during a review.
+
+| Area | kebertra | gtourdiat |
+| --- | --- | --- |
+| Server network layer (`server/network/`) | **Owner** | — |
+| Server command dispatcher (`server/protocol/`) | **Owner** | — |
+| Game layer (`game/`) — world, entities, combat, quests, groups | **Owner** | — |
+| `shared/` — protocol words, errors, logging, UTF-8 | **Owner** | Review |
+| World data (`game/ressources/*.json`) | **Owner** | Review |
+| CLI client (`clients/cli/`) | **Owner** | — |
+| GUI client (`clients/gui/`) | — | **Owner** |
+| Client state layer (`clients/state/`) — `Session`, `GameState` | Review | **Owner** |
+| Root `Makefile`, CMake build, lint target | **Owner** | Contributor |
+| Internal audits (`audit/`) | **Owner** | — |
+| Design docs (`docs/`) | Contributor | **Owner** |
+| README | Contributor | Contributor |
+
+### kebertra — Kevin Bertrand
+
+Responsible for the **server and the CLI client**: the `poll(2)` network loop, the dispatcher table that maps a command word to its handler, the two-layer split between sockets and game state, the whole game layer (world loading and validation, item and NPC instances, inventories, the turn-based combat engine, the quest system, the group system, the event bus and the respawn queue), the shared protocol and logging code, the world data itself, and the CLI client. Wrote the internal audits. Set up the root `Makefile`, the parallel build and the `lint` target, and kept the server side of the README up to date.
+
+Commits: `feat: Quest system`, `refactor: turn based fight motor`, `refactor: World instanciation`, `refactor: inventory system with class composition`, `refactor: signalFD for server and client`, `refactor: share defines, errors, success and response between server and client`, `fix: error code, ids instance`.
+
+### gtourdiat — Gaspard TOURDIAT
+
+Responsible for the **GUI client and the client state layer**: the Qt 5 application (connection window, game window, error window, and the custom widgets for the room, the exits, the ground items, the inventory, the NPCs, the quests, the group, the chat tabs, the player counters and the log), the `clients/state/` layer (`Session` + `GameState`) that turns the protocol answers and events into a local copy of the game without any Qt or socket dependency, the CMake build of the GUI, and its Valgrind target with the suppressions file. Wrote most of the design documentation (`docs/`) and contributed to the README, the root `Makefile` and the CMake standard setting.
+
+Commits: `feat: added base gui window`, `feat(CMakeLists): added comments to describe different rules`, `feat: updated GUI structure, added custom UI components`, `feat: separated connection GUI from main()`, `feat: added TAPErrorWindow to display error messages`, `fix(leaks) fixed false alert leaks`.
+
+> Git note: Gaspard's commits also appear under the identities `sousampere` and `gtourdia`, all using the same email address. All of them belong to the same member.
 
 ## 📚 Resources <!-- [S] -->
 
 ### Documentation and references
+
+- **RFC 42TAP** — the protocol specification shipped with the subject (`docs/protocol-rfc.html`): message format, command and event grammar, error codes, resource management and security rules. All protocol strings in the code come from this document.
+- **Subject v1.4** — `docs/TAP-subject-1.4.md` / `.pdf`.
+- [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/) — `poll(2)`, non-blocking sockets and partial reads/writes.
+- [`poll(2)`](https://man7.org/linux/man-pages/man2/poll.2.html), [`signalfd(2)`](https://man7.org/linux/man-pages/man2/signalfd.2.html), [`send(2)`](https://man7.org/linux/man-pages/man2/send.2.html) — Linux man pages.
+- [RFC 3629 — UTF-8](https://datatracker.ietf.org/doc/html/rfc3629) — used to validate and truncate incoming text on a character boundary.
+- [nlohmann/json](https://github.com/nlohmann/json) — the single third-party dependency, used to read the world files and to build the JSON replies.
+- [Qt 5 Widgets documentation](https://doc.qt.io/qt-5/qtwidgets-index.html) — the GUI client, and [`QTimer`](https://doc.qt.io/qt-5/qtimer.html) for polling the socket from the event loop.
+- [Valgrind manual](https://valgrind.org/docs/manual/manual.html) and the LeakSanitizer suppressions mechanism — the `make -C clients/gui valgrind` target.
+- **C++ references** — [cppreference.com](https://en.cppreference.com/) for the C++20 standard library.
+- **Color palette** of the GUI — https://coolors.co/palette/606c38-283618-fefae0-dda15e-bc6c25
+
 ### Use of AI
 
-<!-- Kept from the previous draft, to be integrated in "Use of AI":
+AI was used as a review and drafting aid, never as a substitute for understanding: every suggestion was read, tested against the running server and either kept, rewritten or dropped by the team. In particular:
 
-- NPC lookup (`Room::findNpc` in `game/world/room.cpp`): the team first wrote a simple version, where the player had to give the exact instance id of the NPC (for example `npc.guard#10`). The version in the code now was proposed and improved with the help of Claude (an AI assistant): a player can also designate an NPC by the id of its definition, its short id, its name, or one word of its name, in any case (`TALK guard`, `TALK Guard Hector`, `TALK hector`). The team reviewed and kept it.
-
-Color palette: https://coolors.co/palette/606c38-283618-fefae0-dda15e-bc6c25
-#606c38 #283618 #fefae0 #dda15e #bc6c25
--->
+- **NPC lookup** (`Room::findNpc` in `game/world/room.cpp`): the team first wrote a simple version where the player had to give the exact instance id of the NPC (for example `npc.guard#10`). The version in the code now was proposed and improved with the help of **Claude** (an AI assistant): a player can also designate an NPC by the id of its definition, its short id, its name, or one word of its name, in any case (`TALK guard`, `TALK Guard Hector`, `TALK hector`). The team reviewed it and kept it.
+- **README and design documents**: the structure of this README, the protocol deviation table, the combat and quest write-ups, and the internal audits in `audit/` were drafted with Claude and then corrected against the code and against real sessions.
+- **Debugging**: Claude was used to read compiler and sanitizer output (the Valgrind suppressions of the Qt client, the `-Wgnu-zero-variadic-macro-arguments` warnings on the logging macros) and to propose fixes that the team applied.
+- **Not AI-written**: the game design, the world data, the combat and quest rules, the network architecture and all the C++ code were written and are maintained by the team.

@@ -3,9 +3,33 @@
 | Champ | Valeur |
 | --- | --- |
 | Pour | Gaspard |
-| Date | 2026-10-20 |
+| Date de rédaction | 2026-10-20 |
+| **Mise à jour** | **2026-10-28 — le plan est réalisé, voir §0.** |
 | Références | `docs/TAP-subject-1.4.md` (§II, §V.4), `docs/protocol-rfc.html`, `docs/GUI/cahier-des-charges.md`, `README.md` (« Protocol Implementation ») |
-| Hors périmètre | Le client CLI : on n'y touche pas pour l'instant. |
+| Hors périmètre | Le client CLI : on n'y touche pas. |
+
+---
+
+## 0. État au 28 octobre 2026
+
+**Le plan est implémenté.** `clients/state/` existe et est déployé : `message.cpp`,
+`catalog.cpp`, `game_state.hpp` et `session.cpp` sont compilés par le CMake du GUI et branchés
+sur la fenêtre de jeu (`TAPGameWindow::update_gui(Section)`). Les écarts entre le plan rédigé
+et le code livré sont signalés par **➜ Réalisé** dans les sections ci-dessous.
+
+Changements par rapport au plan initial :
+
+| Plan § | Prévu | Livré |
+| --- | --- | --- |
+| 4 | `Session` reçoit un `std::function<bool(const std::string&)>` | `Session(Client &)` : la session possède une référence à `Client` et appelle `_client.send()` / `_client.isConnected()` |
+| 7 | `enum class Section { …, Quests … }` à 9 valeurs | 10 valeurs, `Section::Quests` incluse |
+| 8.1 | `CONNECT` → `LOOK`, `INVENTORY`, `STATUS`, `WHO` | `LOOK`, `INVENTORY`, `STATUS`, `WHO`, **`QUESTS`** |
+| 8.1 | `QUEST` / `QUESTS` : « pas encore implémentés côté serveur » | **Implémentés** des deux côtés ; `QUEST` renvoie un objet, `QUESTS` un tableau |
+| 8.1 | `QUIT` → phase `TERMINATED` | **Non fait** : `Session` n'a pas de handler `QUIT`. C'est la seule ligne du plan qui reste à implémenter |
+| 8.1 | `TALK` tolère `OK {"npc","dialogue"}` (plan) et `WHO` tolère le JSON | **Fait**, `applyTalk` et `applyWho` acceptent les deux formes |
+| 9 | `QSocketNotifier` | **`QTimer` de 50 ms** appelant `Client::update(0)` — plus simple et suffisant |
+| 9 | Coupure → retour à l'écran de connexion | `Session::handleDisconnect()` passe en `TERMINATED`, mais la fenêtre de connexion ne réagit pas encore |
+| 10 | Étapes 0 à 6 | 0 à 5 faites ; 6 (test contre un autre groupe) non faite |
 
 ---
 
@@ -53,7 +77,10 @@ clients/
 └── gui/                    branchement Qt (étape 5)
 ```
 
-`state/` ne connaît pas `Client`. La `Session` reçoit une fonction d'envoi (`std::function<bool(const std::string&)>`). On peut donc la tester en injectant des lignes à la main, sans serveur.
+**➜ Réalisé autrement :** `state/` connaît `Client`, mais seulement par référence et par ses
+trois méthodes publiques (`send`, `isConnected`, `update`). La `Session` est construite par
+`Session(Client &client)` et appelle `_client.send(line)`. Le découplage visé est conservé :
+`state/` n'ouvre aucune socket et ne dépend pas de Qt.
 
 ## 5. Le catalogue
 
@@ -173,7 +200,7 @@ Le compteur « joueurs dans la salle » n'est pas stocké : c'est `players.size(
 Pour que le GUI sache quoi redessiner, la `Session` appelle un callback avec la partie modifiée :
 
 ```cpp
-enum class Section { Connection, Room, Inventory, Status, Combat, Counters, Chat, Group, Log };
+enum class Section { Connection, Room, Inventory, Status, Combat, Counters, Chat, Group, Quests, Log };
 void onChanged(std::function<void(Section)> callback);
 ```
 
@@ -184,7 +211,7 @@ void onChanged(std::function<void(Section)> callback);
 | Commande en tête de file | Réponse | Mise à jour | Envoyé ensuite |
 | --- | --- | --- | --- |
 | `HELLO` | `OK hello proto=1` | phase `CONNECTED` | `CONNECT <nom>` |
-| `CONNECT` | `OK connected` | phase `AUTHENTICATED`, `me` | `LOOK`, `INVENTORY`, `STATUS`, `WHO` |
+| `CONNECT` | `OK connected` | phase `AUTHENTICATED`, `me` | `LOOK`, `INVENTORY`, `STATUS`, `WHO`, `QUESTS` |
 | `CONNECT` | `ERR 201 NAME_IN_USE` | reste en `CONNECTED`, erreur affichée sur l'écran de connexion | — |
 | `LOOK` | `OK {"room":…,"players":…,"items":…,"npcs":…}` | `room`, `players`, `items`, `npcs` | — |
 | `MOVE` | `OK room=<id>` | `room.id` | `LOOK` (on ne reçoit pas son propre `PRESENCE`) |
@@ -200,8 +227,9 @@ void onChanged(std::function<void(Section)> callback);
 | `CHAT` | `OK` | **rien** : le message s'affiche à réception de l'`EVT`, que le serveur renvoie aussi à l'auteur | — |
 | `GROUP CREATE` / `JOIN` | `OK group=<id>` | `group`, `pending_invite` remis à vide | — |
 | `GROUP LEAVE` | `OK` | `group` remis à vide | — |
-| `QUEST`, `QUESTS` | `OK {…}` / `OK [..]` | affichage (pas encore implémentés côté serveur) | — |
-| `QUIT` | `OK bye` | phase `TERMINATED` | — |
+| `QUEST` | `OK {"quest_id","name","status","description","progress","reward",…}` | ligne dans le journal ; si `completed`, `INVENTORY` ; puis toujours `QUESTS` | `INVENTORY`, `QUESTS` |
+| `QUESTS` | `OK [{"quest_id","name","status","progress"}]` | `quests` (liste complète remplacée) | — |
+| `QUIT` | `OK bye` | **⚠️ non implémenté** : pas de handler, la phase ne passe jamais à `TERMINATED` | — |
 | n'importe laquelle | autre `ERR <code> <NOM>` | journal + message non bloquant (code **et** nom : 404 a trois sens) | — |
 
 Tolérance, pour les serveurs des autres groupes :
@@ -235,15 +263,29 @@ Les formats complets de nos événements de combat sont dans `README.md`, sectio
 
 ## 9. Branchement Qt
 
-- **Lecture réseau** : un `QSocketNotifier(client.fd(), QSocketNotifier::Read)` dont le signal appelle `client.update(0)`. Il ne faut **jamais** appeler la boucle `while (client.update())` du CLI : elle bloquerait `app.exec()`.
+- **Lecture réseau — ➜ Réalisé avec un `QTimer`** : `main.cpp` démarre un `QTimer` de 50 ms
+  dont le slot teste `client.isConnected()` puis appelle `client.update(0)` ; un `false`
+  signifie que la connexion ouverte vient d'être perdue et déclenche
+  `session.handleDisconnect()`. Le timer tourne en permanence, donc une reconnexion ultérieure
+  est servie par le même. Le `QSocketNotifier` du plan initial est inutilement compliqué
+  pour un trafic de cette taille. Il ne faut **jamais** appeler la boucle
+  `while (client.update())` du CLI : elle bloquerait `app.exec()`.
 - **Pas de `enableKeyboard()` ni de `enableSignals()`** dans le GUI : ce sont des options du CLI.
-- **Connexion** : `Client::connect()` utilise un `::connect()` bloquant. Avec un serveur local ou injoignable, il échoue vite. Avec une adresse qui ne répond pas, la fenêtre peut se figer quelques secondes. C'est acceptable dans un premier temps, mais à noter dans le README.
-- **Coupure** : si `update()` renvoie `false`, la phase passe à `TERMINATED`, la fenêtre de jeu affiche la perte de connexion et propose de revenir à l'écran de connexion.
-- **Fermeture de la fenêtre** : envoyer `QUIT` avant de fermer.
+- **Connexion** : `Client::connect()` utilise un `::connect()` bloquant. Avec un serveur local
+  ou injoignable, il échoue vite. Avec une adresse qui ne répond pas, la fenêtre peut se figer
+  quelques secondes. Documenté dans le README.
+- **Coupure — ➜ partiellement fait** : `Session::handleDisconnect()` vide la file, passe la
+  phase à `TERMINATED`, journalise « connection lost » et notifie `Section::Connection`. Il
+  **reste** à faire réagir `TAPConnectionWindow` à `TERMINATED` : fermer la fenêtre de jeu,
+  rouvrir l'écran de connexion, afficher un message.
+- **Fermeture de la fenêtre — ➜ non fait** : `QUIT` est envoyé par la barre d'actions, mais
+  rien ne ferme la fenêtre sur `OK bye`.
 - **Widgets** : chacun s'abonne à sa `Section` et lit `GameState` ; aucun widget ne lit de ligne du protocole.
 - **Libellés** : chaque id affiché passe par `catalog.name(id)`, et la description (si elle existe) peut aller dans une info-bulle.
 
 ## 10. Étapes
+
+**➜ Bilan : les étapes 0 à 5 sont terminées, l'étape 6 reste à faire.**
 
 | # | Travail | Fini quand |
 | --- | --- | --- |
@@ -252,8 +294,8 @@ Les formats complets de nos événements de combat sont dans `README.md`, sectio
 | 2 | **`catalog`** : chargement, recherche, secours. | Test : `item.herbs#3` → `Healing Herbs` ; id inconnu → libellé de secours ; dossier absent → pas d'erreur. |
 | 3 | **`GameState` + `Session`** : FIFO et handlers du §8.1. | **Rejeu scripté sans serveur** : on injecte `OK hello proto=1`, `OK connected`, la réponse d'un `LOOK`, etc., et on vérifie l'état après chaque ligne. |
 | 4 | **Événements** : handlers du §8.2. | Même rejeu, scénario à deux joueurs (`PRESENCE`, `STATS`, `CHAT`, `GROUP INVITE`). |
-| 5 | **Branchement du GUI** : écran de connexion avec le champ nom, `QSocketNotifier`, widgets abonnés, 3 onglets de chat, journal séparé, les 12 boutons du sujet §V.4, compteurs salle et serveur. | Plan de recette du cahier des charges (T-01 à T-20) contre notre serveur. |
-| 6 | **Interchangeabilité** : tester avec un catalogue absent (`TAP_CATALOG_DIR` vers un dossier vide), puis si possible contre le serveur d'un autre groupe. | Le client reste utilisable ; les écarts trouvés sont notés dans le README. |
+| 5 | **Branchement du GUI** : écran de connexion avec le champ nom, `QTimer` de 50 ms, widgets abonnés, 3 onglets de chat, journal séparé, les boutons du sujet §V.4, compteurs salle et serveur. **Fait**, sauf deux boutons : `STATUS` et `QUESTS` manquent dans `TAPActionButtons`. | Plan de recette du cahier des charges contre notre serveur. |
+| 6 | **Interchangeabilité** : tester avec un catalogue absent, puis si possible contre le serveur d'un autre groupe. | Le client reste utilisable ; les écarts trouvés sont notés dans le README. |
 
 Les étapes 1 à 4 se font **sans Qt et sans serveur**, et se testent seules.
 

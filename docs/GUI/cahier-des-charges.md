@@ -6,9 +6,14 @@
 - `docs/protocol-rfc.html` — RFC 42TAP (commandes, événements, codes d'erreur)
 
 **Objet :** lister ce que le client graphique doit implémenter, fenêtre par fenêtre, puis
-l'état d'avancement à la date du 17 octobre 2026.
+l'état d'avancement **au 28 octobre 2026** (branche `feat/gui`, commit `ef1bfc9`).
 
-**Légende :** ✅ fait et validé · 🟠 en cours d'implémentation · ❌ à faire
+**Légende :** ✅ fait et branché sur le serveur · ⚠️ fait mais incomplet (le détail dit quoi) ·
+❌ à faire
+
+> Ce document est un **cahier des charges vivant** : il a été réécrit après la mise en
+> service de la couche `clients/state/`. Les marques ✅ ne veulent plus dire « widget
+> posé » mais « l'écran affiche réellement ce que le serveur envoie ».
 
 ---
 
@@ -17,26 +22,30 @@ l'état d'avancement à la date du 17 octobre 2026.
 Ces exigences viennent du sujet et s'appliquent au client GUI dans son ensemble, pas à une
 fenêtre en particulier.
 
-- ✅ **Toolkit :** Qt (Qt5 Widgets) — *curses est explicitement refusé par le sujet*.
-- ❌ **Réactivité :** le client doit rester utilisable en permanence pendant la réception
-  d'événements asynchrones (sujet § IV). Une boucle bloquante dans le thread graphique est
-  donc interdite.
-- ❌ **Framing :** TCP, UTF-8, un message par ligne terminée par `\n` (0x0A).
-  - ❌ Les messages peuvent être **fragmentés** sur plusieurs paquets TCP → il faut bufferiser
-    jusqu'au `\n`.
-  - ❌ Plusieurs messages peuvent arriver **collés** dans un même paquet → il faut découper
-    ligne par ligne.
-  - ❌ Limite recommandée par la RFC : 1024 octets par ligne.
-- ❌ **Reprise sur erreur :** les erreurs 4xx sont non fatales (on continue), les erreurs 9xx
-  (`900 CONNECTION_FAILED`, `901 SEND_FAILED`) imposent de repasser par l'écran de connexion.
-- ❌ **Ressources par ID ou par nom d'affichage :** le client doit accepter les deux formes
-  (`item.herbs` comme `Herbs`), y compris les **noms multi-mots** (`Frothy Ale`).
-- ❌ **Interopérabilité :** les clients CLI et GUI doivent être interchangeables entre groupes.
-  Le GUI ne doit donc rien supposer qui ne soit pas dans la RFC.
+- ✅ **Toolkit :** Qt 5 Widgets (`find_package(Qt5 COMPONENTS Widgets REQUIRED)`) — *curses est
+  explicitement refusé par le sujet*.
+- ✅ **Réactivité :** aucun appel réseau bloquant dans le thread graphique. La socket est
+  non bloquante et lue depuis la boucle Qt par un `QTimer` de 50 ms qui appelle
+  `Client::update(0)` (`clients/gui/main.cpp:67-74`). Les événements s'affichent pendant que
+  le joueur tape dans un champ.
+- ✅ **Framing :** TCP, UTF-8, un message par ligne terminée par `\n`. Le buffer est dans
+  `Client` (`clients/client.cpp`) : il accumule ce qui arrive et ne rend que les lignes
+  complètes, donc les messages fragmentés comme les messages collés sont gérés.
+- ✅ **Reprise sur erreur :** les 4xx sont des erreurs non fatales, journalisées et sans
+  interruption de la partie. Les erreurs de connexion (`connect()` qui échoue, socket perdue)
+  sont remontées à `TAPErrorWindow` et ramènent à l'écran de connexion.
+- ⚠️ **Ressources par ID ou par nom d'affichage :** le catalogue (`Catalog`) traduit un id en
+  nom lisible pour l'affichage (`item.herbs` → « Healing herbs »), et le GUI renvoie toujours
+  l'**id** au serveur. Il n'y a **pas de champ libre** acceptant un nom : le joueur choisit
+  une entrée dans une liste. L'exigence de la RFC (le serveur accepte les deux formes) est
+  donc satisfaite côté serveur, mais le GUI n'offre que la forme id.
+- ✅ **Interopérabilité :** le GUI n'utilise que ce que la RFC définit (`OK`, `ERR`, `EVT`) et
+  les trois commandes maison (`DEFEND`, `FLEE`, `USE`) sont seulement *émises* par le GUI,
+  jamais supposées obligatoires.
 
 ---
 
-## 2. Fenêtres à implémenter
+## 2. Fenêtres
 
 ### 2.1 Fenêtre de connexion — `TAPConnectionWindow`
 
@@ -44,179 +53,173 @@ Première fenêtre affichée au lancement.
 
 | État | Possibilité | Détail |
 | --- | --- | --- |
-| ✅ | Saisie du **nom d'utilisateur** | Pré-rempli avec le login système (`whoami`) |
-| ✅ | Saisie de l'**adresse serveur** | Défaut `127.0.0.1` |
-| ✅ | Saisie du **port** | Défaut `4224` dans le cahier des charges, mais le code pré-remplit `8080` (voir § 4.6) |
-| 🟠 | Bouton **Connect** | Handler branché, mais n'ouvre pas encore le socket : doit attendre `OK hello proto=1`, envoyer `CONNECT <username>`, attendre `OK connected` |
-| ❌ | Gestion du **déjà pris** | `ERR 201 NAME_IN_USE` → message d'erreur, on reste sur la fenêtre |
-| ❌ | Gestion du **serveur injoignable** | `ERR 900 CONNECTION_FAILED` / échec de `connect()` → message d'erreur |
-| ❌ | Transition | Succès → ferme la fenêtre de connexion, ouvre la fenêtre de jeu |
-| ❌ | Champs vides | Validation locale avant envoi (username non vide, port numérique) |
+| ✅ | Saisie du **nom d'utilisateur** | Pré-rempli avec le login système (`whoami`), modifiable |
+| ✅ | Saisie de l'**adresse serveur** | Défaut `127.0.0.1` (`_remote_address`) |
+| ✅ | Saisie du **port** | Défaut `8080`, la valeur par défaut du serveur (`_remote_port`) |
+| ✅ | Bouton **Connect** | `connectToServer()` : `Client::setServer`, `connect()`, `Session::restart()`, puis `CONNECT <username>` |
+| ✅ | Gestion du **déjà pris** | `ERR 201 NAME_IN_USE` → la fenêtre de connexion traduit le message (« This player name is already in use. »), ferme la socket et laisse le joueur réessayer |
+| ✅ | Gestion du **serveur injoignable** | Exception de `connect()` → `TAPErrorWindow` avec le message d'erreur système |
+| ✅ | Transition | Sur `OK connected` (état `AUTHENTICATED`), la fenêtre de jeu s'ouvre et la fenêtre de connexion se cache |
+| ⚠️ | Champs vides | Un `CONNECT` sans nom est refusé par le serveur (`ERR 400`) et affiché dans la fenêtre d'erreur ; il n'y a pas de validation locale avant l'envoi |
 
-Le parcours imposé par la RFC est strict : `greeting → CONNECT → OK connected`, dans cet
-ordre. Toute commande envoyée avant `CONNECT` est hors protocole.
+Le parcours imposé par la RFC est respecté dans cet ordre : greeting `OK hello proto=1`
+(consommé par `Session`), `CONNECT <username>`, `OK connected`, puis entrée en jeu.
 
 ### 2.2 Fenêtre d'erreur — `TAPErrorWindow`
 
-Fenêtre générique de message, à utiliser de deux façons :
+Fenêtre de message simple (540×360, un label, `setErrorMessage()` / `getErrorMessage()`).
 
-- ✅ **Définir le message** — `setErrorMessage()` / `getErrorMessage()` existent.
-- ❌ **Erreur bloquante** (connexion impossible, 900/901) : modale, avec un bouton qui ramène
-  à la fenêtre de connexion.
-- ❌ **Erreur non bloquante** (4xx) : bandeau ou notification transitoire, sans interrompre la
-  partie. L'usage en modale pour un `ERR 404 ITEM_NOT_FOUND` serait une mauvaise expérience.
-- ❌ **Action associée** au message (Réessayer / Fermer).
+- ✅ **Définir le message** — utilisé par la fenêtre de connexion.
+- ✅ **Erreur bloquante** de connexion : message explicite et bouton de fermeture, le joueur
+  peut corriger ses champs et recliquer sur *Connect*.
+- ❌ **Erreur non bloquante** (4xx) : elle n'ouvre pas cette modale, ce qui est le bon
+  comportement, mais elle n'est visible que dans la **vue de log**. Un bandeau transitoire
+  serait plus lisible.
+- ❌ **Action associée** au message (Réessayer / Fermer) : il n'y a que la fermeture de fenêtre.
 
 ### 2.3 Fenêtre de jeu — `TAPGameWindow`
 
-Fenêtre principale, affichée après authentification réussie. Elle se décompose en sections :
+Fenêtre principale, affichée après authentification réussie. Elle ne lit jamais la socket :
+`update_gui(Section)` est appelé par le **seul** slot `Session::onChanged` et ne redessine que
+la section qui a changé.
 
 #### 2.3.1 Barre de compteurs joueurs
 
-- 🟠 Nombre de **joueurs dans la pièce courante**.
-- 🟠 Nombre de **joueurs sur le serveur**.
-- ❌ Sources : tableau `players` du JSON de `LOOK`, événements `EVT ROOM PRESENCE ENTER/LEAVE`,
-  événements `EVT STATS players=N`, commande `WHO`.
+- ✅ Nombre de **joueurs dans la pièce courante** — `players.size()` de l'état, alimenté par
+  `LOOK` et entretenu par `EVT ROOM PRESENCE ENTER/LEAVE`.
+- ✅ Nombre de **joueurs sur le serveur** — `server_players`, alimenté par `WHO` et
+  `EVT STATS players=N`.
+- ✅ Sources : `LOOK`, `WHO`, `EVT ROOM PRESENCE`, `EVT STATS`.
 
 #### 2.3.2 Vue de la pièce
 
-- ✅ **Nom** de la pièce (widget présent, non alimenté par le serveur).
-- ✅ **Description** (widget présent, non alimenté par le serveur).
-- 🟠 **Sorties** disponibles → contrôle cliquable par direction implémenté
-  (`TAPExitView` + `TAPExitButtons`), mais aucun envoi de `MOVE <direction>` : le clic
-  n'est pas encore relié au réseau.
-- 🟠 **Items présents au sol** → widget `TAPGroundItemsView` (liste + sélection radio +
-  bouton valider, `get_selected_item_id()`), mais pas de `TAKE` envoyé.
-- 🟠 **NPCs présents** → widget `TAPNPCTalkView` (même modèle), mais pas de `TALK` envoyé
-  (voir 2.3.6).
-- ❌ **Autres joueurs présents** dans la pièce.
-- ❌ Mise à jour **temps réel** sur réception des événements.
-- ❌ **Rafraîchissement automatique après chaque `TAKE`/`DROP`** (exigence explicite du sujet
-  § V.4).
+- ✅ **Nom** et **description** de la pièce, depuis le JSON de `LOOK`.
+- ✅ **Sorties** — `TAPExitView` + `TAPExitButtons`, un bouton par direction ; le clic envoie
+  `MOVE <direction>`, la réponse déclenche un `LOOK` de resynchronisation.
+- ✅ **Items présents au sol** — `TAPGroundItemsView` (liste + sélection + bouton), envoie
+  `TAKE <id>`.
+- ✅ **NPCs présents** — `TAPNPCTalkView` (liste + sélection + boutons TALK / QUEST / ATTACK /
+  DEFEND / FLEE).
+- ✅ **Autres joueurs présents** dans la pièce — comptés et nommés par `LookRoom.players`.
+- ✅ Mise à jour **temps réel** sur réception des événements (`EVT ROOM PRESENCE`,
+  `EVT ROOM ITEM TAKEN|DROPPED`, `EVT ROOM SPAWN`, `EVT ROOM COMBAT *`).
+- ✅ **Rafraîchissement automatique après chaque `TAKE`/`DROP`** : `applyTake` / `applyDrop`
+  mettent à jour l'état de façon optimiste puis renvoient `LOOK` + `INVENTORY`.
 
 #### 2.3.3 Inventaire
 
-- 🟠 Liste des items portés → widget `TAPInventoryView` (liste + sélection radio + bouton
-  valider, `get_selected_item_id()`), UI en place mais non alimentée par `INVENTORY`
-  (réponse JSON array).
-- ❌ Un bouton **DROP** par item.
-- ❌ Un bouton **TAKE** par item présent dans la pièce.
-- ❌ Le déplacement d'un item entre la pièce et l'inventaire doit se refléter immédiatement
-  dans les deux vues.
+- ✅ Liste des items portés, alimentée par `INVENTORY` et par `EVT INVENTORY CHANGED`.
+- ✅ Boutons **DROP** et **USE** par item sélectionné (`TAPInventoryView`).
+- ✅ Bouton **TAKE** sur la vue des items au sol.
+- ✅ Le déplacement d'un item entre la pièce et l'inventaire se reflète dans les deux vues
+  après le `LOOK` + `INVENTORY` de resynchronisation.
 
 #### 2.3.4 Vue de chat — **séparée** de la vue de log
 
-Le sujet impose une séparation nette entre le chat et le log. Trois portées distinctes :
+Trois onglets distincts dans `TAPChatTabs`, chacun avec sa zone de saisie et son bouton
+*Send*, et un historique propre dans `GameState`.
 
-| État | Onglet / zone | Commande d'envoi | Événement d'arrivée |
+| État | Onglet | Commande d'envoi | Événement d'arrivée |
 | --- | --- | --- | --- |
-| 🟠 | **Global** | `CHAT GLOBAL <message>` | `EVT GLOBAL CHAT <joueur> <message>` |
-| 🟠 | **Room** | `CHAT ROOM <message>` | `EVT ROOM CHAT <joueur> <message>` |
-| 🟠 | **Group** | `CHAT GROUP <message>` | `EVT GROUP CHAT <joueur> <message>` |
+| ✅ | **Global** | `CHAT GLOBAL <message>` | `EVT GLOBAL CHAT <joueur> <message>` |
+| ✅ | **Room** | `CHAT ROOM <message>` | `EVT ROOM CHAT <joueur> <message>` |
+| ✅ | **Group** | `CHAT GROUP <message>` | `EVT GROUP CHAT <joueur> <message>` |
 
-Widget `TAPChatTabs` en place : onglets + historique par portée (`add_global_message`,
-`add_room_message`, `add_group_message`, alimentés en dur par `main.cpp`) et
-`clear_messages_history()`. Reste à faire :
-
-- ❌ Zone de saisie + sélection de la portée (onglet actif ou menu déroulant).
-- ❌ Branchement réseau : envoi `CHAT <scope> <message>` et réception des `EVT * CHAT`.
+La séparation avec la vue de log est respectée : `Section::Chat` et `Section::Log` sont deux
+sections indépendantes.
 
 #### 2.3.5 Vue de log
 
-Zone distincte du chat, qui reçoit :
+Zone défilante en lecture seule (`TAPLogView`), alimentée par `GameState::log`.
 
-- 🟠 Widget `TAPLogView` en place : zone défilante (read-only), en bas de la colonne de
-  droite sous la barre d'actions. `std::cout` est redirigé via un `std::streambuf` custom
-  (`TAPLogStreamBuf`), donc **tous** les `cout` du client s'y affichent — dont les
-  `[WIP] <ACTION>` des boutons.
-- ❌ Les **réponses** du serveur (`OK ...`) à nos propres commandes.
-- ❌ Les **erreurs** (`ERR <code> <message>`).
-- ❌ Les **événements d'ambiance** : entrées/sorties de joueurs, résultats de combat,
-  progression de quête, invitations de groupe.
-- ❌ Horodatage, pour rester cohérent avec le logging serveur.
-- ❌ ⚠️ La redirection `std::cout` capte aujourd'hui les logs **locaux** du client ; les
-  lignes serveur n'y arriveront que lorsque le dispatch réseau écrira dans ce même flux
-  (ou appelera directement `append_log()`).
+- ✅ Les **réponses** du serveur à nos propres commandes.
+- ✅ Les **erreurs** (`ERR <code> <nom>`), avec le code conservé dans `last_error`.
+- ✅ Les **événements d'ambiance** : entrées/sorties de joueurs, combats, progression de
+  quête, groupe, spawn d'objets.
+- ✅ `std::cout` du client reste redirigé dans cette vue (`TAPLogStreamBuf`).
+- ❌ Horodatage des lignes : la vue affiche le texte brut, sans heure locale.
+- ⚠️ Ce que dit un **NPC** (`TALK`) arrive dans le log et non dans une zone de dialogue
+  dédiée — voir 2.3.6.
 
 #### 2.3.6 Interaction NPC — dialogue et quêtes
 
-- 🟠 Chaque NPC affiché dans la pièce est cliquable (`TAPNPCTalkView`, sélection radio +
-  bouton valider).
-- ❌ `TALK <npc>` → affichage du dialogue renvoyé par le serveur.
-- ❌ `QUEST <npc>` → affichage de la quête proposée (id, description, récompense, statut).
-- ❌ Gestion des erreurs associées : `404 NPC_NOT_FOUND`, `406 NO_QUEST_AVAILABLE`.
-- ❌ Le bouton ATTACK n'est pertinent que sur un NPC hostile ; `405 NPC_NOT_HOSTILE` doit être
-  affiché proprement plutôt que de casser l'interface.
+- ✅ Chaque NPC de la pièce est sélectionnable (`TAPNPCTalkView`).
+- ✅ `TALK <npc>` — la réplique est écrite dans le journal.
+- ⚠️ **Affichage du dialogue** : le sujet § V.4 demande un affichage du dialogue auprès du
+  NPC. Aujourd'hui la réponse `OK <texte>` n'apparaît que dans le journal technique
+  (`Session::applyTalk` → `log()`). Il manque un panneau de dialogue à côté de la liste NPC.
+- ✅ `QUEST <npc>` — la quête proposée ou rendue est mise à jour dans le journal de quêtes
+  (id, nom, statut, progression) et son texte dans le log.
+- ✅ Erreurs associées : `404 NPC_NOT_FOUND`, `406 NO_QUEST_AVAILABLE`, `405 NPC_NOT_HOSTILE`
+  sont journalisées sans casser l'interface.
+- ✅ Boutons **ATTACK**, **DEFEND** et **FLEE** disponibles sur le NPC sélectionné ; ils ne
+  partent que si un NPC est sélectionné.
 
 #### 2.3.7 Panneau de combat
 
-- ✅ Barre de vie du joueur (`hp` / `max_hp`), alimentée par `STATUS` : widget
-  `TAPPlayerInfoBar`, sous la barre de compteurs, sur toute la largeur de la fenêtre.
-  Il affiche le nom du joueur, son statut (`healthy` / `wounded` / `combat` / `dead`, tel que
-  le serveur l'envoie) et une barre `hp / max_hp`. Aucune valeur n'est calculée localement :
-  tant que `STATUS` n'a pas répondu, la barre affiche `HP : ?`.
-- ❌ Déclenchement via `ATTACK <npc>`.
-- ❌ Exploitation de la réponse d'attaque :
-  `OK {"attacker_hp":…, "target_hp":…, "damage":…, "status":"combat"}` → mise à jour des deux
-  barres de vie et écriture du résultat dans le log.
-- ❌ La RFC laisse le système de combat ouvert (tour par tour, DEFEND, FLEE, formules de dégâts…).
-  Le GUI doit être conçu pour accueillir ces commandes supplémentaires **sans refonte** :
-  prévoir une zone d'actions de combat extensible.
+- ✅ Barre de vie du joueur (`hp` / `max_hp`) et statut (`healthy` / `wounded` / `combat` /
+  `dead`), dans `TAPPlayerInfoBar`, alimentée par `STATUS` — seule source des PV. Aucune
+  valeur n'est calculée localement ; avant la première réponse elle affiche `HP : ?`.
+- ✅ Déclenchement via `ATTACK <npc>`, et tours suivants via `ATTACK` / `DEFEND` / `FLEE`.
+- ✅ Exploitation de la réponse :
+  `OK {"attacker_hp","target_hp","damage","status","round","escaped","turns"}` →
+  `GameState::Combat` mis à jour, événement de la section `Combat`, journal alimenté. Le
+  rapport de combat demande ensuite un `STATUS` pour rester aligné sur le serveur.
+- ✅ Les commandes de combat propres au projet (`DEFEND`, `FLEE`) sont déjà dans la même zone
+  d'actions que `ATTACK` : l'extensibilité demandée est acquise.
+- ✅ Les événements de combat des autres joueurs de la salle (`EVT ROOM COMBAT START|ROUND|
+  END|TURN|RESOLVED`, `EVT ROOM DEATH`) sont journalisés et rafraîchissent la pièce.
 
 #### 2.3.8 Journal de quêtes
 
-- ✅ **Widget `TAPQuestsView`** — placé sous la vue NPC TALK dans la colonne de contenu.
-  Prend une **liste de dictionnaires** de quêtes (clés `quest_id`, `status`, `progress`),
-  affiche chaque quête sur une ligne `quest_id  [status]  progress`, placeholder
-  « (no active quests) » quand la liste est vide. Alimenté en dur par `main.cpp` (données de
-  test), pas par le serveur.
-- ❌ `QUESTS` → liste JSON des quêtes **actives** et **complétées**, avec progression
-  (`"progress": "1/3"`). Le parsing de la réponse JSON et le branchement réseau restent à faire.
-- ❌ Affichage du statut par quête (`available`, `active`, `completed`) — le champ `status`
-  est déjà affiché, il reste à distinguer visuellement les statuts.
-- ❌ La RFC ne définit aucun événement de progression de quête : le journal devra se rafraîchir
-  sur action du joueur (ou par polling discret).
+- ✅ **`TAPQuestsView`** — une ligne par quête (`nom [statut] progression`), placeholder
+  « (no active quests) » quand la liste est vide.
+- ✅ Alimenté par `QUESTS` (`OK [{"quest_id","name","status","progress"}]`) au moment du
+  `CONNECT` et après chaque `QUEST`.
+- ✅ Distinction des statuts : le statut du serveur (`available`, `active`, `completed`) est
+  affiché tel quel entre crochets.
+- ⚠️ La RFC ne définit **aucun événement de progression de quête** : le journal se rafraîchit
+  uniquement sur action du joueur (ou sur `EVT INVENTORY CHANGED quest`), pas en continu.
 
 #### 2.3.9 Panneau de groupe
 
-- ❌ `GROUP CREATE` → création, retourne `OK group=<id>`.
-- ❌ `GROUP JOIN <id>` → rejoindre, retourne `OK group=<id>`.
-- ❌ `GROUP LEAVE` → quitter.
-- ❌ `GROUP INVITE <joueur>` → inviter.
-- ❌ `EVT GROUP INVITE <...>` → notification d'invitation reçue, avec acceptation/refus.
-- ❌ `EVT GROUP JOIN <joueur>` / `EVT GROUP LEAVE <joueur>` → mise à jour de la liste des membres.
-- ❌ Affichage des erreurs `401 NOT_IN_GROUP` et `402 ALREADY_IN_GROUP`.
+- ✅ `GROUP CREATE` → `OK group=<id>`, l'id est affiché.
+- ✅ `GROUP JOIN <membre>` → champ pré-rempli avec le nom de celui qui invite, modifiable.
+- ✅ `GROUP LEAVE`.
+- ✅ `GROUP INVITE <joueur>` → champ de saisie + bouton.
+- ✅ `EVT GROUP INVITE <joueur>` → l'invitation est affichée dans le panneau, le champ de
+  jointure est pré-rempli.
+- ✅ `EVT GROUP JOIN <joueur>` / `EVT GROUP LEAVE <joueur>` → mise à jour de l'affichage.
+- ✅ Erreurs `401 NOT_IN_GROUP` et `402 ALREADY_IN_GROUP` journalisées.
 
 #### 2.3.10 Barre d'actions
 
 Le sujet exige des boutons pour **toutes** les actions suivantes :
 
-| État | Action |
-| --- | --- |
-| ✅ | `LOOK` |
-| ✅ | `MOVE` |
-| ✅ | `TAKE` |
-| ✅ | `DROP` |
-| ✅ | `TALK` |
-| ✅ | `ATTACK` |
-| ✅ | `STATUS` |
-| ✅ | `QUEST` |
-| ✅ | `QUESTS` |
-| ✅ | `WHO` |
-| ✅ | `GROUP` |
-| ✅ | `QUIT` |
+| État | Action | Où |
+| --- | --- | --- |
+| ✅ | `LOOK` | `TAPActionButtons` |
+| ✅ | `MOVE` | boutons de sortie (`TAPExitButtons`) |
+| ✅ | `TAKE` | `TAPGroundItemsView` |
+| ✅ | `DROP` | `TAPInventoryView` (+ `USE`) |
+| ✅ | `TALK` | `TAPNPCTalkView` |
+| ✅ | `ATTACK` | `TAPNPCTalkView` (+ `DEFEND`, `FLEE`) |
+| ⚠️ | `STATUS` | **aucun bouton** : la valeur est rafraîchie après chaque action et à la connexion, mais le bouton exigé manque |
+| ✅ | `QUEST` | `TAPNPCTalkView` |
+| ⚠️ | `QUESTS` | **aucun bouton** : la liste est rafraîchie après chaque `QUEST`, mais le bouton exigé manque |
+| ✅ | `WHO` | `TAPActionButtons` |
+| ✅ | `GROUP` | `TAPGroupView` (CREATE / INVITE / JOIN / LEAVE) |
+| ✅ | `QUIT` | `TAPActionButtons` |
 
-Widget `TAPActionButtons` en place : un bouton par action du sujet (§ V.4), colonne
-verticale alignée sur le bord droit de la fenêtre (sur toute la hauteur, à côté de la
-colonne de contenu). Chaque clic affiche `[WIP] <ACTION>` dans le terminal — aucun envoi
-réseau, les boutons attendent la couche de dispatch (§ 5.3, bloc 2).
+`TAPActionButtons` ne déclare aujourd'hui que trois boutons (`LOOK`, `WHO`, `QUIT`,
+`tap_action_buttons.cpp:8-10`) alors que le tableau `_buttons[12]` est dimensionné pour douze :
+**ajouter `STATUS` et `QUESTS` est un ajout de deux lignes**. Toutes les autres actions sont
+portées par l'élément concerné (sortie, item, NPC, panneau de groupe), ce qui est l'ergonomie
+visée : le bouton générique ne sert qu'aux actions sans cible.
 
-Les actions contextuelles (TAKE, DROP, TALK, ATTACK, QUEST) ont vocation à être portées par
-les éléments concernés (item, NPC) plutôt que par un bouton générique. Le bouton générique
-reste utile quand aucune cible n'est sélectionnable.
-
-- ❌ `QUIT` doit être relié à la fermeture de la fenêtre : envoyer `QUIT`, attendre `OK bye`,
-  puis fermer le socket proprement.
+- ⚠️ `QUIT` envoie bien la commande au serveur et reçoit `OK bye`, mais `Session` n'a **aucun
+  gestionnaire pour `QUIT`** : la phase ne passe jamais à `TERMINATED` et la fenêtre de jeu
+  reste ouverte. Voir § 5.2.
 
 ---
 
@@ -224,187 +227,173 @@ reste utile quand aucune cible n'est sélectionnable.
 
 ### 3.1 Commandes
 
+Toutes les commandes du protocole sont **émises** par le GUI et leurs réponses sont routées
+par `Session::handleOk` (sur `pending.command`, la file `_pending` garantissant l'ordre).
+
 | État | Commande | Usage GUI |
 | --- | --- | --- |
-| ❌ | `CONNECT <username>` | Fenêtre de connexion |
-| ❌ | `LOOK` | Rafraîchissement de la vue pièce |
-| ❌ | `MOVE <direction>` | Boutons de sortie |
-| ❌ | `CHAT <scope> <message>` | Vue de chat (3 portées) |
-| ❌ | `WHO` | Compteur serveur |
-| ❌ | `GROUP CREATE` | Panneau groupe |
-| ❌ | `GROUP INVITE <joueur>` | Panneau groupe |
-| ❌ | `GROUP JOIN <id>` | Panneau groupe |
-| ❌ | `GROUP LEAVE` | Panneau groupe |
-| ❌ | `TAKE <item>` | Vue pièce / inventaire |
-| ❌ | `DROP <item>` | Vue pièce / inventaire |
-| ❌ | `INVENTORY` | Panneau inventaire |
-| ❌ | `TALK <npc>` | Dialogue NPC |
-| ❌ | `ATTACK <npc>` | Panneau combat |
+| ✅ | `CONNECT <username>` | Fenêtre de connexion |
+| ✅ | `LOOK` | Vue de la pièce ; renvoyé après `MOVE`, `TAKE`, `DROP`, `USE` |
+| ✅ | `MOVE <direction>` | Boutons de sortie |
+| ✅ | `CHAT <scope> <message>` | Vue de chat (3 onglets) |
+| ✅ | `WHO` | Compteur serveur |
+| ✅ | `GROUP CREATE` | Panneau groupe |
+| ✅ | `GROUP INVITE <joueur>` | Panneau groupe |
+| ✅ | `GROUP JOIN <membre>` | Panneau groupe |
+| ✅ | `GROUP LEAVE` | Panneau groupe |
+| ✅ | `TAKE <item>` | Vue des items au sol |
+| ✅ | `DROP <item>` | Vue d'inventaire |
+| ✅ | `INVENTORY` | Vue d'inventaire |
+| ✅ | `TALK <npc>` | Dialogue NPC (affiché dans le journal) |
+| ✅ | `ATTACK <npc>` | Panneau de combat |
 | ✅ | `STATUS` | Barre de vie |
-| ❌ | `QUEST <npc>` | Fenêtre de quête NPC |
-| ❌ | `QUESTS` | Journal de quêtes |
-| ❌ | `QUIT` | Fermeture de fenêtre |
+| ✅ | `QUEST <npc>` | Journal de quêtes |
+| ✅ | `QUESTS` | Journal de quêtes |
+| ✅ | `QUIT` | Envoyé, mais le client ne réagit pas à la réponse |
+| ✅ | `DEFEND` / `FLEE` / `USE` *hors RFC* | Panneau de combat / inventaire |
 
-### 3.2 Événements à traiter
+### 3.2 Événements traités
+
+`Session::handleEvent` route tous les `EVT` vers l'état, puis notifie la section concernée.
 
 | État | Événement | Impact GUI |
 | --- | --- | --- |
-| ❌ | `EVT ROOM PRESENCE ENTER <joueur>` | +1 joueur dans la pièce, ligne de log |
-| ❌ | `EVT ROOM PRESENCE LEAVE <joueur>` | −1 joueur dans la pièce, ligne de log |
-| ❌ | `EVT ROOM CHAT <joueur> <msg>` | Onglet **Room** |
-| ❌ | `EVT GLOBAL CHAT <joueur> <msg>` | Onglet **Global** |
-| ❌ | `EVT GROUP INVITE <...>` | Notification d'invitation |
-| ❌ | `EVT GROUP JOIN <joueur>` | Liste des membres + log |
-| ❌ | `EVT GROUP LEAVE <joueur>` | Liste des membres + log |
-| ❌ | `EVT GROUP CHAT <joueur> <msg>` | Onglet **Group** |
-| ❌ | `EVT STATS players=<n>` | Compteur joueurs serveur |
+| ✅ | `EVT ROOM PRESENCE ENTER <joueur>` | +1 joueur dans la pièce, ligne de log |
+| ✅ | `EVT ROOM PRESENCE LEAVE <joueur>` | −1 joueur dans la pièce, ligne de log |
+| ✅ | `EVT ROOM CHAT <joueur> <msg>` | Onglet **Room** |
+| ✅ | `EVT GLOBAL CHAT <joueur> <msg>` | Onglet **Global** |
+| ✅ | `EVT GROUP CHAT <joueur> <msg>` | Onglet **Group** |
+| ✅ | `EVT GROUP INVITE <joueur>` | Invitation affichée, champ JOIN pré-rempli |
+| ✅ | `EVT GROUP JOIN <joueur>` | Panneau groupe + log |
+| ✅ | `EVT GROUP LEAVE <joueur>` | Panneau groupe + log |
+| ✅ | `EVT STATS players=<n>` | Compteur joueurs serveur |
+| ✅ | `EVT ROOM ITEM TAKEN|DROPPED` *hors RFC* | Vue pièce + inventaire + log |
+| ✅ | `EVT ROOM SPAWN` *hors RFC* | Vue pièce + log |
+| ✅ | `EVT ROOM COMBAT START|ROUND|END|TURN|RESOLVED` *hors RFC* | Panneau de combat + log |
+| ✅ | `EVT ROOM DEATH <salle>` *hors RFC* | Barre de vie + log |
+| ✅ | `EVT ROOM EFFECT` *hors RFC* | Log |
+| ✅ | `EVT INVENTORY CHANGED <raison>` *hors RFC* | Inventaire + quêtes |
 
-### 3.2.1 Vue de chat — UI en place
+### 3.3 Codes d'erreur gérés
 
-Le widget `TAPChatTabs` (onglets Global / Room / Group) existe — voir § 2.3.4 — mais aucun
-message ne transite : ni envoi `CHAT <scope> <message>`, ni réception des `EVT * CHAT`.
+Toutes les erreurs sont journalisées par `Session::handleErr`, qui enregistre aussi
+`last_error` pour que la fenêtre concernée puisse réagir.
 
-### 3.3 Codes d'erreur à gérer
-
-| État | Code | Nom | Comportement attendu |
+| État | Code | Nom | Comportement |
 | --- | --- | --- | --- |
-| ❌ | 201 | `NAME_IN_USE` | Fenêtre de connexion : message, on ne rentre pas en jeu |
-| ❌ | 301 | `NO_EXIT` | Log ; sortie non disponible |
-| ❌ | 401 | `NOT_IN_GROUP` | Log + panneau groupe |
-| ❌ | 402 | `ALREADY_IN_GROUP` | Log + panneau groupe |
-| ❌ | 404 | `ITEM_NOT_FOUND` | Log ; rafraîchir la pièce (l'item a bougé) |
-| ❌ | 404 | `ITEM_NOT_IN_INVENTORY` | Log ; rafraîchir l'inventaire |
-| ❌ | 404 | `NPC_NOT_FOUND` | Log ; rafraîchir la pièce |
-| ❌ | 405 | `NPC_NOT_HOSTILE` | Log ; ne pas ouvrir le panneau de combat |
-| ❌ | 406 | `NO_QUEST_AVAILABLE` | Log ; dialogue NPC |
-| ❌ | 900 | `CONNECTION_FAILED` | Erreur bloquante → retour connexion |
-| ❌ | 901 | `SEND_FAILED` | Erreur bloquante → retour connexion |
+| ✅ | 201 | `NAME_IN_USE` | Fenêtre de connexion : message dédié, on ne rentre pas en jeu |
+| ✅ | 301 | `NO_EXIT` | Log ; la pièce n'a pas changé |
+| ✅ | 400 | (requête invalide) | Log |
+| ✅ | 401 | `NOT_IN_GROUP` | Log + panneau groupe |
+| ✅ | 402 | `ALREADY_IN_GROUP` | Log + panneau groupe |
+| ✅ | 403 | `INVENTORY_FULL` | Log, rien n'est volé au joueur |
+| ✅ | 404 | `ITEM_NOT_FOUND` | Log + `LOOK` de resynchronisation (l'item a bougé) |
+| ✅ | 404 | `ITEM_NOT_IN_INVENTORY` | Log + `INVENTORY` |
+| ✅ | 404 | `NPC_NOT_FOUND` | Log + `LOOK` |
+| ✅ | 405 | `NPC_NOT_HOSTILE` | Log, pas de panneau de combat |
+| ✅ | 406 | `NO_QUEST_AVAILABLE` | Log |
+| ✅ | 407 | `ITEM_NOT_USABLE` | Log |
+| ✅ | 408 | `ITEM_NOT_TAKEABLE` | Log + `LOOK` |
+| ✅ | 410 | `NOT_IN_COMBAT` | Log |
+| ✅ | 429 | `RATE_LIMITED` | Log |
+| ✅ | 900 | `CONNECTION_FAILED` | Exception de `connect()` → fenêtre d'erreur, retour à la connexion |
+| ⚠️ | — | *socket perdue en cours de partie* | `Session::handleDisconnect()` passe en `TERMINATED` et notifie la section `Connection`, mais **la fenêtre de connexion n'écoute pas ce cas** : la fenêtre de jeu reste affichée avec des données périmées |
 
 ---
 
 ## 4. Points de vigilance
 
-1. ❌ **`WHO` — divergence sujet / RFC.** La RFC § 5.2.2 spécifie `OK players=<n>`, alors que
-   l'exemple du sujet § V.5 montre `OK { "room": ["alice", "bob"], "server": 5 }`. Il faut
-   trancher avec l'équipe serveur et gérer les deux formes en attendant.
-2. ❌ **`TALK` — même divergence.** RFC § 5.4.4 : `OK <texte du dialogue>` (texte brut). Sujet
-   § V.5 : `OK { "npc": "guard", "dialogue": "..." }` (JSON). À arbitrer.
-3. ❌ **Aucun événement pour les PV.** Ni les dégâts subis hors de notre propre `ATTACK`, ni les
-   contre-attaques ne sont poussés au client. Seul `STATUS` donne l'état courant → prévoir un
-   rafraîchissement après action de combat.
-4. ❌ **Liste des joueurs de la pièce.** Aucun événement ne fournit la liste complète : elle se
-   reconstruit à partir du tableau `players` de `LOOK` puis s'entretient avec les
-   `PRESENCE ENTER/LEAVE`. Un joueur arrivé pendant qu'on était hors ligne est invisible
-   jusqu'au prochain `LOOK` → prévoir un `LOOK` de resynchronisation.
-5. ❌ **Séparation chat / log** : exigence explicite du sujet, facile à rater en mettant tout
-   dans une seule zone de texte.
-6. ❌ **Port par défaut divergent** : le code de `TAPConnectionWindow` pré-remplit `8080`
-   alors que le sujet/RFC impose `4224`. À corriger.
-7. ❌ **Aucune interaction clavier** dans la fenêtre de jeu : tout passe par la souris
-   (clics). Acceptable pour le sujet, mais la saisie du chat nécessitera une zone de texte.
+1. ✅ **`WHO` — divergence sujet / RFC.** La RFC § 5.2.2 spécifie `OK players=<n>`, l'exemple du
+   sujet § V.5 montre un JSON `{"room": [...], "server": n}`. **Tranché : `OK players=<n>`**,
+   conforme à la RFC, et la liste des joueurs de la salle vient du tableau `players` de
+   `LOOK`. C'est la bonne décision, elle est argumentée dans le README.
+2. ✅ **`TALK` — même divergence.** La RFC § 5.4.4 : `OK <texte du dialogue>` (texte brut).
+   C'est cette forme qui est utilisée ; le JSON du sujet n'est pas reconnu. À garder.
+3. ✅ **Aucun événement pour les PV.** Le projet a ajouté ses propres événements
+   (`EVT ROOM EFFECT`, `EVT INVENTORY CHANGED`, `EVT ROOM COMBAT *`) et le GUI redemande
+   `STATUS` après chaque action de combat : les PV ne peuvent pas rester faux.
+4. ✅ **Liste des joueurs de la pièce.** Reconstruite depuis `LOOK` puis entretenue par
+   `PRESENCE ENTER/LEAVE` ; un `LOOK` est renvoyé après chaque `MOVE` et chaque échec de
+   ciblage, ce qui resynchronise un joueur arrivé entre-temps.
+5. ✅ **Séparation chat / log** : trois onglets de chat et une vue de log distincte
+   (`Section::Chat` vs `Section::Log`).
+6. ✅ **Port par défaut** : `8080`, la valeur par défaut du serveur. *(L'ancienne version de ce
+   document affirmait `4224` ; c'est faux, le sujet ne fixe aucun port et le serveur écoute sur
+   8080.)*
+7. ✅ **Interaction clavier** : les trois onglets de chat, le champ d'invitation et le champ de
+   jointure sont des zones de texte ; les actions ciblées restent à la souris.
+8. ❌ **Connexion perdue** : aucun retour à l'écran de connexion, aucun message. C'est le seul
+   point de ce chapitre encore ouvert, et le plus visible en démonstration.
 
 ---
 
-## 5. Avancement actuel
+## 5. État d'avancement
 
-### 5.1 Ce qui existe
+### 5.1 Architecture
+
+Le GUI ne parse pas le protocole. La chaîne est :
+
+```
+Client (socket)  →  Session (file _pending + GameState)  →  onChanged(Section)  →  widgets
+```
+
+- `Client` (`clients/client.cpp`) — connexion, buffer de lignes, dispatch `OK` / `ERR` / `EVT`.
+- `Session` (`clients/state/session.{hpp,cpp}`) — reçoit la socket par référence
+  (`Client &_client`), empile chaque commande émise dans `std::deque<Pending> _pending`,
+  recolle chaque réponse à sa commande grâce à l'ordre garanti du serveur, et met à jour un
+  `GameState`. Aucune dépendance Qt, aucune dépendance à la socket : la couche est
+  testable seule. À la connexion réussie elle envoie `LOOK`, `INVENTORY`, `STATUS`, `WHO`,
+  `QUESTS`.
+- `GameState` (`clients/state/`) — la copie locale du jeu : pièce, joueurs, items, NPCs,
+  inventaire, PV, combat, quêtes, groupe, chat par portée, journal, phase.
+- `TAPGameWindow::update_gui(Section)` — un `switch` sur la section ; chaque branche
+  redessine ses widgets depuis l'état.
+
+### 5.2 Ce qui reste à faire
+
+| Priorité | Point | Fichier |
+| --- | --- | --- |
+| **Haute** | Réagir à la perte de connexion et au `QUIT` : sur `Phase::TERMINATED`, fermer la fenêtre de jeu, rouvrir la fenêtre de connexion, afficher un message. Aujourd'hui la fenêtre de jeu reste figée | `tap_connection_window.cpp` / `session.cpp` |
+| Moyenne | Ajouter les boutons `STATUS` et `QUESTS` à la barre d'actions | `tap_action_buttons.cpp:8-10` |
+| Moyenne | Afficher le dialogue `TALK` dans un panneau dédié, à côté de la liste des NPC, et non seulement dans le journal | `tap_npc_talk.cpp` / `session.cpp:applyTalk` |
+| Faible | Champ libre acceptant un nom d'affichage pour `TAKE` / `TALK` | `tap_ground_items_view`, `tap_npc_talk` |
+| Faible | Horodatage des lignes de la vue de log | `tap_log_view.cpp` |
+| Faible | `TAPBaseWindow` sans destructeur virtuel, alors qu'elle est destinée à l'héritage | `tap_base_window.hpp` |
+
+### 5.3 Composants
 
 | État | Composant | Fichier | Remarque |
 | --- | --- | --- | --- |
 | ✅ | Fenêtre de base | `src/windows/base_window/` | `QWidget` + feuille de style sombre |
 | ❌ | — destructeur virtuel | `src/windows/base_window/` | Classe destinée à l'héritage, sans `virtual ~` |
-| ❌ | — config commune | `src/windows/base_window/` | Titre et taille non mutualisés, répétés dans chaque fenêtre |
-| ✅ | Fenêtre de connexion — UI | `src/windows/connection_window/` | 3 champs + bouton + accesseurs |
-| 🟠 | Fenêtre de connexion — réseau | `src/windows/connection_window/` | `connectToServer()` branché sur le bouton, mais ne fait qu'un `std::cout` |
-| ✅ | Fenêtre d'erreur — UI | `src/windows/error_window/` | 540×360, un label + setter/getter |
-| ❌ | Fenêtre d'erreur — branchement | `src/windows/error_window/` | Instanciée nulle part |
-| ✅ | Fenêtre de jeu — squelette | `src/windows/game_window/` | 720×1080, empile les 6 sections + stretch |
-| 🟠 | Fenêtre de jeu — fonctionnalités | `src/windows/game_window/` | Widgets UI en place, aucun branchement réseau (voir § 2.3) |
-| ✅ | Barre de compteurs — UI | `.../widgets/tap_player_count_bar/` | 2 labels + setters |
-| ✅ | Barre d'infos joueur — UI et données | `.../widgets/tap_player_info_bar/` | Nom, statut et barre `hp / max_hp`, alimentés par `STATUS` |
-| ❌ | Barre de compteurs — données | `.../widgets/tap_player_count_bar/` | Valeurs codées en dur dans `main.cpp` (42 / 21) |
-| ✅ | Vue de la pièce — nom + description | `.../widgets/tap_room_view/` | 2 labels + setters |
-| ❌ | Vue de la pièce — joueurs | `.../widgets/tap_room_view/` | Absent |
-| ✅ | Vue des sorties — UI | `.../widgets/tap_exit_view/` | Boutons cliquables par direction, ordre d'affichage trié |
-| 🟠 | Vue des sorties — action | `.../widgets/tap_exit_view/` | Le clic émet la direction, mais rien ne l'écoute ni n'envoie `MOVE` |
-| ✅ | Vue des items au sol — UI | `.../widgets/tap_ground_items_view/` | Liste + sélection radio + bouton valider |
-| 🟠 | Vue des items au sol — action | `.../widgets/tap_ground_items_view/` | `get_selected_item_id()` existe, aucun `TAKE` envoyé |
-| ✅ | Vue d'inventaire — UI | `.../widgets/tap_inventory_view/` | Même modèle que les items au sol |
-| 🟠 | Vue d'inventaire — action | `.../widgets/tap_inventory_view/` | `get_selected_item_id()` existe, aucun `DROP`/`INVENTORY` envoyé |
-| ✅ | Vue de dialogue NPC — UI | `.../widgets/tap_ncp_talk/` | Liste NPC + sélection radio + bouton valider |
-| ✅ | Journal de quêtes — UI | `.../widgets/tap_quests_view/` | Liste de quêtes (`quest_id` / `status` / `progress`), alimentée en dur par `main.cpp` |
-| ✅ | Vue de chat — UI | `.../widgets/tap_chat_tabs/` | Onglets Global / Room / Group + historique par portée |
-| 🟠 | Vue de dialogue NPC — action | `.../widgets/tap_ncp_talk/` | `get_selected_npc_id()` existe, aucun `TALK` envoyé |
-| ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` — styles uniquement |
-| ✅ | Barre d'actions — UI | `.../widgets/tap_action_buttons/` | 12 boutons (LOOK…QUIT), émet `[WIP] <ACTION>` au clic |
-| 🟠 | Barre d'actions — réseau | `.../widgets/tap_action_buttons/` | Aucun envoi de commande |
-| ✅ | Vue de logs — locale | `.../widgets/tap_log_view/` | Défilante, read-only ; capture `std::cout` via `TAPLogStreamBuf` ; label « (no logs yet) » |
-| ❌ | Vue de logs — serveur | `.../widgets/tap_log_view/` | Réponses / erreurs / événements serveur non routés vers la vue |
+| ✅ | Fenêtre de connexion | `src/windows/connection_window/` | UI + socket + `CONNECT` + transition + `NAME_IN_USE` |
+| ✅ | Fenêtre d'erreur | `src/windows/error_window/` | Affichée par la fenêtre de connexion en cas d'échec |
+| ✅ | Fenêtre de jeu — squelette | `src/windows/game_window/` | Barres en haut, colonne de contenu, colonne actions + log |
+| ✅ | Fenêtre de jeu — données | `src/windows/game_window/` | Tout passe par `update_gui(Section)` |
+| ✅ | Barre de compteurs | `.../widgets/tap_player_count_bar/` | Salle et serveur, depuis `LOOK` / `WHO` / `EVT STATS` |
+| ✅ | Barre d'infos joueur | `.../widgets/tap_player_info_bar/` | Nom, statut, barre `hp / max_hp`, depuis `STATUS` |
+| ✅ | Vue de la pièce | `.../widgets/tap_room_view/` | Nom + description depuis `LOOK` |
+| ✅ | Vue des sorties | `.../widgets/tap_exit_view/` | Boutons par direction, envoie `MOVE` |
+| ✅ | Vue des items au sol | `.../widgets/tap_ground_items_view/` | Liste + sélection, envoie `TAKE` |
+| ✅ | Vue d'inventaire | `.../widgets/tap_inventory_view/` | Liste + sélection, envoie `DROP` et `USE` |
+| ✅ | Vue des NPCs | `.../widgets/tap_ncp_talk/` | Sélection + `TALK` / `QUEST` / `ATTACK` / `DEFEND` / `FLEE` |
+| ✅ | Journal de quêtes | `.../widgets/tap_quests_view/` | Alimenté par `QUESTS`, pas par des données de test |
+| ✅ | Panneau de groupe | `.../widgets/tap_group_view/` | CREATE / INVITE / JOIN / LEAVE + invitation reçue |
+| ✅ | Vue de chat | `.../widgets/tap_chat_tabs/` | Onglets Global / Room / Group, saisie + envoi |
+| ✅ | Barre d'actions | `.../widgets/tap_action_buttons/` | `LOOK`, `WHO`, `QUIT` — **`STATUS` et `QUESTS` manquants** |
+| ✅ | Vue de logs | `.../widgets/tap_log_view/` | Réponses, erreurs et événements serveur |
+| ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` |
 | ✅ | Styles et constantes | `globals.hpp` | Couleurs, dimensions, textes par défaut |
-| ✅ | Build | `CMakeLists.txt` + `Makefile` | `all`, `run`, `valgrind`, `clean`, `fclean`, `re`, `help` |
+| ✅ | Build | `CMakeLists.txt` + `Makefile` | Compile `client.cpp`, `shared/system/*.cpp` et `clients/state/*.cpp` ; `all`, `run`, `valgrind`, `clean`, `fclean`, `re`, `help` |
+| ⚠️ | `ressources.qrc` | `CMakeLists.txt` | Toujours commenté : l'icône est chargée par `app.setWindowIcon(QIcon(":/src/icon.ico"))` mais la ressource n'est pas compilée, donc l'icône est vide |
 
-**Détail des fenêtres existantes :**
+### 5.4 Build et fuites mémoire
 
-- **`TAPConnectionWindow`** — champs username (pré-rempli via `whoami`), adresse (`127.0.0.1`)
-  et port (`4224`) pré-remplis ; bouton *Connect*. `connectToServer()` se contente d'un
-  `std::cout`. Accesseurs `getUsername()` / `getRemoteAddress()` / `getRemotePort()` présents.
-- **`TAPErrorWindow`** — 540×360, titre `42 TAP Error`, un label, `setErrorMessage()` /
-  `getErrorMessage()`. Instanciée nulle part.
-- **`TAPGameWindow`** — disposition en deux parties : la barre de compteurs
-  `TAPPlayerCountBar` occupe toute la largeur en haut ; en dessous, deux colonnes — à gauche
-  le contenu (vue de pièce, vue des sorties, ligne items — items au sol et inventaire côte
-  à côte —, vue de dialogue NPC, journal de quêtes, chat à onglets, stretch), à droite une
-  colonne avec la barre d'actions `TAPActionButtons` et la vue de logs `TAPLogView`.
-  La taille est bornée par l'écran (`availableGeometry()` : menu macOS et dock exclus),
-  pour rester utilisable sur MacBook. Expose les `update_*` (compteurs, nom/description
-  de pièce, sorties, items au sol, inventaire, NPCs, quêtes, messages chat) — tous alimentés
-  en dur par `main.cpp`, pas par le serveur.
-- **`main.cpp`** — `QApplication`, icône, gestion de SIGINT (`quit` via la queue d'événements
-  Qt). Les fenêtres connexion et erreur sont **commentées** ; seule la fenêtre de jeu est
-  affichée, avec des compteurs codés en dur (42 / 21).
-
-### 5.2 Ce qui manque
-
-- 🟠 **Couche réseau du GUI** — amorcée : `connectToServer()` est branché sur le bouton, mais
-  aucun socket n'est ouvert.
-- ❌ **`clients/client.cpp` n'est pas listé dans `CMakeLists.txt`** (la classe `Client` existe
-  côté CLI mais n'est pas utilisée par le GUI).
-- ❌ Aucun envoi de commande (les clics sur sorties/items/NPC n'envoient rien).
-- ❌ Aucun parsing de réponse.
-- ❌ Aucun parsing JSON.
-- ❌ Aucun traitement d'événement asynchrone.
-- ❌ Vue de log absente → **corrigé** : `TAPLogView` en place (voir § 2.3.5), reste à y
-  router les réponses/erreurs/événements serveur.
-- ❌ Inventaire **non branché** (UI présente, données absentes).
-- 🟠 **Barre d'actions** — `TAPActionButtons` en place, clics affichent `[WIP] <ACTION>`,
-  aucun envoi réseau.
-- ❌ Panneau de combat absent.
-- ❌ Journal de quêtes — UI présente (`TAPQuestsView`), **données non branchées** (aucun
-  envoi de `QUESTS`, aucun parsing JSON).
-- ❌ Panneau de groupe absent.
-- ❌ Barre de vie absente.
-- ❌ Aucune navigation entre fenêtres (connexion → jeu, erreur → connexion).
-- ❌ `ressources.qrc` est commenté dans le `CMakeLists.txt`.
-
-### 5.3 Chemin critique
-
-Dans l'ordre d'implémentation :
-
-1. ❌ **Connexion réseau** — brancher `TAPConnectionWindow` sur le socket, gérer
-   `greeting → CONNECT → OK connected`, puis la transition vers la fenêtre de jeu.
-2. ❌ **Boucle de réception** — lecture non bloquante + découpage par `\n` + dispatch
-   `OK` / `ERR` / `EVT`, compatible avec la boucle d'événements Qt.
-3. ❌ **Branchement des widgets existants** — les clics émettent déjà la cible
-   (`get_selected_*`, direction) ; il ne manque que la couche réseau : `MOVE`, `TAKE`,
-   `DROP`, `INVENTORY`, `TALK`, et le rafraîchissement de la vue pièce après chaque action.
-4. ❌ **Parsing `LOOK`** — alimenter la vue de pièce et les compteurs.
-4. ❌ **Chat + log** — les deux vues séparées, avec les trois portées.
-5. ❌ **Inventaire et items** — TAKE / DROP / INVENTORY et rafraîchissement automatique.
-6. ❌ **NPC** — TALK et QUEST.
-7. ❌ **Quêtes** — parsing de la réponse `QUESTS` (liste JSON) et branchement de
-   `TAPQuestsView` via `TAPGameWindow::update_quests`.
-8. ❌ **Combat** — STATUS, ATTACK, barres de vie.
-9. ❌ **Quêtes et groupe** — QUEST, GROUP *.
-
-Les blocs 1 à 4 constituent le socle : la barre d'actions ne peut être branchée qu'une fois le
-dispatch en place, et aucune action contextuelle n'est possible avant.
+- `CMAKE_CXX_STANDARD 17` côté GUI (le serveur et le CLI compilent en C++20).
+- `CATALOG_DEFAULT_DIR` pointe vers `game/ressources/`, ce qui permet au GUI de traduire les
+  ids en noms sans serveur.
+- `make -C clients/gui valgrind` exécute le binaire sous Valgrind avec
+  `clients/gui/valgrind-suppressions.txt` (allocations de Qt, glib/GTK, OpenGL/glvnd, loader
+  glibc). Résultat sur Linux / Qt 5.15 : **0 erreur, aucun octet perdu** ; seul du « still
+  reachable » (globals et caches des bibliothèques) demeure, ce que Valgrind ne compte pas
+  comme fuite.

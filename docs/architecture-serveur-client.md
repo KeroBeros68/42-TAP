@@ -43,7 +43,7 @@ Deux programmes distincts coopèrent :
 
 C'est le principe fondamental du client-serveur : **le client est bête, le serveur est autoritaire.**
 Si un client décidait seul qu'il peut traverser un mur, le serveur le lui refuserait quand même
-(voir `Game::move` dans `server/game.cpp:79`). Le client ne fait qu'afficher.
+(voir `Game::move` dans `game/`). Le client ne fait qu'afficher.
 
 > 💡 **Pourquoi cette séparation ?**
 > Parce qu'un client peut être modifié par n'importe qui (il tourne sur la machine du joueur).
@@ -57,34 +57,41 @@ Si un client décidait seul qu'il peut traverser un mur, le serveur le lui refus
    ┌──────────────────────┐                        ┌──────────────────────┐
    │   client CLI         │                        │   client GUI (Qt)    │
    │   clients/cli/       │                        │   clients/gui/       │
-   │                      │                        │   (WIP, pas encore   │
-   │   + clients/client   │                        │    branché au réseau)│
-   │       .cpp / .hpp    │                        │                      │
-   └──────────┬───────────┘                        └──────────────────────┘
-              │
-              │   TCP, une commande texte par ligne
-              │   ex. "LOOK\n"  -->  "OK {...}\n"
-              │
-   ┌──────────▼───────────────────────────────────────────────────────────┐
+   │                      │                        │                      │
+   │   + clients/client   │                        │   + clients/client   │
+   │       .cpp / .hpp    │                        │       .cpp / .hpp    │
+   │                      │                        │   + clients/state/   │
+   │                      │                        │     Session+GameState│
+   └──────────┬───────────┘                        └──────────┬───────────┘
+              │                                               │
+              │   TCP, une commande texte par ligne           │
+              │   ex. "LOOK\n"  -->  "OK {...}\n"             │
+              │                                               │
+   ┌──────────▼───────────────────────────────────────────────▼───────────┐
    │                          SERVEUR  (server/)                          │
    │                                                                      │
-   │   Server ──── sockets, poll(), sessions   (server/server.cpp)        │
+   │   Server ──── sockets, poll(), sessions (server/network/server.cpp)  │
    │      │                                                               │
    │      │  appelle les handlers enregistrés                             │
    │      ▼                                                               │
-   │   commands.cpp ── CONNECT / LOOK / MOVE / (stubs)                    │
-   │      │                                                               │
+   │   commands.cpp ── les 15 commandes RFC + DEFEND / FLEE / USE         │
+   │      │            (server/protocol/commands.cpp)                     │
    │      │  lit et modifie l'état du jeu                                 │
    │      ▼                                                               │
-   │   Game ──── joueurs + monde              (server/game.cpp)           │
+   │   Game ──── joueurs + monde + combats + quêtes + groupes             │
    │      │                                                               │
    │      ▼                                                               │
-   │   World ──── pièces, items, NPC          (game/world.cpp)            │
+   │   World ──── pièces, items, NPC          (game/world/world.cpp)      │
    │      ▲                                                               │
-   │      │  chargés au démarrage depuis le JSON                          │
+   │      │  chargés et validés au démarrage depuis le JSON               │
    │   game/ressources/*.json                                             │
    └──────────────────────────────────────────────────────────────────────┘
 ```
+
+Les deux clients partagent le **même** moteur réseau `clients/client.cpp`. La seule différence
+est ce qu'ils en font : le CLI affiche les lignes brutes, le GUI les donne à `Session`
+(`clients/state/`), qui les traduit en `GameState` et prévient les widgets de la section à
+redessiner. Le GUI ne parse donc jamais le protocole lui-même.
 
 Le client et le serveur partagent **un seul vocabulaire commun** : les constantes du protocole,
 définies dans `shared/defines.hpp` (`CMD_LOOK`, `SERVER_PORT`, `LINE_END`…). C'est ce qui garantit
@@ -94,43 +101,48 @@ que les deux côtés écrivent exactement les mêmes chaînes de caractères.
 
 ```
 42-TAP/
-├── server/              # Le serveur (un seul exécutable : "server")
-│   ├── main.cpp         #   point d'entrée : crée Server + Game, boucle
-│   ├── server.hpp/.cpp  #   cœur réseau : sockets, poll(), sessions
-│   ├── connection.hpp/.cpp  # les buffers d'E/S d'UN client
-│   ├── user.hpp/.cpp    # l'identité d'UN client (pseudo, authentifié ?)
-│   ├── commands.hpp/.cpp#   les handlers du protocole
-│   ├── game.hpp/.cpp    #   l'état du jeu (qui est où)
-│   ├── signalFd.hpp/.cpp#   arrêt propre sur Ctrl+C
-│   └── defines.hpp      #   constantes internes au serveur
+├── server/                  # Le serveur (un seul exécutable : "server")
+│   ├── main.cpp             #   point d'entrée : crée Server + Game, boucle
+│   ├── network/             #   LA COUCHE RÉSEAU — ne connaît pas le jeu
+│   │   ├── server.hpp/.cpp  #     sockets, poll(), sessions, signalfd
+│   │   ├── connection.hpp/.cpp #  les buffers d'E/S d'UN client
+│   │   └── user.hpp/.cpp    #     l'identité d'UN client (pseudo, authentifié ?)
+│   └── protocol/            #   LA COUCHE JEU VUE DEPUIS LE FIL
+│       ├── commands.hpp/.cpp#     les handlers du protocole (15 RFC + 3 maisons)
+│       └── config.hpp/.cpp  #     lecture de la configuration d'environnement
+│
+├── game/                    # Le monde et les règles — compilé DANS LE SERVEUR
+│   ├── world/               #   le monde entier, une pièce, le parser JSON,
+│   │                        #   les spawns, la file de respawn, la présence
+│   ├── entities/            #   item, npc, player, inventory, stats, instances
+│   ├── combat/              #   règles pures + CombatManager (tours, timers)
+│   ├── quests/              #   QuestManager (deliver / fetch / defeat)
+│   ├── group/               #   GroupManager
+│   ├── events/              #   EventBus (file de (destinataires, ligne))
+│   ├── utils/               #   lookup.hpp : id / nom / mot d'un nom → instance
+│   └── ressources/*.json    #   les données du monde (room, npc, items, quests)
 │
 ├── clients/
-│   ├── client.hpp/.cpp  # Classe Client : le réseau, partagée CLI + GUI
-│   ├── defines.hpp      #   constantes internes aux clients
-│   ├── cli/             #   client texte  -> binaire "clientCLI"
-│   └── gui/             #   client Qt     -> binaire "42TAP" (WIP)
+│   ├── client.hpp/.cpp      # Classe Client : le réseau, partagée CLI + GUI
+│   ├── defines.hpp          #   constantes internes aux clients
+│   ├── state/               #   Session + GameState : la copie locale du jeu,
+│   │                        #   sans Qt et sans socket
+│   ├── cli/                 #   client texte  -> binaire "clientCLI"
+│   └── gui/                 #   client Qt     -> binaire "42TAP"
 │
-├── game/                # Le monde du jeu — utilisé par le SERVEUR uniquement
-│   ├── world.hpp/.cpp   #   le monde entier (toutes les pièces)
-│   ├── room.hpp/.cpp    #   une pièce (nom, description, sorties, items)
-│   ├── item.hpp/.cpp    #   un objet
-│   ├── npc.hpp/.cpp     #   un personnage non-joueur
-│   ├── parser.hpp/.cpp  #   lecture du JSON + écriture d'une réponse LOOK
-│   ├── stats.hpp        #   points de vie / attaque / défense
-│   └── ressources/*.json#   les données du monde (room, npc, items, quests)
-│
-└── shared/              # Code compilé à la fois par le serveur ET le client
-    ├── defines.hpp      #   LE contrat du protocole (commandes, port, séparateurs)
-    ├── errors.hpp       #   codes d'erreur et format d'une ligne "ERR ..."
-    ├── success.hpp      #   formats de succès et ligne "OK ..."
-    ├── response.hpp     #   objet retourné par un handler
-    ├── logger.hpp/.cpp  #   logs structurés
-    └── random.hpp       #   utilitaires
+└── shared/                  # Code compilé à la fois par le serveur ET les clients
+    ├── protocol/            #   LE contrat : defines, errors, success, event,
+    │                        #   response, ligne
+    ├── logging/             #   logs structurés JSON
+    ├── system/              #   loadenv, signalfd
+    └── text/                #   validation et découpe UTF-8
 ```
 
 Note une chose importante : `game/` est compilé **dans le serveur** (voir le `vpath` du
-`server/Makefile:45`), pas dans les clients. Le client n'a aucune idée de l'existence de `Room`
-ou `World` : il ne reçoit que du texte.
+`server/Makefile`), pas dans les clients. Le client n'a aucune idée de l'existence de `Room`
+ou `World` : il ne reçoit que du texte. Le GUI a bien un `Catalog` qui lit les mêmes fichiers
+que le serveur, mais uniquement pour **traduire un id en nom lisible** : il n'en déduit rien
+du jeu, et il fonctionne sans.
 
 ---
 
@@ -154,11 +166,11 @@ Ce que le serveur peut recevoir, dans le désordre :
 
 Un serveur correct doit donc **bufferiser** ce qu'il reçoit et découper lui-même aux `\n`.
 C'est exactement le rôle des `Connection::_in` / `Connection::_out` et de la boucle
-`while ((pos = c.in().find(LINE_END)) != std::string::npos)` dans `server/server.cpp:233`.
+`while ((pos = c.in().find(LINE_END)) != std::string::npos)` dans `server/network/server.cpp:233`.
 
 Le même raisonnement vaut pour l'écriture : `send()` peut n'écrire **qu'une partie** du message.
 D'où la boucle de `Server::flush` qui garde le reste dans un buffer pour le prochain tour
-(`server/server.cpp:296`).
+(`server/network/server.cpp:296`).
 
 > 💡 **À retenir :** on ne raisonne jamais en « messages » reçus, on raisonne en
 > « octets reçus → buffer → extraction des lignes complètes ».
@@ -194,11 +206,13 @@ ERR 201 NAME_IN_USE
 ERR 301 NO_EXIT
 ```
 
-**Serveur → Client, événement asynchrone** (pas encore implémenté côté serveur) :
+**Serveur → Client, événement asynchrone** :
 
 ```
-EVT ROOM CHAT alice: salut !
+EVT ROOM PRESENCE ENTER bob
+EVT ROOM CHAT alice salut !
 EVT STATS players=12
+EVT ROOM COMBAT START alice npc.wolf#11
 ```
 
 Un événement, c'est un message que le serveur envoie **de sa propre initiative**, sans avoir
@@ -274,7 +288,7 @@ while (server.getStatus()) {          // 6. LA boucle principale
 
 ### 3.2 Ouvrir la porte : `Server::start()`
 
-`Server::start()` (`server/server.cpp:27`) exécute la recette classique de tout serveur TCP.
+`Server::start()` (`server/network/server.cpp`) exécute la recette classique de tout serveur TCP.
 Chaque étape échoue de manière récupérable, d'où les `throw std::runtime_error` :
 
 ```cpp
@@ -407,7 +421,7 @@ est liée à celle de l'objet qui la possède.
 Le fd, lui, fait exception : `Connection` ne le possède pas au sens RAII, il est fermé
 **explicitement** juste avant l'effacement (`close(session.second.conn.fd())`,
 `server.cpp:125`). `SignalFd`, à l'inverse, est du RAII pur : son destructeur appelle `close()`
-sur son fd (`server/signalFd.cpp:5`).
+sur son fd (`shared/system/signalFd.cpp`).
 
 ### 3.5 Lire : `Server::readFrom()`
 
@@ -521,9 +535,13 @@ void registerCommands(Server& server, Game& game) {
     server.defineAction(CMD_MOVE, [&game](User& user, const std::string& dir) {
         return cmdMove(game, user, dir);
     });
-    // ... les commandes non encore implémentées sont branchées sur un stub
+    // ... et ainsi de suite pour les 15 commandes de la RFC
+    // plus DEFEND, FLEE et USE, qui sont les nôtres
 }
 ```
+
+La table complète fait environ cinquante lignes (`server/protocol/commands.cpp:378`) et
+couvre les 15 commandes RFC plus `DEFEND`, `FLEE` et `USE`. Il n'y a plus aucun stub.
 
 C'est le patron de conception **Command** (ou *dispatch par table*) : ajouter une commande ne
 demande aucune modification de `Server`.
@@ -550,7 +568,7 @@ static Response cmdConnect(Game& game, User& user, const std::string& name) {
 }
 ```
 
-`Response` (`shared/response.hpp`) est une petite structure qui représente « ce que je vais
+`Response` (`shared/protocol/response.hpp`) est une petite structure qui représente « ce que je vais
 répondre » avant d'en faire une ligne de texte :
 
 ```cpp
@@ -576,7 +594,7 @@ Response::success(TapOk::DATA, game.look(user.id()))
 ```
 
 > 💡 **C++ : `enum class`.**
-> `TapOk` et `TapError` sont des `enum class` (`shared/success.hpp`, `shared/errors.hpp`) :
+> `TapOk` et `TapError` sont des `enum class` (`shared/protocol/success.hpp`, `shared/protocol/errors.hpp`) :
 > une liste fermée de valeurs nommées, typées. `TapOk::DATA` ne peut pas être confondu avec
 > `TapError::NO_EXIT` ni avec un `int`, contrairement aux `enum` anciens style. Les tables
 > `tapOkPrefix()` / `tapErrorCode()` / `tapErrorName()` sont là pour convertir ces valeurs en
@@ -592,9 +610,9 @@ static Response cmdLook(Game& game, User& user) {
 }
 ```
 
-`Game::look` (`server/game.cpp:67`) récupère la pièce du joueur, la liste des **noms** des
-joueurs présents, puis délègue à `World::look` → `serializeLook` (`game/parser.cpp:118`), qui
-construit un objet JSON avec `nlohmann::json` et le sérialise sur **une seule ligne**
+`Game::look` (`game/`) récupère la pièce du joueur, la liste des **noms** des joueurs présents,
+puis délègue à `World::look` → `serializeLook` (`server/protocol/serializer.cpp`), qui construit
+un objet JSON avec `nlohmann::json` et le sérialise sur **une seule ligne**
 (`dump(-1, ...)` : `-1` = pas d'indentation, justement parce qu'un message TAP ne peut pas
 contenir de `\n`).
 
@@ -610,7 +628,7 @@ de destructeur. Pour un serveur, c'est inacceptable (et pour le GUI Qt, c'est la
 « fuites » décrites dans le `README.md`).
 
 La solution est le **`signalfd`** (spécifique à Linux), implémenté dans
-`server/signalFd.cpp` :
+`shared/system/signalFd.cpp` :
 
 ```cpp
 void SignalFd::add(int sig)  { sigaddset(&_mask, sig); }        // "je veux ce signal"
@@ -662,18 +680,23 @@ NpcDb       npc_database;
 ItemDb      item_database;
 ```
 
-`World::World()` appelle `loadWorld()`, qui lit `game/ressources/room.json` et `npc.json` via
-`parser.cpp` et la bibliothèque `nlohmann/json`, puis **valide** le contenu
-(`game/world.cpp:39`) :
+`World::World()` appelle `loadWorld()`, qui lit les quatre fichiers de `game/ressources/`
+(`room.json`, `npc.json`, `items.json`, `quests.json`) via `game/world/parser.cpp` et la
+bibliothèque `nlohmann/json`, puis **valide** le contenu :
 
 - toute sortie doit pointer vers une pièce qui existe ;
-- sinon on lève une exception → le serveur refuse de démarrer. Mieux vaut un crash net au
-  démarrage qu'un monde silencieusement cassé en production ;
+- chaque `spawn` d'une pièce doit référencer un NPC ou un item présent dans sa base ;
+- la pièce de départ et celle du respawn doivent exister ;
+- les statistiques d'un NPC doivent être valides (des PV et une attaque cohérents) ;
+- sinon on lève une exception → le serveur refuse de démarrer avec un message qui nomme le
+  fichier et la pièce fautive (code retour 1). Mieux vaut un refus net au démarrage qu'un monde
+  silencieusement cassé en production. Vérifié à l'exécution en injectant un exit
+  `north → loc.nowhere` ;
 - une sortie sans retour (« one-way exit ») n'est qu'un avertissement (`LOG_WARN`).
 
 Le chemin des fichiers JSON est injecté à la compilation par le Makefile
-(`-DPROJECT_ROOT="$(abspath ..)"`, `server/Makefile:108`), ce qui explique la macro
-`#ifndef PROJECT_ROOT` en haut de `world.cpp` : le code reste compilable sans elle.
+(`-DPROJECT_ROOT="$(abspath ..)"`), ce qui explique la macro `#ifndef PROJECT_ROOT` en haut de
+`world.cpp` : le code reste compilable sans elle.
 
 Qui contient quoi, en résumé :
 
@@ -690,7 +713,7 @@ maintient de son côté la liste des ids présents. Les deux sont mis à jour en
 `Game::addPlayer`, `Game::removePlayer` et `Game::move`. La liste dans la pièce sert à
 répondre vite à « qui est là ? » sans parcourir tous les joueurs.
 
-`Game::move` est le bon exemple à lire en entier (`server/game.cpp:79`) :
+`Game::move` est le bon exemple à lire en entier (`game/`) :
 
 ```cpp
 auto player = _players.find(player_id);
@@ -715,43 +738,50 @@ difficile à retrouver.
 
 ### 3.11 Ajouter une nouvelle commande — tutoriel
 
-Les commandes `CHAT`, `TAKE`, `DROP`, `INVENTORY`, `TALK`, `ATTACK`, `STATUS`, `QUEST`,
-`QUESTS`, `WHO`, `GROUP` et `QUIT` existent dans le protocole mais sont aujourd'hui branchées
-sur `cmdStub`, qui répond invariablement `OK Message received` (`server/commands.cpp:33`).
-Prenons `WHO` pour voir comment en implémenter une pour de vrai.
+Toutes les commandes du protocole sont implémentées. Pour en ajouter une (par exemple `SING`),
+il faut toucher les trois couches, dans cet ordre.
 
-**Étape 1 — la logique dans `Game`.** `Game` expose déjà `playerCount()` :
+**Étape 1 — le nom, dans `shared/defines.hpp`.** Une seule constante, pour que le
+serveur et les clients écrivent exactement la même chaîne :
 
 ```cpp
-size_t Game::playerCount() const { return _players.size(); }
+# define CMD_SING	"SING"
 ```
 
-**Étape 2 — le handler, dans `commands.cpp` :**
+**Étape 2 — la logique, dans `game/`.** Le handler ne doit rien savoir du réseau : il prend un
+identifiant de joueur, modifie l'état, et renvoie un résultat simple. Si la commande touche
+les autres joueurs, c'est l'`EventBus` qui pousse la ligne (`game.send(...)`,
+`game.toRoom(...)`), pas le handler.
+
+**Étape 3 — le handler et son branchement, dans `server/protocol/commands.cpp`.** Le handler
+traduit le résultat du jeu en `Response` :
 
 ```cpp
-static Response cmdWho(Game& game, User&) {
-    return Response::success(TapOk::PLAYERS, std::to_string(game.playerCount()));
+static Response cmdSing(Game& game, User& user, const std::string& args) {
+	if (!user.isAuthenticated())
+		return Response::failure(TapError::NOT_CONNECTED);
+	game.sing(user.id(), args);
+	return Response::success(TapOk::DATA, "sung");
 }
 ```
 
-`TapOk::PLAYERS` a pour préfixe `"players="` (`shared/success.hpp:28`), donc `line()` produit
-`OK players=3` — exactement ce que demande le RFC § 5.2.2.
-
-**Étape 3 — le branchement.** Dans `registerCommands`, retirer `CMD_WHO` du tableau `stubs[]`
-et ajouter :
+puis une ligne dans `registerCommands` (la table `std::unordered_map<std::string,
+std::function<Response(User&, const std::string&)>>`) :
 
 ```cpp
-server.defineAction(CMD_WHO, [&game](User& user, const std::string&) {
-    return cmdWho(game, user);
-});
+commands[CMD_SING] = [&game](User& user, const std::string& args) {
+	return cmdSing(game, user, args);
+};
 ```
 
-C'est tout. `Server` n'a pas été touché, `handeLine` non plus. Le client, lui, recevra
-`OK players=3` dans son handler `"OK"` sans rien changer s'il se contente d'afficher la ligne.
+C'est tout. `Server` n'a pas été touché, `handeLine` non plus : elle met le mot en majuscules,
+le cherche dans la table, appelle `runAction` (qui contient les exceptions) et renvoie la ligne.
+Le client recevra `OK sung` dans son handler `"OK"` sans rien changer.
 
-**Le chemin à retenir :** `shared/defines.hpp` (le nom de la commande) → `commands.cpp`
-(le handler + le branchement) → `game.cpp` (la logique d'état). Cette séparation en trois
-couches est ce qui rend le serveur lisible.
+**Le chemin à retenir :** `shared/defines.hpp` (le nom) → `server/protocol/commands.cpp`
+(le handler + le branchement) → `game/` (la logique d'état, qui pousse ses événements dans
+l'`EventBus`). Cette séparation en trois couches est ce qui rend le serveur lisible, et c'est
+elle qui permet de tester les règles du jeu sans aucune socket.
 
 ---
 
@@ -900,66 +930,78 @@ while (client.update()) {}          // tourne jusqu'à déconnexion ou Ctrl+D
 `update()` renvoie `false` dans deux cas : la connexion est perdue, ou le clavier a renvoyé
 `0` — c'est-à-dire un Ctrl+D (`clients/client.cpp:132`).
 
-### 4.5 Le client GUI (Qt) — état actuel
+### 4.5 Le client GUI (Qt)
 
-⚠️ **Le GUI n'est pas encore branché sur le réseau.** C'est un chantier en cours, et il faut
-le savoir avant de lire `clients/gui/`, sinon on cherche partout une connexion qui n'existe pas.
+**Le GUI est branché sur le réseau.** Il partage le même `Client` que le CLI et ajoute par-dessus
+une couche d'état, `clients/state/`, qui le dispense de parser le protocole.
 
-Ce qui existe : les fenêtres Qt (`TAPConnectionWindow`, `TAPErrorWindow`, `TAPGameWindow`) et
-leurs widgets, avec des méthodes de mise à jour propres (`update_room_name`,
-`update_room_description`, `update_available_exits`, `update_total_players_label`…).
+```
+Client (socket) ──► Session ──► GameState ──► onChanged(Section) ──► widgets Qt
+                        ▲
+      clics des widgets ┘──► Session::send() ──► Client::send()
+```
 
-Ce qui n'existe pas encore :
+- **`Client`** — inchangé : `connect()`, `send()`, `update(timeout)`, et les trois actions
+  `OK` / `ERR` / `EVT`. Le GUI ne redéfinit aucune de ces trois actions : elles appartiennent à
+  `Session`, qui les prend dans `listen()`.
+- **`Session`** (`clients/state/session.cpp`) — reçoit une référence au `Client`, empile chaque
+  commande émise dans `std::deque<Pending> _pending`, et recolle chaque réponse à sa commande
+  grâce à l'ordre garanti par le serveur (une ligne `OK`/`ERR` par commande, dans l'ordre
+  d'arrivée). Elle tient un `GameState` et un `Catalog`, et prévient la fenêtre par
+  `onChanged(Section)`.
+- **`GameState`** — la copie locale : pièce, joueurs, items, NPC, inventaire, PV, combat,
+  quêtes, groupe, chat par portée, journal, phase.
+- **`TAPGameWindow::update_gui(Section)`** — un `switch` par section ; chaque branche
+  redessine ses widgets depuis l'état. Aucun widget ne lit une ligne du protocole.
+- **`TAPConnectionWindow`** — ouvre la socket, envoie `CONNECT <nom>`, attend `OK connected`
+  (phase `AUTHENTICATED`) pour montrer la fenêtre de jeu, et affiche `ERR 201 NAME_IN_USE` ou
+  l'échec de `connect()` dans `TAPErrorWindow`.
 
-- `clients/gui/CMakeLists.txt` ne compile **pas** `clients/client.cpp` : le binaire `42TAP`
-  ne contient aucune classe `Client`.
-- Le `main` du GUI (`clients/gui/main.cpp`) affiche la fenêtre de jeu avec des **données
-  codées en dur** (le nom `"42 datacenter"`, une description d'ambiance, quatre sorties) et la
-  fenêtre de connexion est en commentaire.
-- `app.exec;` en ligne 51 : il manque les parenthèses — c'est `app.exec();` qu'il faut écrire
-  pour entrer dans la boucle d'événements Qt. En l'état, l'instruction ne fait rien.
-- Le port par défaut du formulaire de connexion est `"4224"` (`tap_connection_window.hpp:13`)
-  alors que le serveur écoute sur `8080` (`shared/defines.hpp:6`).
+**La boucle d'événements.** Qt a sa propre boucle (`app.exec()`), et `Client::update()` a la
+sienne (`poll`). Le GUI résout le conflit avec un **`QTimer` de 50 ms** (`clients/gui/main.cpp`) :
 
-**Le problème d'architecture à résoudre** pour brancher le GUI : Qt a sa propre boucle
-d'événements (`app.exec()`), et `Client::update()` a la sienne (`poll`). Les deux ne peuvent
-pas bloquer le même thread. Les solutions habituelles :
+```cpp
+QObject::connect(&server_timer, &QTimer::timeout, [&client, &session] {
+    if (!client.isConnected())
+        return;
+    if (!client.update(0))
+        session.handleDisconnect();     // la socket ouverte est tombée
+});
+server_timer.start(50);
+```
 
-1. **Un `QSocketNotifier` sur le fd du client** — Qt surveille le socket et appelle un slot
-   quand des données arrivent. C'est la solution la plus « Qt », mais elle demande d'exposer
-   le `fd` et de découper les lignes côté GUI, ou d'ajouter un mode non bloquant à `Client`.
-2. **Un `QTimer`** qui appelle `client.update(0)` toutes les X ms — `update(0)` étant un
-   `poll` à timeout nul, il ne bloque jamais. Simple, mais introduit une latence et du
-   polling inutile.
-3. **Un thread dédié** au réseau, qui communique avec le thread GUI par signaux/slots Qt
-   (connexion `Qt::QueuedConnection`). Plus lourd, mais c'est le plus propre si le réseau
-   devient complexe.
+`update(0)` est un `poll` à timeout nul : il ne bloque jamais le thread graphique, et les
+événements s'affichent pendant que le joueur tape dans un champ. Les alternatives envisagées
+(`QSocketNotifier` sur le fd, ou un thread réseau dédié) ne se justifiaient pas pour un trafic
+de cette taille. Une boucle `while (client.update()) {}` dans le `main` du GUI serait, elle,
+interdite : elle figerait la fenêtre, alors que le sujet exige un client réactif en permanence.
 
-La contrainte du sujet est claire : le client doit rester réactif **en permanence** pendant la
-réception d'événements asynchrones (voir `docs/GUI/cahier-des-charges.md` § 1). Une boucle
-bloquante dans le thread graphique est donc interdite — ce qui élimine d'office un
-`while (client.update()) {}` dans le `main` du GUI.
+**Ce qui reste ouvert** (voir `docs/GUI/cahier-des-charges.md` § 5.2) : aucun retour à l'écran de
+connexion quand la socket est perdue ou sur `QUIT`, pas de panneau de dialogue dédié pour
+`TALK`, et deux boutons du §V.4 (`STATUS`, `QUESTS`) absents de la barre d'actions.
 
 ---
 
 ## 5. Le dossier `shared/`
 
 L'intention de `shared/` est d'être **le contrat commun** : ce que le serveur et le client
-doivent impérativement écrire de la même façon. En pratique aujourd'hui, un seul de ces
-fichiers est réellement inclus par les deux côtés (`defines.hpp`) ; les autres sont la
-description du protocole côté serveur, qu'un client pourra réutiliser quand il voudra
-interpréter `"OK"` / `"ERR"` autrement qu'en affichant la ligne brute.
+doivent impérativement écrire de la même façon. `defines.hpp` est réellement inclus des deux
+côtés ; les autres sont la description du protocole côté serveur, qu'un client pourra
+réutiliser quand il voudra interpréter `"OK"` / `"ERR"` autrement qu'en affichant la ligne brute.
 
 | Fichier | Contenu | Inclus par |
 |---|---|---|
-| `defines.hpp` | `SERVER_PORT`, `LINE_END`, `CMD_SEPARATOR`, `MAX_LINE_LENGTH`, `CMD_*`, `DIR_*` | **serveur + client** |
-| `errors.hpp` | `enum class TapError`, `tapErrorCode()`, `tapErrorName()`, `tapErrorLine()` | serveur (via `response.hpp`) |
-| `success.hpp` | `enum class TapOk`, `tapOkPrefix()`, `tapOkLine()` | serveur (via `response.hpp`) |
-| `response.hpp` | `struct Response` (+ `success()` / `failure()`) | serveur |
-| `logger.hpp/.cpp` | logs structurés en JSON, avec niveaux et couleurs | serveur |
-| `random.hpp` | utilitaires aléatoires | serveur (`game/npc.cpp`) |
+| `defines.hpp` | `SERVER_PORT`, `LINE_END`, `CMD_SEPARATOR`, `MAX_LINE_LENGTH`, `CMD_*`, `DIR_*`, les variables d'environnement | **serveur + clients** |
+| `protocol/errors.hpp` | `enum class TapError`, `tapErrorCode()`, `tapErrorName()`, `tapErrorLine()` | serveur (via `response.hpp`) |
+| `protocol/success.hpp` | `enum class TapOk`, `tapOkPrefix()`, `tapOkLine()` | serveur (via `response.hpp`) |
+| `protocol/response.hpp` | `struct Response` (+ `success()` / `failure()`) | serveur |
+| `protocol/event.hpp` | les mots des `EVT` (`PRESENCE`, `CHAT`, `COMBAT`, `SPAWN`…) | serveur |
+| `protocol/line.hpp`, `chat.hpp`, `player_name.hpp` | format d'une ligne, portées du chat, validation d'un pseudo | serveur |
+| `logging/logger.hpp/.cpp` | logs structurés en JSON, avec niveaux et couleurs | serveur |
+| `system/` | `loadenv`, `signalfd`, `random` | serveur + clients |
+| `text/` | validation et découpe UTF-8 | serveur |
 
-À noter : `clients/cli/Makefile` ne compile **pas** `shared/logger.cpp` — le client CLI
+À noter : `clients/cli/Makefile` ne compile **pas** `shared/logging/logger.cpp` — le client CLI
 n'utilise pas le logger du tout et écrit directement sur `std::cout` / `std::cerr`. C'est
 cohérent : les logs structurés sont un besoin de serveur (exploiter des traces), pas de client.
 
@@ -1048,15 +1090,15 @@ CLIENT                                    SERVEUR
   │                                          │      pour chaque id dans rooms["loc.square"].currentPlayer()
   │                                          │          -> chercher son nom dans _players
   │                                          │      world.look(map, noms)
-  │                                          │        serializeLook(room, players, {})
+  │                                          │        serializeLook(room, players, items, npcs)
   │                                          │          -> JSON sur UNE ligne
   │  ◄── "OK {"room":{"id":"loc.square",…}}\n"
   │  _actions["OK"] affiche la ligne
 ```
 
-À noter : `serializeLook` reçoit `{}` comme liste de NPC (`game/world.cpp:49`). La clé `"npcs"`
-du JSON est donc **toujours vide** aujourd'hui, alors que `room.json` déclare bien des
-`"spawns"`. C'est une partie du travail non encore faite, pas un bug.
+`serializeLook` reçoit les instances réellement présentes dans la pièce : les ids des items
+au sol et ceux des NPC vivants, en plus du nom de la pièce, de sa description, de ses sorties
+et des joueurs présents.
 
 Chaque `LOOK` recalcule tout depuis zéro et renvoie l'état complet. Le client ne stocke rien
 d'autoritaire : il redemande.
@@ -1168,33 +1210,49 @@ Tout le reste du fichier n'est que l'implémentation de ces six étapes.
 Depuis la racine du dépôt :
 
 ```bash
-make            # installe les dépendances, compile, puis lance serveur + client
-make build      # compile seulement (server + client CLI)
-make client     # compile et lance le client CLI seul, dans le terminal courant
-make gui        # compile et lance le client Qt
-make clean      # supprime les .o
-make fclean     # supprime aussi les binaires
-make re         # fclean + all
+make                # installe les dépendances puis compile tout (serveur + CLI + GUI)
+make install-deps   # télécharge et vérifie nlohmann/json
+make build          # compile le serveur et le CLI
+make build-gui      # compile le client Qt
+make run-server     # lance le serveur
+make run-client     # lance le client CLI
+make run-client-gui # compile et lance le client Qt
+make lint           # -fsyntax-only sur tous les fichiers, sans produire de binaire
+make clean          # supprime les .o
+make fclean         # supprime aussi les binaires
+make re             # fclean + build
 ```
 
-`make` délègue à trois sous-Makefiles, et c'est **le même code compilé deux fois** :
+`make` délègue à trois fichiers de build, et c'est **le même moteur réseau compilé trois fois** :
 
-| Sous-make | Binaire | Compile |
+| Sous-build | Binaire | Compile |
 |---|---|---|
-| `server/Makefile` | `server/server` | `server/*.cpp` + `game/*.cpp` + `shared/*.cpp` |
+| `server/Makefile` | `server/server` | `server/**/*.cpp` + `game/**/*.cpp` + `shared/**/*.cpp` |
 | `clients/cli/Makefile` | `clients/cli/clientCLI` | `clients/cli/main.cpp` + `clients/client.cpp` |
-| `clients/gui/CMakeLists.txt` | `clients/gui/build/42TAP` | les fichiers Qt + `main.cpp` (**pas** `client.cpp`) |
+| `clients/gui/CMakeLists.txt` | `clients/gui/build/42TAP` | les fichiers Qt + `main.cpp` + `clients/client.cpp` + `clients/state/*.cpp` + `shared/system/*.cpp` |
 
-Le `vpath %.cpp ../game:../shared` du `server/Makefile:45` est ce qui permet de compiler des
-fichiers situés hors du dossier `server/` ; comme tous les objets atterrissent à plat dans
-`Obj/` via `notdir`, **deux fichiers de même nom dans des dossiers différents
-s'écraseraient**. C'est une contrainte à connaître avant d'ajouter un fichier.
+Le `vpath` du `server/Makefile` est ce qui permet de compiler des fichiers situés hors du
+dossier `server/` ; comme tous les objets atterrissent à plat dans `Obj/` via `notdir`,
+**deux fichiers de même nom dans des dossiers différents s'écraseraient**. C'est une contrainte
+à connaître avant d'ajouter un fichier.
 
 La dépendance externe est `nlohmann/json` (un header unique), téléchargé par
 `make install-deps` et vérifié par une somme SHA-256 avant d'être utilisé — il n'est pas
 versionné dans git.
 
-Compilation en `-Wall -Werror -Wextra -std=c++17` : **aucun avertissement n'est toléré**.
+Compilation en `-Wall -Werror -Wextra -std=c++20` côté serveur et CLI : **aucun avertissement
+n'est toléré**. Le GUI reste en C++17 (`CMAKE_CXX_STANDARD 17`), parce que Qt 5 n'exige pas
+plus.
+
+`make lint` passe `-fsyntax-only` sur chaque fichier avec un jeu de warnings plus large
+(`-Wpedantic -Wshadow -Wconversion -Wold-style-cast -Wnon-virtual-dtor -Wcast-align
+-Wnull-dereference -Wdouble-promotion -Wformat=2`). Le compilateur est écrit en dur comme
+`c++` dans le `Makefile` (racine, cible `lint`). Sur une machine où `c++` est **g++**, tout
+passe sans un mot. Sur celle où `c++` pointe vers **clang 12**, il remonte des
+`-Wgnu-zero-variadic-macro-arguments` sur les appels `LOG_*` sans argument variable et des
+`-Wsign-conversion` sur les résultats de `recv` : c'est un écart de compilateur, pas une
+erreur de code. Le même contrôle, fait fichier par fichier avec `g++` et les mêmes flags,
+passe sur les 28 fichiers.
 
 ---
 
@@ -1205,65 +1263,75 @@ pour la compréhension, mais tout est bon à savoir.
 
 ### Comportements à ne pas prendre pour des bugs
 
-- **`_actions` est sensible à la casse.** Le RFC § 4.2 annonce des commandes insensibles à la
-  casse ; `handeLine` compare la chaîne telle quelle. `look` en minuscules → `ERR 400`.
-- **`LOOK` renvoie toujours `"npcs":[]`.** `Game::look` passe une liste vide à
-  `serializeLook` (`game/world.cpp:49`), alors que `room.json` déclare des `"spawns"`.
-  Les NPC sont chargés dans `World::npc_database` mais jamais peuplés dans les pièces.
-- **`item_database` n'est pas chargé.** `World::loadWorld` lit `npc.json` et `room.json` mais
-  pas `items.json` : les objets d'une pièce sont de simples identifiants (`"item.herbs"`),
-  sans nom ni description.
-- **Les commandes non implémentées répondent `OK Message received`.** Un client qui teste
-  `TAKE` croira que ça a marché. C'est un stub assumé (`server/commands.cpp:33`).
-- **Aucun événement `EVT` n'est jamais envoyé.** Le handler `"EVT"` du client CLI existe mais
-  ne se déclenchera pas tant que le serveur n'émet rien. Or les joueurs ne sont pas notifiés
-  quand quelqu'un entre ou sort d'une pièce.
-- **`MOVE` construit `"room="` à la main** avec `TapOk::DATA` (`server/commands.cpp:27`) alors
-  que `TapOk::ROOM` existe et produit exactement le même préfixe. Ça marche, mais la constante
-  dédiée serait plus lisible.
-- **Le port du GUI (`4224`) ne correspond pas à celui du serveur (`8080`).**
-  `tap_connection_window.hpp:13` vs `shared/defines.hpp:6`.
-- **`app.exec;` sans parenthèses** dans `clients/gui/main.cpp:51` : l'instruction ne fait rien.
+- **Les commandes sont insensibles à la casse.** `Server::handeLine` met le mot de commande en
+  majuscules (`std::toupper`, `server/network/server.cpp:204`) avant de le chercher dans le
+  dispatcher : `look`, `Look` et `LOOK` sont équivalents, conformément à la RFC § 4.2. Les
+  **arguments**, eux, sont passés tels quels à `lookup.hpp`, qui accepte id, nom ou un mot du
+  nom, dans n'importe quelle casse.
+- **Toute commande hors protocole répond `ERR 400`**, jamais un `OK` de façade : il n'y a plus
+  de stubs.
+- **Le serveur émet des événements.** `EVT ROOM PRESENCE ENTER|LEAVE`, `EVT ROOM|GLOBAL|GROUP
+  CHAT`, `EVT GROUP INVITE|JOIN|LEAVE`, `EVT STATS`, et les événements propres au projet
+  (`EVT ROOM COMBAT *`, `EVT ROOM ITEM TAKEN|DROPPED`, `EVT ROOM SPAWN`, `EVT ROOM EFFECT`,
+  `EVT ROOM DEATH`, `EVT INVENTORY CHANGED`). L'`EventBus` les met en file et la boucle
+  principale les vide après chaque tour.
+- **Le port du GUI est `8080`**, celui du serveur (`tap_connection_window.hpp`, `_remote_port`).
+- **`app.exec()` a bien ses parenthèses** (`clients/gui/main.cpp`) : la boucle Qt démarre.
+- **Les NPC et les objets d'une pièce sont bien peuplés** : `World` charge les quatre fichiers
+  JSON, valide chaque `spawn` contre `npc.json` et `items.json`, refuse de démarrer si une
+  référence est cassée, et chaque pièce reçoit ses instances au chargement.
 
 ### Fragilités de conception
 
-- **Ordre de destruction dans `main`.** `Server server;` est déclaré **avant** `Game game;`,
-  donc `game` est détruit **en premier**. Or les lambdas de `_actions` capturent `game` par
-  référence. Aujourd'hui c'est sans conséquence (`~Server` ne fait que fermer des sockets et
-  n'appelle aucun handler), mais c'est un piège latent : si un jour `~Server` devait exécuter
-  une action, elle toucherait un `Game` déjà détruit. Déclarer `Game game;` **avant**
-  `Server server;` supprimerait le problème.
-- **`SignalFd::open()` renvoie un `int` converti en `bool`** (`server/signalFd.cpp:16`) :
-  `if (_fd != INVALID_FD) return _fd;`. Un descripteur valant `0` serait donc interprété comme
-  un échec. Dans la pratique `_fd` ne vaut jamais 0 ici, mais un `return _fd != INVALID_FD;`
-  serait correct.
+- **Ordre de destruction dans `main`.** `Server server;` est déclaré **avant** `Game game;`
+  (`server/main.cpp:31-32`), donc `game` est détruit **en premier**. Or les lambdas de
+  `_actions` capturent `game` par référence. Aujourd'hui c'est sans conséquence (`~Server` ne
+  fait que fermer des sockets et n'appelle aucun handler), mais c'est un piège latent : si un
+  jour `~Server` devait exécuter une action, elle toucherait un `Game` déjà détruit. Déclarer
+  `Game game;` **avant** `Server server;` supprimerait le problème.
+- **`SignalFd::open()` renvoie un `int` converti en `bool`** (`shared/system/signalFd.cpp`) :
+  `if (_fd != INVALID_FD) return _fd;`. Un descripteur valant `0` serait donc interprété
+  comme un échec. Dans la pratique `_fd` ne vaut jamais 0 ici, mais un
+  `return _fd != INVALID_FD;` serait correct.
 - **`Server::handeLine` est appelée sur une session qui peut avoir été marquée fermée**
   pendant `readFrom`. Une ligne reçue juste avant un `recv() == 0` est tout de même traitée.
   Ce n'est pas faux (les données reçues avant la fermeture sont valides) mais c'est un
   enchaînement à connaître.
-- **`Game::playerMap` et `Game::look` utilisent `.at()`**, qui lève `std::out_of_range` si la
-  clé n'existe pas. Les handlers vérifient `hasPlayer` avant, donc c'est couvert — sauf que
-  `handeLine` n'attrape aucune exception : une exception qui remonterait ferait sortir par le
-  `catch` de `main` et tuerait le serveur entier. Un `try/catch` autour de l'appel au handler
-  limiterait les dégâts à une connexion.
-- **Pas de verrou sur l'état du jeu.** Tout est mono-thread aujourd'hui, ce qui rend le
-  problème de concurrence inexistant — mais cela signifie aussi que `poll()` doit rester la
-  seule boucle. Introduire un thread (par exemple pour les combats en temps réel) demanderait
-  de protéger `_sessions`, `_players` et les `Room`.
-- **Rien n'empêche un client d'inonder le serveur de commandes.** Le garde-fou de
-  `MAX_LINE_LENGTH` limite la taille d'**une** ligne, pas le débit. Le RFC § 9.2 évoque ces
-  questions sans les imposer.
+- **Pas de verrou sur l'état du jeu.** Tout est mono-thread, ce qui rend le problème de
+  concurrence inexistant — mais cela signifie aussi que `poll()` doit rester la seule boucle.
+  Introduire un thread (par exemple pour des combats en temps réel) demanderait de protéger
+  `_sessions`, les joueurs et les `Room`.
+
+### Ce qui a été durci
+
+Ces points figuraient encore comme des fragilités dans une version antérieure de ce document ;
+ils sont depuis traités dans le code :
+
+- **Toute exception d'un handler est contenue.** `Server::runAction`
+  (`server/network/server.cpp:232`) emballe l'appel au handler dans un `try/catch`
+  (`std::exception` et `...`) : une erreur est journalisée en `ERROR` et la réponse est
+  `ERR <code d'erreur interne>`, le serveur et les autres connexions continuent.
+- **Le débit est limité, pas seulement la taille des lignes.** Le serveur compte les commandes
+  par fenêtre ; au-delà du seuil la réponse est `ERR 429 RATE_LIMITED`, avec un
+  `WARN command flooding` dans le journal. Les plafonds (sessions par IP, sessions totales,
+  fenêtres de flood) sont des variables d'environnement documentées dans le README.
+- **Une écriture qui casse n'arrête pas le serveur.** `MSG_NOSIGNAL` et des sockets non
+  bloquantes évitent le `SIGPIPE` ; l'échec est journalisé en `WARN` (`send failed`) et la
+  session concernée est retirée au tour suivant.
 
 ### Côté GUI
 
-- Le `main` du GUI utilise des données de test en dur : rien n'est reçu du serveur.
-- La fenêtre de connexion n'est pas reliée à `TAPConnectionWindow::connectToServer`, qui se
-  contente d'un `std::cout` (`tap_connection_window.cpp:53`).
-- Le `main` ne vérifie pas le retour de `show()` ni ne gère la fermeture de fenêtre.
-  Voir `docs/GUI/cahier-des-charges.md` § 4 et § 5 pour l'état détaillé et le chemin critique.
+- Le `main` ne reçoit plus de données de test : tout vient de `Session` / `GameState`, qui les
+  remplissent depuis le serveur. Le code de démonstration reste en commentaire.
+- `TAPConnectionWindow::connectToServer()` ouvre réellement la socket, envoie `CONNECT` et
+  bascule sur la fenêtre de jeu quand la phase passe à `AUTHENTICATED`.
+- **Reste ouvert** : la réaction à une connexion perdue ou à `OK bye` (retour à l'écran de
+  connexion, message), le panneau de dialogue `TALK`, et les boutons `STATUS` / `QUESTS`.
+  Voir `docs/GUI/cahier-des-charges.md` § 5.2.
 - Rappel du `README.md` : ne **jamais** arrêter le GUI avec Ctrl+C si l'on veut un rapport
-  valgrind propre — le signal saute les destructeurs Qt et fait apparaître des « fuites »
-  qui n'en sont pas.
+  valgrind propre — le signal saute les destructeurs Qt et fait apparaître des « fuites » qui
+  n'en sont pas (c'est ce que `valgrind-suppressions.txt` neutralise, avec les allocations des
+  bibliothèques).
 
 ---
 
@@ -1286,11 +1354,12 @@ Si tu ne devais retenir que cinq choses de ce document :
 
 | Ordre | Fichier | Pourquoi |
 |---|---|---|
-| 1 | `shared/defines.hpp` | Le vocabulaire commun, 38 lignes |
-| 2 | `server/main.cpp` | La structure générale en 25 lignes |
-| 3 | `server/server.cpp` → `updatePoll` + `readFrom` | Le cœur réseau |
-| 4 | `server/commands.cpp` | Les handlers, très lisibles |
-| 5 | `server/game.cpp` | La logique de jeu, séparée du réseau |
-| 6 | `game/world.cpp` + `game/parser.cpp` | Le chargement du monde |
+| 1 | `shared/defines.hpp` + `errors.hpp` + `success.hpp` | Le vocabulaire commun |
+| 2 | `server/main.cpp` | La structure générale |
+| 3 | `server/network/server.cpp` → `updatePoll` + `readFrom` | Le cœur réseau |
+| 4 | `server/protocol/commands.cpp` | Les handlers, très lisibles |
+| 5 | `game/` (`world/`, `entities/`, `combat/`, `quests/`) | La logique de jeu, séparée du réseau |
+| 6 | `game/world/parser.cpp` | Le chargement du monde |
 | 7 | `clients/client.cpp` | Le miroir côté client |
-| 8 | `clients/cli/main.cpp` | Un client complet en 39 lignes |
+| 8 | `clients/state/session.cpp` | La couche d'état du GUI |
+| 9 | `clients/cli/main.cpp` | Un client complet |
