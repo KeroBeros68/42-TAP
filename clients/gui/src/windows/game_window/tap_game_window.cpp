@@ -42,7 +42,7 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
     this->_columns_layout.addLayout(&this->_actions_side_layout, 1);
     this->_window_layout.addLayout(&this->_columns_layout, 1);
 
-    // this->_actions_side_layout.addWidget(&this->action_buttons);
+    this->_actions_side_layout.addWidget(&this->action_buttons);
     this->_actions_side_layout.addWidget(&exit_view);
     this->_actions_side_layout.addWidget(&this->npc_talk_view);
     this->_actions_side_layout.addWidget(&this->log_view, 1);

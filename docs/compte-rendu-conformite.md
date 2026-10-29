@@ -4,32 +4,33 @@
 | --- | --- |
 | Projet | TAP — *The Answer Protocol* (MUD multi-joueurs) |
 | Référentiel | `docs/TAP-subject-1.4.md` (sujet v1.4) + RFC 42TAP (`docs/protocol-rfc.html`) |
-| Branche évaluée | `feat/gui` @ `ef1bfc9` |
-| Date | 2026-10-28 |
+| Branche évaluée | `feat/gui` @ `c2cc020` |
+| Date | 2026-10-29 |
 | Équipe | `kebertra` (Kevin Bertrand), `gtourdiat` (Gaspard TOURDIAT) |
 
-> **Mise à jour du 28 octobre 2026 (même jour).** Ce compte-rendu a été rédigé sur l'état du
-> dépôt, puis les corrections de documentation ont été appliquées. Sont désormais **traités** :
-> B1 (Instructions), B2 (Group Contributions), B3 (Resources), B4 (Testing), B5 (choix
-> d'interface CLI — approche 1 documentée), I1 à I6 (toutes les inexactitudes du README), ainsi
-> que F4 dans la documentation (`make lint` : l'écart vient de clang 12, `g++` passe les 28
-> fichiers). Restent ouverts, et sont les seuls points bloquants : **B6** (boutons `STATUS` et
-> `QUESTS`), **F1** (GUI figé après `QUIT` ou perte de connexion), **F2** (dialogue `TALK`
-> seulement dans le journal), **F3** (pas de champ libre par nom), **F5** (pas de tests
-> automatisés) et l'hygiène git du §5.4 (le PDF supprimé et les trois identités de Gaspard).
-> Le verdict ci-dessous est conservé tel qu'il a été rendu ; il reste valable pour ces points.
+> **Mise à jour du 29 octobre 2026.** Ce compte-rendu a été rédigé sur l'état du dépôt, puis
+> les corrections ont été appliquées. Sont désormais **traités** : B1 (Instructions), B2 (Group
+> Contributions), B3 (Resources), B4 (Testing), B5 (choix d'interface CLI — approche 1
+> documentée), **B6** (boutons `STATUS` et `QUESTS`), I1 à I6 (toutes les inexactitudes du
+> README), F4 (`make lint` : l'écart vient de clang 12, `g++` passe les 28 fichiers — vérifié),
+> et l'hygiène git du PDF (suppression committée, `git status` propre).
+> Restent ouverts, **aucun n'étant une exigence écrite du sujet** : F2 (dialogue `TALK`
+> seulement dans le journal — c'est le seul écart restant à une phrase du §V.4), F1 (GUI figé
+> après `QUIT` ou perte de connexion — non demandé, le §IV ne vise que le serveur), F3 (pas de
+> champ libre par nom) et F5 (pas de tests automatisés). Le verdict ci-dessous est conservé tel
+> qu'il a été rendu ; il reste valable pour ces points.
 
 ---
 
 ## 1. Verdict
 
-> **Le code peut être rendu. La documentation de rendu l'est désormais aussi ; le client GUI a encore trois finitions.**
+> **Le code peut être rendu. La documentation de rendu l'est désormais aussi ; il reste une finition GUI.**
 
 Le cœur du projet — serveur + client CLI + données du monde — est **conforme et fonctionnel** : les 15 commandes de la RFC sont implémentées, les événements sont poussés, le monde dépasse largement les minimums, le combat et les quêtes sont jouables, le logging est structuré et l'anti-abus opérationnel. Sur ces points, le projet est prêt pour la soutenance.
 
-La documentation de rendu, qui bloquait ce verdict, est **réparée** : les quatre sections exigées par le chapitre VI sont remplies, le choix d'interface CLI du §V.3 est tranché et justifié, et les six affirmations fausses ont été corrigées. Il reste au GUI trois finitions visibles (§5.3) : les boutons `STATUS` et `QUESTS` du §V.4, l'absence de retour à l'écran de connexion après `QUIT` ou une coupure, et un dialogue `TALK` qui n'apparaît que dans le journal.
+La documentation de rendu, qui bloquait ce verdict, est **réparée** : les quatre sections exigées par le chapitre VI sont remplies, le choix d'interface CLI du §V.3 est tranché et justifié, et les six affirmations fausses ont été corrigées. Les exigences du §V.4 sont elles aussi satisfaites depuis `c2cc020` : les douze actions exigées ont un bouton, et les six sans argument sont dans la barre d'actions affichée. Il reste un seul écart à une phrase écrite du sujet (§5.3) : le dialogue `TALK` n'a pas de panneau dédié.
 
-**Estimation** : toutes les exigences « serveur » sont couvertes ; il manque environ une demi-journée de rédaction pour que le rendu soit complet, et deux à trois heures de finitions GUI.
+**Estimation** : toutes les exigences écrites sont couvertes à une exception près ; il reste une à deux heures pour le panneau de dialogue, et autant pour les finitions non exigées si le temps le permet.
 
 ---
 
@@ -178,7 +179,7 @@ Tout n'a pas été lu : les affirmations ci-dessous viennent soit de **tests ré
 | ~~B3~~ | ~~Remplir **Resources**~~ | **fait** |
 | ~~B4~~ | ~~Remplir **Testing**~~ | **fait** |
 | ~~B5~~ | ~~Trancher le **choix d'interface CLI**~~ | **fait** |
-| B6 | Ajouter des **boutons `STATUS` et `QUESTS`** au GUI (§V.4) | `clients/gui/.../tap_action_buttons.cpp:8-10` |
+| ~~B6~~ | ~~Ajouter des **boutons `STATUS` et `QUESTS`** au GUI (§V.4)~~ | **fait** — `TAPActionButtons` porte les six actions sans cible (`LOOK`, `INVENTORY`, `STATUS`, `QUESTS`, `WHO`, `QUIT`) et le widget est de nouveau ajouté au layout (`tap_game_window.cpp:45`) |
 
 ### 5.2 Inexactitudes factuelles du README (faux ⇒ pénalisant en soutenance)
 
@@ -195,7 +196,7 @@ Tout n'a pas été lu : les affirmations ci-dessous viennent soit de **tests ré
 
 | # | Défaut | Sévérité |
 | --- | --- | --- |
-| F1 | GUI : après `QUIT` ou coupure serveur, la fenêtre de jeu reste figée, sans message ni retour à la connexion (aucun traitement de `Phase::TERMINATED`, aucun handler `QUIT` dans `Session`) | **Élevée** (visible en démo) |
+| F1 | GUI : après `QUIT` ou coupure serveur, la fenêtre de jeu reste figée, sans message ni retour à la connexion (aucun traitement de `Phase::TERMINATED`). **Non exigé par le sujet** : le §IV ne demande la gestion des déconnexions que pour le *serveur*, et `QUIT` fonctionne (le serveur ferme, `Session` journalise « connection lost »). C'est un confort | Moyenne (visible en démo) |
 | F2 | GUI : le dialogue `TALK` n'apparaît que dans le journal, pas dans une zone dédiée (§V.4 « with dialogue display ») | Moyenne |
 | F3 | GUI : pas de champ libre permettant de désigner un objet/PNJ par nom (seulement par sélection d'id) | Faible |
 | ~~F4~~ | ~~`make lint` échoue avec le `c++` par défaut~~ — **documenté** : l'échec vient de clang 12 (`-Wgnu-zero-variadic-macro-arguments` sur les `LOG_*` sans argument variable, `-Wsign-conversion` sur `recv`) ; avec g++ et les mêmes flags, les 28 fichiers passent. Le README et `docs/architecture-serveur-client.md` le disent | **fait** (documentation) |
@@ -203,9 +204,8 @@ Tout n'a pas été lu : les affirmations ci-dessous viennent soit de **tests ré
 
 ### 5.4 Hygiène du dépôt
 
-- `docs/TAP-subject-1.4.pdf` est **supprimé du working tree sans commit** (`git status: D`). Le restaurer (`git checkout -- docs/TAP-subject-1.4.pdf`) ou committer la suppression, mais ne pas rendre avec un arbre sale.
-- Le README cite le PDF ; le supprimer créerait un lien mort.
-- Trois identités git pour le même membre (voir §3.6).
+- ~~`docs/TAP-subject-1.4.pdf` supprimé sans commit~~ — **réglé** : la suppression est committée, `git status` est propre, et le README ne cite plus le PDF (aucun lien mort).
+- Trois identités git pour le même membre (voir §3.6) — signalé dans le README, à fusionner si le temps le permet.
 
 ---
 
@@ -213,13 +213,13 @@ Tout n'a pas été lu : les affirmations ci-dessous viennent soit de **tests ré
 
 **Le projet peut être rendu**, et il peut passer avec une bonne note : l'essentiel du travail — un serveur conforme, robuste, journalisé, un monde plus grand que demandé, un combat et des quêtes réellement jouables — est fait et vérifié en conditions réelles.
 
-La documentation n'est plus le problème : elle est complète et conforme au barème du chapitre VI. Ce qui reste tient en trois finitions GUI et une demi-heure d'hygiène git.
+La documentation n'est plus le problème : elle est complète et conforme au barème du chapitre VI. Les exigences explicites du §V.4 sont satisfaites : B6 est fait depuis le commit `c2cc020`, les douze actions ont un bouton et elles sont affichées. Ce qui reste tient à une phrase du §V.4 (F2, le panneau de dialogue), à deux finitions **non exigées** par le sujet (F1, F3) et à une demi-heure d'hygiène git.
 
 **Ordre de priorité** :
 
-1. **B6** — ajouter les boutons `STATUS` et `QUESTS` à `tap_action_buttons.cpp` (deux lignes) : c'est la dernière exigence écrite du §V.4 non satisfaite.
-2. **F1** — réagir à `Phase::TERMINATED` : fermer la fenêtre de jeu, rouvrir l'écran de connexion, afficher un message. C'est le seul défaut visible en démonstration.
-3. **F2** — afficher le dialogue `TALK` dans un panneau dédié ; puis F3 et F5 si le temps le permet.
-4. **Hygiène git** — restaurer ou committer la suppression du PDF, et fusionner les trois identités de Gaspard avant le rendu.
+1. ~~**B6** — ajouter les boutons `STATUS` et `QUESTS`~~ — **fait**.
+2. **F2** — afficher le dialogue `TALK` dans un panneau dédié, à côté de la liste des NPC : c'est le seul écart restant à une phrase explicite du §V.4 (« with dialogue display »).
+3. **F1** — réagir à `Phase::TERMINATED` : fermer la fenêtre de jeu, rouvrir l'écran de connexion, afficher un message. Non exigé, mais c'est le défaut visible en démonstration.
+4. **Hygiène git** — fusionner les trois identités de Gaspard avant le rendu.
 
-Une fois les points 1 et 2 traités, le projet est prêt à être rendu sans réserve.
+Une fois F2 traité, le projet est prêt à être rendu sans réserve sur les exigences écrites du sujet.

@@ -10,7 +10,7 @@
 
 ---
 
-## 0. État au 28 octobre 2026
+## 0. État au 29 octobre 2026
 
 **Le plan est implémenté.** `clients/state/` existe et est déployé : `message.cpp`,
 `catalog.cpp`, `game_state.hpp` et `session.cpp` sont compilés par le CMake du GUI et branchés
@@ -25,10 +25,10 @@ Changements par rapport au plan initial :
 | 7 | `enum class Section { …, Quests … }` à 9 valeurs | 10 valeurs, `Section::Quests` incluse |
 | 8.1 | `CONNECT` → `LOOK`, `INVENTORY`, `STATUS`, `WHO` | `LOOK`, `INVENTORY`, `STATUS`, `WHO`, **`QUESTS`** |
 | 8.1 | `QUEST` / `QUESTS` : « pas encore implémentés côté serveur » | **Implémentés** des deux côtés ; `QUEST` renvoie un objet, `QUESTS` un tableau |
-| 8.1 | `QUIT` → phase `TERMINATED` | **Non fait** : `Session` n'a pas de handler `QUIT`. C'est la seule ligne du plan qui reste à implémenter |
+| 8.1 | `QUIT` → phase `TERMINATED` | **Sans handler dédié, mais le résultat est là** : le serveur ferme la socket après `OK bye`, `Client::update()` renvoie faux, donc `handleDisconnect()` passe la phase à `TERMINATED`. Il manque seulement le retour visuel à l'écran de connexion |
 | 8.1 | `TALK` tolère `OK {"npc","dialogue"}` (plan) et `WHO` tolère le JSON | **Fait**, `applyTalk` et `applyWho` acceptent les deux formes |
 | 9 | `QSocketNotifier` | **`QTimer` de 50 ms** appelant `Client::update(0)` — plus simple et suffisant |
-| 9 | Coupure → retour à l'écran de connexion | `Session::handleDisconnect()` passe en `TERMINATED`, mais la fenêtre de connexion ne réagit pas encore |
+| 9 | Coupure → retour à l'écran de connexion | `Session::handleDisconnect()` passe en `TERMINATED`, mais la fenêtre de connexion ne réagit pas encore. **Non exigé par le sujet** (§IV : gestion des déconnexions côté serveur seulement) |
 | 10 | Étapes 0 à 6 | 0 à 5 faites ; 6 (test contre un autre groupe) non faite |
 
 ---

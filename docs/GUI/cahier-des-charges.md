@@ -6,7 +6,7 @@
 - `docs/protocol-rfc.html` — RFC 42TAP (commandes, événements, codes d'erreur)
 
 **Objet :** lister ce que le client graphique doit implémenter, fenêtre par fenêtre, puis
-l'état d'avancement **au 28 octobre 2026** (branche `feat/gui`, commit `ef1bfc9`).
+l'état d'avancement **au 29 octobre 2026** (branche `feat/gui`, commit `c2cc020`).
 
 **Légende :** ✅ fait et branché sur le serveur · ⚠️ fait mais incomplet (le détail dit quoi) ·
 ❌ à faire
@@ -100,7 +100,9 @@ la section qui a changé.
   `TAKE <id>`.
 - ✅ **NPCs présents** — `TAPNPCTalkView` (liste + sélection + boutons TALK / QUEST / ATTACK /
   DEFEND / FLEE).
-- ✅ **Autres joueurs présents** dans la pièce — comptés et nommés par `LookRoom.players`.
+- ✅ **Autres joueurs présents** dans la pièce — nommés un par un dans `TAPPlayersView`
+  (« PLAYERS HERE »), alimenté par le tableau `players` de `LOOK` puis entretenu par
+  `EVT ROOM PRESENCE ENTER/LEAVE`.
 - ✅ Mise à jour **temps réel** sur réception des événements (`EVT ROOM PRESENCE`,
   `EVT ROOM ITEM TAKEN|DROPPED`, `EVT ROOM SPAWN`, `EVT ROOM COMBAT *`).
 - ✅ **Rafraîchissement automatique après chaque `TAKE`/`DROP`** : `applyTake` / `applyDrop`
@@ -204,22 +206,23 @@ Le sujet exige des boutons pour **toutes** les actions suivantes :
 | ✅ | `DROP` | `TAPInventoryView` (+ `USE`) |
 | ✅ | `TALK` | `TAPNPCTalkView` |
 | ✅ | `ATTACK` | `TAPNPCTalkView` (+ `DEFEND`, `FLEE`) |
-| ⚠️ | `STATUS` | **aucun bouton** : la valeur est rafraîchie après chaque action et à la connexion, mais le bouton exigé manque |
+| ✅ | `STATUS` | `TAPActionButtons` |
 | ✅ | `QUEST` | `TAPNPCTalkView` |
-| ⚠️ | `QUESTS` | **aucun bouton** : la liste est rafraîchie après chaque `QUEST`, mais le bouton exigé manque |
+| ✅ | `QUESTS` | `TAPActionButtons` |
 | ✅ | `WHO` | `TAPActionButtons` |
 | ✅ | `GROUP` | `TAPGroupView` (CREATE / INVITE / JOIN / LEAVE) |
 | ✅ | `QUIT` | `TAPActionButtons` |
 
-`TAPActionButtons` ne déclare aujourd'hui que trois boutons (`LOOK`, `WHO`, `QUIT`,
-`tap_action_buttons.cpp:8-10`) alors que le tableau `_buttons[12]` est dimensionné pour douze :
-**ajouter `STATUS` et `QUESTS` est un ajout de deux lignes**. Toutes les autres actions sont
-portées par l'élément concerné (sortie, item, NPC, panneau de groupe), ce qui est l'ergonomie
-visée : le bouton générique ne sert qu'aux actions sans cible.
+`TAPActionButtons` porte les **six actions sans cible** — `LOOK`, `INVENTORY`, `STATUS`,
+`QUESTS`, `WHO`, `QUIT` — et rien d'autre. Toutes les actions qui demandent une cible sont
+portées par l'élément qui la possède (sortie, item, NPC, panneau de groupe), ce qui est
+l'ergonomie visée : le bouton générique ne sert qu'aux actions sans argument.
 
-- ⚠️ `QUIT` envoie bien la commande au serveur et reçoit `OK bye`, mais `Session` n'a **aucun
-  gestionnaire pour `QUIT`** : la phase ne passe jamais à `TERMINATED` et la fenêtre de jeu
-  reste ouverte. Voir § 5.2.
+- ⚠️ `QUIT` envoie bien la commande au serveur et reçoit `OK bye`. Le serveur ferme alors la
+  socket, `Client::update()` renvoie faux, donc `Session::handleDisconnect()` passe la phase à
+  `TERMINATED` et écrit « connection lost » dans le journal — le cas n'est pas particulier à
+  `QUIT`, il est commun avec une coupure réseau. Il manque seulement le **retour à l'écran de
+  connexion** : la fenêtre de jeu reste affichée. Voir § 4.8 et § 5.2.
 
 ---
 
@@ -297,7 +300,7 @@ Toutes les erreurs sont journalisées par `Session::handleErr`, qui enregistre a
 | ✅ | 410 | `NOT_IN_COMBAT` | Log |
 | ✅ | 429 | `RATE_LIMITED` | Log |
 | ✅ | 900 | `CONNECTION_FAILED` | Exception de `connect()` → fenêtre d'erreur, retour à la connexion |
-| ⚠️ | — | *socket perdue en cours de partie* | `Session::handleDisconnect()` passe en `TERMINATED` et notifie la section `Connection`, mais **la fenêtre de connexion n'écoute pas ce cas** : la fenêtre de jeu reste affichée avec des données périmées |
+| ⚠️ | — | *socket perdue en cours de partie* | `Session::handleDisconnect()` passe en `TERMINATED` et notifie la section `Connection`, mais **la fenêtre de connexion n'écoute pas ce cas** : la fenêtre de jeu reste affichée avec des données périmées. Le sujet n'exige rien ici (sa règle de déconnexion du § IV vise le **serveur**) : c'est une finition. |
 
 ---
 
@@ -322,8 +325,9 @@ Toutes les erreurs sont journalisées par `Session::handleErr`, qui enregistre a
    8080.)*
 7. ✅ **Interaction clavier** : les trois onglets de chat, le champ d'invitation et le champ de
    jointure sont des zones de texte ; les actions ciblées restent à la souris.
-8. ❌ **Connexion perdue** : aucun retour à l'écran de connexion, aucun message. C'est le seul
-   point de ce chapitre encore ouvert, et le plus visible en démonstration.
+8. ❌ **Connexion perdue** : aucun retour à l'écran de connexion, aucun message. **Non exigé
+   par le sujet** — le § IV ne demande la gestion des déconnexions que pour le serveur — mais
+   c'est la finition la plus visible en démonstration.
 
 ---
 
@@ -353,8 +357,7 @@ Client (socket)  →  Session (file _pending + GameState)  →  onChanged(Sectio
 
 | Priorité | Point | Fichier |
 | --- | --- | --- |
-| **Haute** | Réagir à la perte de connexion et au `QUIT` : sur `Phase::TERMINATED`, fermer la fenêtre de jeu, rouvrir la fenêtre de connexion, afficher un message. Aujourd'hui la fenêtre de jeu reste figée | `tap_connection_window.cpp` / `session.cpp` |
-| Moyenne | Ajouter les boutons `STATUS` et `QUESTS` à la barre d'actions | `tap_action_buttons.cpp:8-10` |
+| **Haute** | Réagir à la perte de connexion et au `QUIT` : sur `Phase::TERMINATED`, fermer la fenêtre de jeu, rouvrir la fenêtre de connexion, afficher un message. Aujourd'hui la fenêtre de jeu reste figée. *Non exigé par le sujet (§ IV : serveur uniquement), mais c'est le défaut le plus visible en démonstration* | `tap_connection_window.cpp` / `session.cpp` |
 | Moyenne | Afficher le dialogue `TALK` dans un panneau dédié, à côté de la liste des NPC, et non seulement dans le journal | `tap_npc_talk.cpp` / `session.cpp:applyTalk` |
 | Faible | Champ libre acceptant un nom d'affichage pour `TAKE` / `TALK` | `tap_ground_items_view`, `tap_npc_talk` |
 | Faible | Horodatage des lignes de la vue de log | `tap_log_view.cpp` |
@@ -377,10 +380,11 @@ Client (socket)  →  Session (file _pending + GameState)  →  onChanged(Sectio
 | ✅ | Vue des items au sol | `.../widgets/tap_ground_items_view/` | Liste + sélection, envoie `TAKE` |
 | ✅ | Vue d'inventaire | `.../widgets/tap_inventory_view/` | Liste + sélection, envoie `DROP` et `USE` |
 | ✅ | Vue des NPCs | `.../widgets/tap_ncp_talk/` | Sélection + `TALK` / `QUEST` / `ATTACK` / `DEFEND` / `FLEE` |
+| ✅ | Vue des joueurs de la pièce | `.../widgets/tap_players_view/` | « PLAYERS HERE », un nom par ligne, depuis `LOOK` et `EVT ROOM PRESENCE` |
 | ✅ | Journal de quêtes | `.../widgets/tap_quests_view/` | Alimenté par `QUESTS`, pas par des données de test |
 | ✅ | Panneau de groupe | `.../widgets/tap_group_view/` | CREATE / INVITE / JOIN / LEAVE + invitation reçue |
 | ✅ | Vue de chat | `.../widgets/tap_chat_tabs/` | Onglets Global / Room / Group, saisie + envoi |
-| ✅ | Barre d'actions | `.../widgets/tap_action_buttons/` | `LOOK`, `WHO`, `QUIT` — **`STATUS` et `QUESTS` manquants** |
+| ✅ | Barre d'actions | `.../widgets/tap_action_buttons/` | Les six actions sans cible : `LOOK`, `INVENTORY`, `STATUS`, `QUESTS`, `WHO`, `QUIT` |
 | ✅ | Vue de logs | `.../widgets/tap_log_view/` | Réponses, erreurs et événements serveur |
 | ✅ | Éléments UI custom | `src/custom_ui_elements/` | `TAPLabel`, `TAPLineEdit`, `TAPGameSectionWidget`, `TAPRoomNameLabel` |
 | ✅ | Styles et constantes | `globals.hpp` | Couleurs, dimensions, textes par défaut |
