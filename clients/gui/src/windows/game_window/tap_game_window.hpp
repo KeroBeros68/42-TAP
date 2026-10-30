@@ -48,6 +48,7 @@ class TAPGameWindow : public TAPBaseWindow
         void update_chat_section();
         void update_quests_section();
         void update_group_section();
+        void update_dialogue_section();
         void update_log_section();
 
     public:

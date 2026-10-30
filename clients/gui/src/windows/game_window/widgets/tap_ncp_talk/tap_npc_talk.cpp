@@ -27,6 +27,14 @@ TAPNPCTalkView::TAPNPCTalkView(Session &session)
     this->_combat_buttons_layout.addWidget(&this->_defend_button);
     this->_combat_buttons_layout.addWidget(&this->_flee_button);
     this->_layout.addLayout(&this->_combat_buttons_layout);
+
+    // Dialogue of the npcs, on the model of the logs: read only, scrolls down
+    // by itself. It stays visible even without npc, to read what was said.
+    this->_dialogue_text.setReadOnly(true);
+    this->_dialogue_text.setStyleSheet(TAP_LABEL_PROPERTIES);
+    this->_dialogue_text.setPlaceholderText("(nobody spoke yet)");
+    this->_dialogue_text.setMinimumHeight(60);
+    this->_layout.addWidget(&this->_dialogue_text, 1);
     this->connect(&this->_validate_button,
         &QPushButton::clicked,
         this,
@@ -111,6 +119,13 @@ void TAPNPCTalkView::update_npcs(std::vector<ListedItem> data)
         this->_flee_button.show();
     }
 
+}
+
+void TAPNPCTalkView::update_dialogue(const std::deque<std::string> &lines)
+{
+    this->_dialogue_text.clear();
+    for (const std::string &line : lines)
+        this->_dialogue_text.appendPlainText(QString::fromStdString(line));
 }
 
 std::string TAPNPCTalkView::get_selected_npc_id(void) const

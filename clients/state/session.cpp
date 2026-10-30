@@ -195,6 +195,15 @@ void	Session::log(const std::string& line)
 	changed(Section::Log);
 }
 
+// Save what an npc says: the name comes from the catalog, never from the wire
+void	Session::say(const std::string& npc_id, const std::string& text)
+{
+	_state.dialogue.push_back(_catalog.name(npc_id) + ": " + text);
+	while (_state.dialogue.size() > LOG_MAX_LINES)
+		_state.dialogue.pop_front();
+	changed(Section::Dialogue);
+}
+
 // Call the registered function with the given Section to update
 void	Session::changed(Section section)
 {
@@ -321,13 +330,13 @@ void	Session::handleOk(const Pending& pending, const ServerMessage& message)
 
 	if (pending.command == "TALK")
 	{
-		applyTalk(message.data);
+		applyTalk(pending.args, message.data);
 		return;
 	}
 
 	if (pending.command == "QUEST")
 	{
-		applyQuest(message.data);
+		applyQuest(pending.args, message.data);
 		return;
 	}
 
@@ -620,7 +629,7 @@ void	Session::applyGroup(const std::string& args, const std::string& data)
 	changed(Section::Group);
 }
 
-void	Session::applyTalk(const std::string& data)
+void	Session::applyTalk(const std::string& npc_id, const std::string& data)
 {
 	// Our server answers "OK <dialogue>"; the subject shows that some servers
 	// answer "OK {"npc":...,"dialogue":...}". Accept both.
@@ -635,9 +644,10 @@ void	Session::applyTalk(const std::string& data)
 		return;
 	}
 	log("TALK: " + said);
+	say(npc_id, said);
 }
 
-void	Session::applyQuest(const std::string& data)
+void	Session::applyQuest(const std::string& npc_id, const std::string& data)
 {
 	// Our server answers "OK {quest_id:..., status:..., progress:...}" with the
 	// quest concerned. The server sends no event when a quest starts or is
@@ -656,6 +666,15 @@ void	Session::applyQuest(const std::string& data)
 	else
 		log("quest " + id + ": " + payload->value(FIELD_STATUS, std::string())
 			+ " " + payload->value(FIELD_PROGRESS, std::string()));
+
+	// What the npc says: the text of the quest when it is given, the closing
+	// words when it is handed in. When the objective is not reached yet, he
+	// says nothing new: the journal line above is enough.
+	const std::string result = payload->value(FIELD_RESULT, std::string());
+	if (result == QUEST_RESULT_STARTED)
+		say(npc_id, payload->value(FIELD_TEXT_START, payload->value(FIELD_DESCRIPTION, std::string())));
+	else if (result == QUEST_RESULT_COMPLETED)
+		say(npc_id, payload->value(FIELD_TEXT_DONE, std::string()));
 
 	// Handing a quest in does two things the answer does not list: the items it
 	// asks for leave the inventory and the reward enters it. Only INVENTORY

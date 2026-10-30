@@ -109,6 +109,10 @@ struct GameState {
 	std::vector<ChatLine>	chat_room;
 	std::vector<ChatLine>	chat_group;
 
+	// What the npcs said to us (TALK, and the QUEST texts), one line each as
+	// "<npc name>: <text>". Separate from the journal, which is technical.
+	std::deque<std::string>	dialogue;
+
 	// Technical journal, bounded so a long session cannot eat the memory.
 	// deque: removing from the front is constant time.
 	std::deque<std::string>	log;

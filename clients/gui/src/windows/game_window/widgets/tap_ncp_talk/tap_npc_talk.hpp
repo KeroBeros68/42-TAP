@@ -2,6 +2,9 @@
 # define TAP_NPC_TALK_HPP
 
 # include "globals.hpp"
+# include <QPlainTextEdit>
+# include <deque>
+# include <string>
 # include "src/custom_ui_elements/custom_ui_elements.hpp"
 # include "../listed_item.hpp"
 # include "../../../../../../state/session.hpp"
@@ -20,6 +23,8 @@ class TAPNPCTalkView : public TAPGameSectionWidget
         TAPButton _defend_button;
         TAPButton _flee_button;
         TAPLabel    _no_items_label;
+        // what the npcs said (TALK and QUEST), read only like the logs
+        QPlainTextEdit _dialogue_text;
         // npcs list : one entry per npc, even when two npcs share an id
         std::vector<ListedItem> _npcs;
         std::vector<QRadioButton *> _npc_buttons;
@@ -28,6 +33,8 @@ class TAPNPCTalkView : public TAPGameSectionWidget
     public:
         explicit TAPNPCTalkView(Session &session);
         void update_npcs(std::vector<ListedItem> data);
+        // Replace the whole dialogue by the lines given (the state's dialogue).
+        void update_dialogue(const std::deque<std::string> &lines);
         std::string get_selected_npc_id(void) const;
 };
 

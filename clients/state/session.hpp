@@ -29,6 +29,7 @@ enum class Section {
 	Chat,
 	Group,
 	Quests,
+	Dialogue,
 	Log
 };
 
@@ -70,6 +71,9 @@ class Session
 		// Log a technical line in the journal, and announce it to the GUI.
 		void	log(const std::string& line);
 
+		// Add what an npc says to the dialogue, and announce it to the GUI.
+		void	say(const std::string& npc_id, const std::string& text);
+
 		// Announce one section to the GUI, if it registered a callback.
 		void	changed(Section section);
 
@@ -91,11 +95,11 @@ class Session
 		// inventory is asked again; the hit points come from the STATUS
 		// that follows, never from the amount added locally.
 		void	applyUse(const std::string& item_id, const std::string& data);
-		void	applyTalk(const std::string& data);
+		void	applyTalk(const std::string& npc_id, const std::string& data);
 
 		// QUEST: the server answers the quest itself; then the whole list is
 		// asked again, because a quest may just have started or been handed in.
-		void	applyQuest(const std::string& data);
+		void	applyQuest(const std::string& npc_id, const std::string& data);
 
 		// QUESTS: the list of our quests, active and completed
 		void	applyQuests(const std::string& data);

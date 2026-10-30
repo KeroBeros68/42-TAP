@@ -200,7 +200,7 @@ Le compteur « joueurs dans la salle » n'est pas stocké : c'est `players.size(
 Pour que le GUI sache quoi redessiner, la `Session` appelle un callback avec la partie modifiée :
 
 ```cpp
-enum class Section { Connection, Room, Inventory, Status, Combat, Counters, Chat, Group, Quests, Log };
+enum class Section { Connection, Room, Inventory, Status, Combat, Counters, Chat, Group, Quests, Dialogue, Log };
 void onChanged(std::function<void(Section)> callback);
 ```
 
@@ -220,14 +220,14 @@ void onChanged(std::function<void(Section)> callback);
 | `TAKE` | `ERR 404 ITEM_NOT_FOUND` | rien | `LOOK` (un autre joueur l'a peut-être pris) |
 | `DROP` | `OK dropped=<id>` | id retiré d'`inventory`, ajouté à `items` | `LOOK`, `INVENTORY` |
 | `INVENTORY` | `OK [..]` | `inventory` | — |
-| `TALK` | `OK <dialogue>` | dialogue affiché (journal ou zone dédiée) | — |
+| `TALK` | `OK <dialogue>` | `dialogue` : une ligne « Nom du PNJ: texte » (le nom vient du catalogue), et une ligne dans le journal ; `Section::Dialogue` | — |
 | `ATTACK`, `DEFEND`, `FLEE` | `OK {"attacker_hp",…}` | `hp`, `combat`, les `turns` dans le journal | `STATUS`, et `LOOK` si `escaped` est vrai (changement de salle) |
 | `STATUS` | `OK {"hp","max_hp","status",…}` | `hp`, `max_hp`, `status`, et `combat` si les champs de combat sont présents | — |
 | `WHO` | `OK players=<n>` | `server_players` | — |
 | `CHAT` | `OK` | **rien** : le message s'affiche à réception de l'`EVT`, que le serveur renvoie aussi à l'auteur | — |
 | `GROUP CREATE` / `JOIN` | `OK group=<id>` | `group`, `pending_invite` remis à vide | — |
 | `GROUP LEAVE` | `OK` | `group` remis à vide | — |
-| `QUEST` | `OK {"quest_id","name","status","description","progress","reward",…}` | ligne dans le journal ; si `completed`, `INVENTORY` ; puis toujours `QUESTS` | `INVENTORY`, `QUESTS` |
+| `QUEST` | `OK {"quest_id","name","status","result","description","text_start","progress","reward",…}` (+ `text_done` à la remise) | ligne dans le journal ; `result` = `started` → `dialogue` reçoit `text_start`, `completed` → `dialogue` reçoit `text_done`, `progress` → rien de plus ; si `completed`, `INVENTORY` ; puis toujours `QUESTS` | `INVENTORY`, `QUESTS` |
 | `QUESTS` | `OK [{"quest_id","name","status","progress"}]` | `quests` (liste complète remplacée) | — |
 | `QUIT` | `OK bye` | **⚠️ non implémenté** : pas de handler, la phase ne passe jamais à `TERMINATED` | — |
 | n'importe laquelle | autre `ERR <code> <NOM>` | journal + message non bloquant (code **et** nom : 404 a trois sens) | — |

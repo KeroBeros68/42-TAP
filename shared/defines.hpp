@@ -61,6 +61,9 @@
 // -- Quest statuses -----------------------------------------------------------
 # define QUEST_STATUS_ACTIVE		"active"	// status of a quest in progress
 # define QUEST_STATUS_COMPLETED		"completed"	// status of a quest that is finished
+# define QUEST_RESULT_STARTED		"started"	// result of QUEST: the quest was just given
+# define QUEST_RESULT_PROGRESS		"progress"	// result of QUEST: the quest is in progress, the objective is not reached
+# define QUEST_RESULT_COMPLETED		"completed"	// result of QUEST: the quest was just handed in
 
 // -- Response fields ----------------------------------------------------------
 # define FIELD_ROOM			"room"						// the room described by LOOK
@@ -84,6 +87,8 @@
 # define FIELD_MISSED		"missed"					// the strike missed, or the escape failed
 # define FIELD_QUEST_ID	"quest_id"					// id of a quest
 # define FIELD_PROGRESS		"progress"					// progress of a quest, like "1/3"
+# define FIELD_RESULT		"result"					// what the QUEST command did (see QUEST_RESULT_*)
+# define FIELD_TEXT_START	"text_start"				// what the npc says when he gives a quest
 # define FIELD_TEXT_DONE	"text_done"					// what the npc says when a quest is handed in
 # define FIELD_REWARD		"reward"					// what a quest gives at the end
 # define FIELD_REWARD_ITEMS	"reward_items"				// ids of the items given by a quest

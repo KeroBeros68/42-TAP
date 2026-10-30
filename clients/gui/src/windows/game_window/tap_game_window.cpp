@@ -44,7 +44,9 @@ TAPGameWindow::TAPGameWindow(Session &session, TAPErrorWindow  &error_window)
 
     this->_actions_side_layout.addWidget(&this->action_buttons);
     this->_actions_side_layout.addWidget(&exit_view);
-    this->_actions_side_layout.addWidget(&this->npc_talk_view);
+    // The talk section (npcs, buttons and dialogue) and the logs share the
+    // room left in the column: same stretch, so neither squeezes the other.
+    this->_actions_side_layout.addWidget(&this->npc_talk_view, 1);
     this->_actions_side_layout.addWidget(&this->log_view, 1);
 
     // std::cout is redirected through the log view,
@@ -93,6 +95,7 @@ void TAPGameWindow::update_gui(Section section)
         case Section::Chat:         this->update_chat_section(); break;
         case Section::Group:        this->update_group_section(); break;
         case Section::Quests:       this->update_quests_section(); break;
+        case Section::Dialogue:     this->update_dialogue_section(); break;
         case Section::Log:          this->update_log_section(); break;
     }
 }
@@ -173,6 +176,11 @@ void TAPGameWindow::update_chat_section(){
     this->chat_tabs.update_global_messages(this->chat_lines(state.chat_global));
     this->chat_tabs.update_room_messages(this->chat_lines(state.chat_room));
     this->chat_tabs.update_group_messages(this->chat_lines(state.chat_group));
+}
+
+void TAPGameWindow::update_dialogue_section()
+{
+    this->npc_talk_view.update_dialogue(this->_session.state().dialogue);
 }
 
 void TAPGameWindow::update_log_section()

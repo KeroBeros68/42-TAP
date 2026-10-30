@@ -70,6 +70,18 @@ static const char* questStatusName(QuestState state) {
 }
 
 /**
+ * Gives the word of the protocol for what QUEST did.
+ *
+ * @param status the status of the reply: STARTED, IN_PROGRESS or COMPLETED
+ * @return       QUEST_RESULT_STARTED, QUEST_RESULT_PROGRESS or QUEST_RESULT_COMPLETED
+ */
+static const char* questResultName(QuestStatus status) {
+	if (status == QuestStatus::STARTED)
+		return QUEST_RESULT_STARTED;
+	return status == QuestStatus::COMPLETED ? QUEST_RESULT_COMPLETED : QUEST_RESULT_PROGRESS;
+}
+
+/**
  * Writes the progress of a quest, like "1/3".
  *
  * @param view the quest
@@ -100,7 +112,9 @@ std::string serializeQuest(const QuestReply& reply) {
 	payload[FIELD_QUEST_ID] = def.id();
 	payload[FIELD_NAME] = def.name();
 	payload[FIELD_STATUS] = questStatusName(reply.view.state);
+	payload[FIELD_RESULT] = questResultName(reply.status);
 	payload[FIELD_DESCRIPTION] = def.textStart();
+	payload[FIELD_TEXT_START] = def.textStart();
 	payload[FIELD_PROGRESS] = questProgress(reply.view);
 	payload[FIELD_REWARD] = questRewardText(def.reward());
 	payload[FIELD_REWARD_ITEMS] = def.reward().items;
