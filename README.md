@@ -35,29 +35,12 @@ Because the protocol is the only contract between server and clients, our client
 - 📝 Structured JSON logging with timestamps, levels, IP addresses, players and commands.
 - 🚪 Clean disconnection (`QUIT`, signals) and graceful handling of malformed commands.
 
-### 🚧 Current status
-
-The project is feature-complete for the mandatory part of the subject:
-
-- ✅ **All 15 RFC commands** are implemented: `CONNECT`, `LOOK`, `MOVE`, `CHAT`, `TAKE`, `DROP`, `INVENTORY`, `TALK`, `ATTACK`, `STATUS`, `QUEST`, `QUESTS`, `WHO`, `GROUP`, `QUIT`; plus three commands of our own: `DEFEND`, `FLEE` (combat) and `USE` (consuming an item).
-- ✅ Every RFC event is sent: `EVT ROOM PRESENCE ENTER|LEAVE`, `EVT ROOM|GLOBAL|GROUP CHAT`, `EVT GROUP INVITE|JOIN|LEAVE`, `EVT STATS players=`; plus our own `EVT ROOM COMBAT …`, `EVT ROOM ITEM TAKEN|DROPPED`, `EVT ROOM SPAWN`, `EVT ROOM EFFECT`, `EVT ROOM DEATH`, `EVT INVENTORY CHANGED`.
-- ✅ `GROUP CREATE|INVITE|JOIN|LEAVE`: the leader invites, the invited player joins by the name of a member, 4 players at most, ids `group.<n>`.
-- ✅ The three quests of `game/ressources/quests.json` can be played (see [Quest System](#-quest-system)).
-- ✅ **Both clients are connected to the server.** The GUI reads a local copy of the state (`clients/state/`) filled by the answers and the events, and redraws only what changed.
-
-Known limitations at this time (none of them breaks a mandatory requirement):
-
-- The GUI has no dedicated dialogue area: what an NPC says through `TALK` is written in the log view, not next to the NPC list.
-- The GUI asks for objects and NPCs by selecting an entry in a list; it has no free-text field accepting a display name (the server accepts both).
-- The GUI does not react to a lost connection yet: the game window stays open as it is, without a message.
-
 ## 🧭 Instructions <!-- [S] -->
 
 ### Requirements
 
 - A C++20 compiler (`c++`, g++ or clang++), GNU `make`, and `curl` or `wget`.
 - For the GUI only: **CMake** and **Qt 5 Widgets**.
-- Linux or macOS. The server and the clients use `poll(2)` and `signalfd(2)`, so they do not build on Windows.
 
 ### Quick start
 
@@ -682,7 +665,8 @@ The project was carried by two learners. The split below follows the code: each 
 | CLI client (`clients/cli/`) | **Owner** | — |
 | GUI client (`clients/gui/`) | — | **Owner** |
 | Client state layer (`clients/state/`) — `Session`, `GameState` | Review | **Owner** |
-| Root `Makefile`, CMake build, lint target | **Owner** | Contributor |
+| Root `Makefile`, lint target | **Owner** | Contributor |
+| GUI CMake build | — | **Owner** |
 | Internal audits (`audit/`) | **Owner** | — |
 | Design docs (`docs/`) | Contributor | **Owner** |
 | README | Contributor | Contributor |
@@ -724,3 +708,4 @@ AI was used as a review and drafting aid, never as a substitute for understandin
 - **README and design documents**: the structure of this README, the protocol deviation table, the combat and quest write-ups, and the internal audits in `audit/` were drafted with Claude and then corrected against the code and against real sessions.
 - **Debugging**: Claude was used to read compiler and sanitizer output (the Valgrind suppressions of the Qt client, the `-Wgnu-zero-variadic-macro-arguments` warnings on the logging macros) and to propose fixes that the team applied.
 - **Not AI-written**: the game design, the world data, the combat and quest rules, the network architecture and all the C++ code were written and are maintained by the team.
+- **Helped by AI**: gtourdia used AI for help regarding the GameState and Session implementation. Some GUI widgets were also made with the help of AI, due to the fact that it's a tedious repetitive task.
