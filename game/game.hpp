@@ -23,6 +23,7 @@
 # include "group/group_manager.hpp"
 # include "quests/quest_manager.hpp"
 # include "world/presence.hpp"
+# include "world/despawn_queue.hpp"
 # include "world/respawn_queue.hpp"
 # include "world/world.hpp"
 
@@ -91,6 +92,7 @@ class Game : private CombatHost {
 		EventBus _events;
 		CombatManager _combat;
 		RespawnQueue _respawns;
+		DespawnQueue _despawns;
 		GroupManager _groups;
 		QuestManager _quests;
 		std::unordered_map<std::string, std::chrono::steady_clock::time_point> _effect_due;

@@ -132,6 +132,7 @@ std::string serializeAttack(const CombatReport& report) {
 	payload[FIELD_STATUS] = statusName(report.player_status);
 	payload[FIELD_ROUND] = report.round;
 	payload[FIELD_ESCAPED] = report.escaped;
+	payload[FIELD_QUEUED] = report.status == CombatStatus::QUEUED;
 	payload[FIELD_TURNS] = turns;
 	return dump(payload);
 }

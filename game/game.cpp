@@ -216,8 +216,10 @@ void Game::enemyDied(Room& room, Npc* npc, const std::string& killer, const std:
 	}
 	const std::vector<std::string> dropped = npc->dropLoot(room.inventory(), _world.item_database);
 	std::string loot;
-	for (const std::string& item : dropped)
+	for (const std::string& item : dropped) {
 		loot += (loot.empty() ? "" : LOOT_SEPARATOR) + item;
+		_despawns.schedule(room.id(), item, std::chrono::steady_clock::now());
+	}
 	LOG_INFO("npc died", {"room", room.id()}, {"player", killer}, {"npc", npc_id}, {"loot", loot});
 	_respawns.schedule(Respawn::of(RespawnKind::Npc, *npc));
 	room.removeNpc(npc);
@@ -387,6 +389,7 @@ TransferResult Game::dropItem(long long player_id, const std::string& target) {
 	else if (result.status == TransferStatus::Moved) {
 		LOG_INFO("player dropped an item", LOG_HERE(here), {"item", result.id});
 		emitItem(*here.room, player_id, EVT_ITEM_DROPPED, here.player->name(), result.definition_id);
+		_despawns.schedule(here.room->id(), result.id, std::chrono::steady_clock::now());
 	}
 	return result;
 }
@@ -609,6 +612,9 @@ ChatStatus Game::chat(long long player_id, ChatScope scope, const std::string& t
 void Game::tick(std::chrono::steady_clock::time_point now) {
 	_combat.update(now);
 	applyRoomEffects(now);
+	_despawns.update(now, _world, [this](const Room& room, const std::string& definition_id) {
+		_events.toRoom(room, eventLine(EVT_ROOM, std::string(EVT_ITEM) + CMD_SEPARATOR + EVT_ITEM_DESPAWNED + CMD_SEPARATOR + definition_id));
+	});
 	_respawns.update(now, _world, [this](const Room& room, const char* kind, const std::string& id) {
 		emitSpawn(room, kind, id);
 	});
