@@ -22,7 +22,7 @@
 //#                                   ENUMS                                    #
 //##############################################################################
 
-enum class CombatStatus { DONE, NOT_FOUND, NOT_HOSTILE, NOT_IN_COMBAT, ANOTHER_ENEMY, NOT_YOUR_TURN };
+enum class CombatStatus { DONE, NOT_FOUND, NOT_HOSTILE, NOT_IN_COMBAT, ANOTHER_ENEMY, NOT_YOUR_TURN, QUEUED };
 
 //##############################################################################
 //#                                  STRUCTS                                   #
@@ -67,6 +67,7 @@ class CombatManager {
 			std::chrono::steady_clock::time_point deadline;
 			long long announced_actor = NO_ACTOR;
 			int announced_round = 0;
+			std::unordered_map<long long, CombatAction> pending{};
 		};
 
 		//######################### VARIABLES ##########################
@@ -163,6 +164,16 @@ class CombatManager {
 		void settle(Fight& fight, Npc* npc, Room& room, const Steps& steps, long long requester_id, CombatReport* report);
 
 		/**
+		 * Plays the action that a player who joined the fight out of turn had stored, if it is his turn now.
+		 * The fight is not valid any more when it is over.
+		 *
+		 * @param fight the fight
+		 * @param npc   the enemy
+		 * @param room  the room of the fight
+		 */
+		void playPending(Fight& fight, Npc* npc, Room& room);
+
+		/**
 		 * Tells the room who has to play, and starts his delay. Nothing is told again if the turn did not change.
 		 *
 		 * @param fight the fight
@@ -208,6 +219,7 @@ class CombatManager {
 		//########################## COMMANDS ##########################
 		/**
 		 * Starts a fight with an enemy, joins the fight of this enemy, or plays an attack in the fight in progress.
+		 * A player who joins a fight when it is not his turn gets QUEUED: his attack is stored and played when his turn comes.
 		 *
 		 * @param player_id id of the player
 		 * @param target    the enemy to attack; empty (or the same enemy) during a fight

@@ -268,7 +268,7 @@ The server follows **RFC 42TAP** (`docs/protocol-rfc.html`, protocol version 1):
 | `DROP <item>` | `OK dropped=<id>` / `ERR 404 ITEM_NOT_IN_INVENTORY` | done |
 | `USE <item>` | `OK healed=<hit points>` / `ERR 404 ITEM_NOT_IN_INVENTORY` / `ERR 407 ITEM_NOT_USABLE` | done (refused during a fight), **not in the RFC** |
 | `TALK <npc>` | `OK <dialogue>` / `ERR 404 NPC_NOT_FOUND` | done (refused during a fight) |
-| `ATTACK <npc>` | `OK {"attacker_hp","target_hp","damage","status","round","escaped","turns"}` / `ERR 404` / `ERR 405 NPC_NOT_HOSTILE` | done |
+| `ATTACK <npc>` | `OK {"attacker_hp","target_hp","damage","status","round","escaped","queued","turns"}` / `ERR 404` / `ERR 405 NPC_NOT_HOSTILE` | done |
 | `STATUS` | `OK {"hp","max_hp","status"}` plus the state of the fight when there is one | done |
 | `QUIT` | `OK bye`, then the connection is closed | done |
 | `DEFEND`, `FLEE` | same reply as `ATTACK` | done, **not in the RFC** (our combat commands) |
@@ -294,6 +294,7 @@ All events are sent to the players of the room concerned, except `STATS`.
 | `EVT ROOM SPAWN <npc\|item> <definition id>` | an enemy or an item came back |
 | `EVT ROOM ITEM TAKEN <player> <definition id>` | a player of the room took an item from the floor |
 | `EVT ROOM ITEM DROPPED <player> <definition id>` | a player of the room dropped an item on the floor |
+| `EVT ROOM ITEM DESPAWNED <definition id>` | an item lying on the floor of the room disappeared (no player: nobody acted) |
 | `EVT ROOM EFFECT healing <hp>` | sent only to the player healed by his room, with the hit points he got (not sent at full health) |
 | `EVT INVENTORY CHANGED <quest\|use>` | sent only to the player whose inventory changed without a `TAKE` or `DROP`: a quest he handed in took or gave items, or `USE` consumed one. The client should send `INVENTORY` again (a quest that gives hit points also sends `EVT ROOM EFFECT healing <hp>`) |
 
@@ -339,6 +340,7 @@ The combat is turn-based and can be shared: all the players of a room who attack
 - `ATTACK <enemy>` starts a fight with an enemy of the room, or joins the fight already started against it. Only NPCs with the role `enemy` can be attacked (`ERR 405` otherwise).
 - During a fight the player cannot `MOVE`, `TAKE` or `TALK` (`ERR 409 IN_COMBAT`), nor attack another enemy.
 - A fight ends when the enemy dies, when all the players are dead or gone. A player at 0 HP loses the fight and **respawns in the chapel with 50 HP** (`respawn` in `room.json`). Enemies and items come back after `respawn_seconds` (60 for the enemies of the world), announced by `EVT ROOM SPAWN`.
+- **Items left on the floor disappear.** An item that a player drops, or that an enemy leaves when it dies, is removed from the floor **2 minutes** after it fell (`ITEM_DESPAWN_SECONDS` in `game/world/despawn_queue.hpp`), announced by `EVT ROOM ITEM DESPAWNED`. The items placed by the world data (a spawn of `room.json`) never disappear this way, and an item that is taken before the end of the delay stays safe; if it is dropped again, the delay starts again. This keeps the floors from filling up. An item in an inventory is never removed.
 - A room can have an `effect` in `room.json`, like `{ "type": "healing", "amount": 10, "interval_seconds": 5 }` (the chapel): every `interval_seconds`, at the rhythm of the room, each player in it gets `amount` hit points back, up to his maximum. A player in a fight is not healed.
 - The `status` of a player is `healthy`, `wounded` (below his maximum), `combat` or `dead`.
 
@@ -364,7 +366,7 @@ The enemy attacks a player chosen at random among the participants. The enemy tu
 | `FLEE` | Try to run away: on success the player leaves the fight and is moved through a random exit of the room; on failure the turn is lost. |
 | `STATUS` | HP, status, and during a fight: round, enemy, whose turn it is, and the seconds left. |
 
-Playing out of turn gives `ERR 411 NOT_YOUR_TURN`; `DEFEND` and `FLEE` outside a fight give `ERR 410 NOT_IN_COMBAT`. A player who does not play within **20 seconds** has a `DEFEND` played for him (`EVT ROOM COMBAT TIMEOUT`), so one idle player cannot block the others.
+Playing out of turn gives `ERR 411 NOT_YOUR_TURN`, with one exception: a player who **joins** a fight with `ATTACK` when it is not his turn is not refused. His attack is **stored** for his next turn (the answer has `"queued":true`), and it is played by the server as soon as his turn comes, announced by the usual `EVT ROOM COMBAT ROUND`. Only the joining `ATTACK` is stored; a later command out of turn still gives `ERR 411`, and a stored attack is forgotten if he leaves, dies or flees before his turn. `DEFEND` and `FLEE` outside a fight give `ERR 410 NOT_IN_COMBAT`. A player who does not play within **20 seconds** has a `DEFEND` played for him (`EVT ROOM COMBAT TIMEOUT`), so one idle player cannot block the others.
 
 ### 📣 Broadcast of combat results
 

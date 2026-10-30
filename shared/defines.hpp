@@ -89,6 +89,7 @@
 # define FIELD_REWARD_ITEMS	"reward_items"				// ids of the items given by a quest
 # define FIELD_REWARD_HEAL	"reward_heal"				// hit points given by a quest
 # define FIELD_ESCAPED		"escaped"					// the player ran away from the fight
+# define FIELD_QUEUED		"queued"					// the attack of a player who joined a fight is stored for his turn
 # define FIELD_ENEMY		"enemy"						// id of the enemy of the fight
 # define FIELD_TARGET		"target"					// who suffered the turn
 # define FIELD_TURN			"turn"						// who has to play

@@ -50,6 +50,7 @@
 # define EVT_ITEM			"ITEM"		// type of the events about the floor of a room changing
 # define EVT_ITEM_TAKEN		"TAKEN"		// a player took an item from the floor
 # define EVT_ITEM_DROPPED	"DROPPED"	// a player dropped an item on the floor
+# define EVT_ITEM_DESPAWNED	"DESPAWNED"	// an item lying on the floor disappeared (followed by its id, no player)
 
 // -- Chat events --------------------------------------------------------------
 # define EVT_GLOBAL			"GLOBAL"	// category of the events for every player

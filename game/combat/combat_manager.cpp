@@ -136,10 +136,14 @@ void CombatManager::settle(Fight& fight, Npc* npc, Room& room, const Steps& step
 	if (report)
 		report->escaped = std::find(steps.escaped.begin(), steps.escaped.end(), requester_id) != steps.escaped.end();
 
-	for (long long id : steps.dead)
+	for (long long id : steps.dead) {
+		fight.pending.erase(id);
 		playerDied(id, enemy_id, requester_id);
-	for (long long id : steps.escaped)
+	}
+	for (long long id : steps.escaped) {
+		fight.pending.erase(id);
 		playerFled(id, enemy_id, requester_id);
+	}
 
 	if (steps.enemy_dead) {
 		std::string killer;
@@ -161,7 +165,20 @@ void CombatManager::settle(Fight& fight, Npc* npc, Room& room, const Steps& step
 		emitCombatResolved(room);
 	} else {
 		announceTurn(fight, room);
+		playPending(fight, npc, room);
 	}
+}
+
+void CombatManager::playPending(Fight& fight, Npc* npc, Room& room) {
+	const long long actor = peekActor(fight.encounter);
+	const auto stored = fight.pending.find(actor);
+	if (stored == fight.pending.end())
+		return;
+	const CombatAction action = stored->second;
+	fight.pending.erase(stored);
+	LOG_INFO("queued action played", {"room", room.id()}, {"npc", fight.encounter.enemy_id}, {"player", fighterName(actor, fight.encounter.enemy_id)},
+		{"action", actionName(action)});
+	settle(fight, npc, room, act(fight.encounter, actor, action, statsOf(npc)), NO_ACTOR, nullptr);
 }
 
 void CombatManager::announceTurn(Fight& fight, const Room& room) {
@@ -243,6 +260,7 @@ CombatReport CombatManager::attack(long long player_id, const std::string& targe
 
 	Npc* npc = nullptr;
 	Fight* fight = nullptr;
+	bool joined = false;
 	const auto fighting = _fighting.find(player_id);
 	if (fighting != _fighting.end()) {
 		fight = &_fights.at(fighting->second);
@@ -272,12 +290,23 @@ CombatReport CombatManager::attack(long long player_id, const std::string& targe
 		} else {
 			LOG_INFO("player joined a combat", LOG_HERE(here), {"npc", npc->id()});
 			emitRoomCombat(*here.room, player_id, {EVT_COMBAT_JOIN, here.player->name(), npc->id()});
+			joined = true;
 		}
 		fight = &found->second;
 		join(fight->encounter, player_id, statsOf(npc));
 		_fighting[player_id] = npc->id();
 	}
-	return takeTurn(here, *fight, npc, CombatAction::ATTACK);
+	const std::string enemy_id = npc->id();
+	CombatReport report = takeTurn(here, *fight, npc, CombatAction::ATTACK);
+	if (joined && report.status == CombatStatus::NOT_YOUR_TURN) {
+		const auto still = _fights.find(enemy_id);
+		if (still != _fights.end()) {
+			still->second.pending[player_id] = CombatAction::ATTACK;
+			LOG_INFO("attack queued for the next turn", LOG_HERE(here), {"npc", enemy_id});
+			report.status = CombatStatus::QUEUED;
+		}
+	}
+	return report;
 }
 
 CombatReport CombatManager::defend(long long player_id) {
@@ -323,6 +352,7 @@ void CombatManager::abandon(long long player_id) {
 		dropFight(enemy_id);
 		return;
 	}
+	fight.pending.erase(player_id);
 	leave(fight.encounter, player_id, statsOf(npc));
 	if (fight.encounter.participants.empty()) {
 		dropFight(enemy_id);

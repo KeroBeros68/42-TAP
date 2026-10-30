@@ -36,6 +36,7 @@ SRCS =	server.cpp \
 	event_bus.cpp \
 	loadenv.cpp \
 	respawn_queue.cpp \
+	despawn_queue.cpp \
 	main.cpp \
 	item.cpp \
 	npc.cpp \

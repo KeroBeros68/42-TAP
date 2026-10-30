@@ -172,7 +172,8 @@ static Response combatResponse(const CombatReport& report) {
 		case CombatStatus::ANOTHER_ENEMY:	return Response::failure(TapError::IN_COMBAT);
 		case CombatStatus::NOT_IN_COMBAT:	return Response::failure(TapError::NOT_IN_COMBAT);
 		case CombatStatus::NOT_YOUR_TURN:	return Response::failure(TapError::NOT_YOUR_TURN);
-		case CombatStatus::DONE:			break;
+		case CombatStatus::DONE:
+		case CombatStatus::QUEUED:			break;
 	}
 	return Response::success(TapOk::DATA, serializeAttack(report));
 }
