@@ -647,7 +647,7 @@ void	Session::applyTalk(const std::string& npc_id, const std::string& data)
 		log("TALK: empty answer");
 		return;
 	}
-	log("TALK: " + said);
+	// log("TALK: " + said);
 	say(npc_id, said);
 }
 
