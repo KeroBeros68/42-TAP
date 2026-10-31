@@ -50,6 +50,9 @@ struct GameState {
 	// failure of the previous one. The connection screen shows it.
 	std::optional<std::string>	last_error;
 
+	// We sent QUIT: the connection that closes next is wanted, not a failure.
+	bool	quit_requested = false;
+
 	// The room we are in, as last seen
 	struct Room {
 		std::string	id;				// "loc.square"

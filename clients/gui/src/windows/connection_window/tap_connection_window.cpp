@@ -62,6 +62,23 @@ void TAPConnectionWindow::onStateChanged(Section section)
 
     const GameState &state = this->_session.state();
 
+    // The connection is over while the game is on screen: QUIT answered and
+    // closed by the server, or the server lost. Back to the connection page,
+    // and tell the player when it was not his choice.
+    if (state.phase == GameState::Phase::TERMINATED && this->_game_window.isVisible())
+    {
+        const bool wanted = state.quit_requested;
+        this->_client.disconnect();
+        this->_game_window.hide();
+        this->show();
+        if (!wanted)
+        {
+            this->_error_window.setErrorMessage("The connection to the server was lost.");
+            this->_error_window.show();
+        }
+        return;
+    }
+
     // "OK connected": the name was accepted, enter the game
     if (this->_awaiting_connect
         && state.phase == GameState::Phase::AUTHENTICATED)

@@ -133,6 +133,10 @@ void	Session::send(const std::string& command, const std::string& args)
 
 	// A new attempt: the previous failure is no longer news
 	_state.last_error.reset();
+
+	// The server closes the connection after QUIT: remember it was asked
+	if (command == CMD_QUIT)
+		_state.quit_requested = true;
 }
 
 
