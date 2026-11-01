@@ -96,6 +96,15 @@ make -C clients/cli   # build it and start it in the current terminal
 
 The client connects to `127.0.0.1:8080` by default (`SERVER_IP` in `clients/defines.hpp`, `SERVER_PORT` in `shared/defines.hpp`). To use another address or port, see *Configuration* below. Start the server first.
 
+The address and the port can also be given on the command line, which wins over the environment and `.env`:
+
+```sh
+./clients/cli/clientCLI --host 192.168.1.20 --port 4242     # or -H 192.168.1.20 -p 4242, or --host=192.168.1.20
+./clients/cli/clientCLI --help                              # -h: show the options
+```
+
+The host must be an IPv4 address (the client does not resolve names), and the port a number from 1 to 65535. A wrong option or value prints the reason, then the usage, and the client exits with status 2.
+
 ### ⚙️ Configuration
 
 The server and the CLI client read a few settings from the environment, with the values of `shared/defines.hpp` as defaults:

@@ -1,9 +1,21 @@
 #include "../client.hpp"
 #include "../../shared/system/loadenv.hpp"
+#include "argparse.hpp"
 
-int main() {
+int main(int argc, char** argv) {
 	loadDefaultEnv();
 	Client client;
+	try {
+		const ArgParse options(argc, argv);
+		if (options.help) {
+			std::cout << ArgParse::usage();
+			return 0;
+		}
+		client.setServer(options.hostname, options.port);
+	} catch (const std::invalid_argument& e) {
+		std::cerr << "Error: " << e.what() << std::endl << ArgParse::usage();
+		return 2;
+	}
 	int i = 0;
 
 	while (!client.isConnected() && i++ < 3) {

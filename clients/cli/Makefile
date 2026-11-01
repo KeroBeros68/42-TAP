@@ -28,6 +28,7 @@ NAME = clientCLI
 OBJ_DIR = Obj
 
 SRCS =	main.cpp \
+	argparse.cpp \
 	../client.cpp \
 	../../shared/system/signalFd.cpp \
 	../../shared/system/loadenv.cpp
