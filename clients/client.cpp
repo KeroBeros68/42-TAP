@@ -57,7 +57,7 @@ bool Client::send(const std::string& message) {
 	while (sent < data.size()) {
 		ssize_t n = ::send(_fd, data.data() + sent, data.size() - sent, MSG_NOSIGNAL);
 		if (n > 0) {
-			sent += n;
+			sent += static_cast<size_t>(n);
 			continue;
 		}
 		if (n < 0 && errno == EINTR)
@@ -141,7 +141,7 @@ bool Client::readServer() {
 		disconnect();
 		return false;
 	}
-	_in.append(buff, n);
+	_in.append(buff, static_cast<size_t>(n));
 
 	std::string line;
 	while (extractLine(_in, line))
@@ -157,7 +157,7 @@ bool Client::readKeyboard() {
 			return true;
 		return false;
 	}
-	_kbd.append(buff, n);
+	_kbd.append(buff, static_cast<size_t>(n));
 
 	std::string line;
 	while (extractLine(_kbd, line)) {

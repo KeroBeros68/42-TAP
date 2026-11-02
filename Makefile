@@ -30,9 +30,13 @@ JSON_FILE    = third_party/json.hpp
 # Sources checked by "make lint" (the Qt GUI needs the Qt headers, so it is not included)
 LINT_SRCS  := $(shell find server game shared clients/client.cpp clients/cli -name '*.cpp' -not -path '*/Obj/*')
 LINT_DIRS  = server game shared clients/client.cpp clients/client.hpp clients/cli
-LINT_FLAGS = -std=c++20 -fsyntax-only -Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion -Wold-style-cast \
-	-Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2 \
-	'-DPROJECT_ROOT="$(CURDIR)"'
+LINT_FLAGS = -std=c++20 -fsyntax-only -Wall -Wextra -Werror -Wpedantic -Wshadow -Wconversion -Wsign-conversion \
+	-Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wcast-align -Wnull-dereference -Wdouble-promotion -Wformat=2 \
+	-Wno-gnu-zero-variadic-macro-arguments '-DPROJECT_ROOT="$(CURDIR)"'
+# clang stops after 20 errors by default: show them all
+ifneq ($(shell c++ --version 2>/dev/null | grep -ci clang),0)
+LINT_FLAGS += -ferror-limit=0
+endif
 JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
 
 # sha256sum on Linux, shasum on macOS

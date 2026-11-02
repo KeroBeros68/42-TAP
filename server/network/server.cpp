@@ -101,8 +101,8 @@ void Server::readFrom(Session& s) {
 	while (total < _config.max_read_per_turn) {
 		ssize_t n = ::recv(c.fd(), buff, sizeof(buff), 0);
 		if (n > 0) {
-			c.appendIn(buff, n);
-			total += n;
+			c.appendIn(buff, static_cast<size_t>(n));
+			total += static_cast<size_t>(n);
 			continue;
 		}
 		if (n == 0) {
@@ -256,7 +256,7 @@ void Server::flush(Connection& c) {
 	while (!c.out().empty()) {
 		ssize_t n = ::send(c.fd(), c.out().data(), c.out().size(), MSG_NOSIGNAL);
 		if (n > 0) {
-			c.consumeOut(n);
+			c.consumeOut(static_cast<size_t>(n));
 			continue;
 		}
 		if (n == SYSCALL_ERROR && (errno == EAGAIN || errno == EWOULDBLOCK))
