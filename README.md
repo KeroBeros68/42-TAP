@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by kebertra and gtourdiat.*
+*This project has been created as part of the 42 curriculum by kebertra and gtourdia.*
 
 # 🗡️ 42-TAP
 
@@ -668,7 +668,7 @@ Current result on Linux/Qt 5.15: **0 errors — no definitely, indirectly or pos
 
 The project was carried by two learners. The split below follows the code: each area is owned by the member who wrote it and still answers questions about it during a review.
 
-| Area | kebertra | gtourdiat |
+| Area | kebertra | gtourdia |
 | --- | --- | --- |
 | Server network layer (`server/network/`) | **Owner** | — |
 | Server command dispatcher (`server/protocol/`) | **Owner** | — |
@@ -690,7 +690,7 @@ Responsible for the **server and the CLI client**: the `poll(2)` network loop, t
 
 Commits: `feat: Quest system`, `refactor: turn based fight motor`, `refactor: World instanciation`, `refactor: inventory system with class composition`, `refactor: signalFD for server and client`, `refactor: share defines, errors, success and response between server and client`, `fix: error code, ids instance`.
 
-### gtourdiat — Gaspard TOURDIAT
+### gtourdia — Gaspard TOURDIAT
 
 Responsible for the **GUI client and the client state layer**: the Qt 5 application (connection window, game window, error window, and the custom widgets for the room, the exits, the ground items, the inventory, the NPCs, the quests, the group, the chat tabs, the player counters and the log), the `clients/state/` layer (`Session` + `GameState`) that turns the protocol answers and events into a local copy of the game without any Qt or socket dependency, the CMake build of the GUI, and its Valgrind target with the suppressions file. Wrote most of the design documentation (`docs/`) and contributed to the README, the root `Makefile` and the CMake standard setting.
 
